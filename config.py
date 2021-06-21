@@ -5,7 +5,7 @@ from utils.useful_functions import get_args_from_prev_config
 # This script defines all parameters for data loading, model definition, sand I/O operations.
 
 # Set to DEV for faster iterations (1 fold, 4 epochs), in order to e.g. test saving results.
-MODE = "PROD"  # DEV or PROD
+MODE = "DEV"  # DEV or PROD
 
 
 parser = ArgumentParser(description="model")  # Byte-compiled / optimized / DLL files
@@ -46,19 +46,21 @@ parser.add_argument('--nb_feats_for_train', default=10, type=int, help="Nb of fe
 parser.add_argument('--subsample_size', default=10000, type=int, help="Subsample cloud size")
 parser.add_argument('--diam_pix', default=20, type=int,
                     help="Size of the output stratum raster (its diameter in pixels)")
-parser.add_argument('--m', default=1., type=float,
-                    help="Loss regularization. The weight of the negative loglikelihood loss in the total loss")
+parser.add_argument('--m', default=0.05, type=float,
+                    help="Regularization loss for ground vs. non-ground membership. The weight of the negative loglikelihood loss in the total loss")
 parser.add_argument('--norm_ground', default=True, type=bool,
                     help="Whether we normalize low vegetation and bare soil values, so LV+BS=1 (True) or we keep unmodified LV value (False) (recommended)")
 parser.add_argument('--ent', default=True, type=bool, help="Whether we add antropy loss or not")
 parser.add_argument('--e', default=0.2, type=float,
-                        help="Loss regularization for entropy. The weight of the entropy loss in the total loss")
+                        help="Loss regularization for entropy of pointwise scores of coverage. The weight of the entropy loss in the total loss.")
 parser.add_argument('--adm', default=False, type=bool, help="Whether we compute admissibility or not")
 parser.add_argument('--nb_stratum', default=3, type=int,
                     help="[2, 3] Number of vegetation stratum that we compute 2 - ground level + medium level; 3 - ground level + medium level + high level")
 parser.add_argument('--ECM_ite_max', default=5, type=int, help='Max number of EVM iteration')
 parser.add_argument('--NR_ite_max', default=10, type=int, help='Max number of Netwon-Rachson iteration')
+parser.add_argument('--z_normalization_method', default="spline", type=str, help='Use either knn_radius or spline method to normalize z.')
 parser.add_argument('--znorm_radius_in_meters', default=1.5, type=float, help='Radius for KNN normalization of altitude.')
+parser.add_argument('--spline_pix_size', default=1.5, type=float, help='Pixel size for Spline normalization of altitude.')
 parser.add_argument('--z_max', default=None, type=float, help="Max (radius-normalized) altitude of points in plots, calculated on the fly.")
 
 # Network Parameters

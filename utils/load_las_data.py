@@ -1,4 +1,5 @@
 import os
+import sys
 import numpy as np
 import pandas as pd
 from laspy.file import File
@@ -7,8 +8,11 @@ import warnings
 import random
 
 random.seed(0)
+from scipy.interpolate import SmoothBivariateSpline
+import numpy_indexed as npi
 from random import random, shuffle
 
+np.random.seed(0)
 
 warnings.simplefilter(action="ignore")
 
@@ -41,9 +45,7 @@ def load_all_las_from_folder(args):
     all_points_nparray = np.empty((0, args.nb_feats_for_train))
     for las_file in las_files:
         # Parse LAS files
-        points_nparray, xy_averages = load_single_las(
-            las_folder, las_file, args.znorm_radius_in_meters
-        )
+        points_nparray, xy_averages = load_single_las(args, las_folder, las_file)
         all_points_nparray = np.append(all_points_nparray, points_nparray, axis=0)
         nparray_clouds_dict[os.path.splitext(las_file)[0]] = points_nparray
         xy_averages_dict[os.path.splitext(las_file)[0]] = xy_averages
@@ -51,7 +53,7 @@ def load_all_las_from_folder(args):
     return all_points_nparray, nparray_clouds_dict, xy_averages_dict
 
 
-def load_single_las(las_folder, las_file, znorm_radius_in_meters):
+def load_single_las(args, las_folder, las_file):
     # Parse LAS files
     las = File(os.path.join(las_folder, las_file), mode="r")
     x_las = las.X
@@ -83,10 +85,16 @@ def load_single_las(las_folder, las_file, znorm_radius_in_meters):
     )
 
     # # We directly substract z_min at local level
-    points_placette = normalize_z_with_minz_in_a_radius(
-        points_placette, znorm_radius_in_meters
-    )
-    # points_placette = normalize_z_with_approximate_DTM(points_placette)
+    if args.z_normalization_method == "knn_radius":
+        points_placette = normalize_z_with_minz_in_a_radius(
+            points_placette, args.znorm_radius_in_meters
+        )
+    elif args.z_normalization_method == "spline":
+        points_placette = normalize_z_with_approximate_spline(
+            points_placette, args.spline_pix_size
+        )
+    else:
+        sys.exit(f"Unknown normalization method {args.z_normalization_method}")
 
     # get the average
     xy_averages = [
@@ -96,9 +104,9 @@ def load_single_las(las_folder, las_file, znorm_radius_in_meters):
     return points_placette, xy_averages
 
 
-def normalize_z_with_minz_in_a_radius(points_placette, znorm_radius_in_meters):
+def normalize_z_with_minz_in_a_radius(cloud, znorm_radius_in_meters):
     # # We directly substract z_min at local level
-    xyz = points_placette[:, :3]
+    xyz = cloud[:, :3]
     knn = NearestNeighbors(500, algorithm="kd_tree").fit(xyz[:, :2])
     _, neigh = knn.radius_neighbors(xyz[:, :2], znorm_radius_in_meters)
     z = xyz[:, 2]
@@ -107,12 +115,26 @@ def normalize_z_with_minz_in_a_radius(points_placette, znorm_radius_in_meters):
         len(z)
     ):  # challenging to make it work without a loop as neigh has different length for each point
         zmin_neigh.append(np.min(z[neigh[n]]))
-    points_placette[:, 2] = points_placette[:, 2] - zmin_neigh
-    return points_placette
+    cloud[:, 2] = cloud[:, 2] - zmin_neigh
+    return cloud
 
 
-def normalize_z_with_approximate_DTM(points_placette, args):
-    pass
+def normalize_z_with_approximate_spline(cloud, pix_size):
+    """Approximate a DTM using Spline from min points gathered on a grid on the plot, with a smoothing that avoids most artefact.
+    This method is less robust that KNN radius and can yield artefact at ploit borders.
+    """
+    norm_cloud = cloud.copy()
+    xy_quantified = (
+        norm_cloud[:, :2] // pix_size + 0.5
+    ) * pix_size  # quantify and center coordinates
+    xy_pairs, z_min = npi.group_by(xy_quantified).min(norm_cloud[:, 2])
+    sbs = SmoothBivariateSpline(
+        xy_pairs[:, 0], xy_pairs[:, 1], z_min, kx=3, ky=3, s=xy_pairs.shape[0]
+    )
+    norm_cloud[:, 2] = norm_cloud[:, 2] - sbs(
+        norm_cloud[:, 0], norm_cloud[:, 1], grid=False
+    )
+    return norm_cloud
 
 
 def open_metadata_dataframe(args, pl_id_to_keep):

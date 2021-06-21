@@ -40,7 +40,7 @@ def divide_parcel_las_and_get_disk_centers(
         points_nparray: a nparray of full cloud coordinates
     Note: outputs are preprcessed by load_single_las but are not normalized
     """
-    points_nparray, _ = load_single_las(las_folder, las_filename)
+    points_nparray, _ = load_single_las(args, las_folder, las_filename)
     # size_MB = getsizeof(round(getsizeof(points_nparray) / 1024 / 1024, 2))
 
     las_id = las_filename.split(".")[0]
