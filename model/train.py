@@ -9,10 +9,10 @@ from torch.utils.tensorboard import SummaryWriter
 
 # We import from other files
 from data_loader.loader import *
-from utils.reproject_to_2d_and_predict_plot_coverage import *
+from model.reproject_to_2d_and_predict_plot_coverage import *
 from model.loss_functions import *
-from model.model import PointNet
-from utils.point_cloud_classifier import PointCloudClassifier
+from model.point_net import PointNet
+from model.point_cloud_classifier import PointCloudClassifier
 from torch.utils.tensorboard import SummaryWriter
 import os
 import torch

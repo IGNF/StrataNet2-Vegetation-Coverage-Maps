@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 
-# %%
+
 class PointCloudClassifier:
     """
     The main point cloud classifier Class
@@ -88,6 +88,3 @@ class PointCloudClassifier:
             prediction_batch = torch.cat((prediction_batch, prediction_cloud), 1)
             prediction_batches.append(prediction_cloud)
         return prediction_batch.permute(1, 0), prediction_batches
-
-
-# %%

@@ -5,7 +5,7 @@ from utils.useful_functions import get_args_from_prev_config
 # This script defines all parameters for data loading, model definition, sand I/O operations.
 
 # Set to DEV for faster iterations (1 fold, 4 epochs), in order to e.g. test saving results.
-MODE = "DEV"  # DEV or PROD
+MODE = "PROD"  # DEV or PROD
 
 
 parser = ArgumentParser(description="model")  # Byte-compiled / optimized / DLL files
@@ -44,6 +44,7 @@ parser.add_argument('--input_feats', default='xyzrgbnir', type=str,
                     help="Point features that we keep. in this code, we keep them all. permuting those letters will break everything. To be modified")
 parser.add_argument('--nb_feats_for_train', default=10, type=int, help="Nb of feat given to model")
 parser.add_argument('--subsample_size', default=10000, type=int, help="Subsample cloud size")
+parser.add_argument('--diam_meters', default=20, type=int, help="Diameters of the plots.")
 parser.add_argument('--diam_pix', default=20, type=int, 
                     help="Size of the output stratum raster (its diameter in pixels)")
 parser.add_argument('--m', default=1., type=float,

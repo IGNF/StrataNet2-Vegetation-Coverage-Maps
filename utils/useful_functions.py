@@ -56,8 +56,17 @@ def create_new_experiment_folder(args, infer_mode=False):
     args.stats_file = stats_file
 
 
+def get_files_of_type_in_folder(folder_path, extension):
+    """Get a list of all files in folder with particular extension.
+    Folder path is a string path, and extension is something like: .las, .tif, etc."""
+    folder_path = folder_path
+    filenames = os.listdir(folder_path)
+    filenames = [l for l in filenames if l.lower().endswith(extension)]
+    return filenames
+
+
 def fast_scandir(dirname):
-    """Get subfolders (abs paths). See https://stackoverflow.com/a/40347279/8086033"""
+    """List all subfolders (abs paths). See https://stackoverflow.com/a/40347279/8086033"""
     subfolders = [f.path for f in os.scandir(dirname) if f.is_dir()]
     for dirname in list(subfolders):
         subfolders.extend(fast_scandir(dirname))

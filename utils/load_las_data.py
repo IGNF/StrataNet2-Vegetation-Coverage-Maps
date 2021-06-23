@@ -26,11 +26,11 @@ def load_all_las_from_folder(args):
     las_files = os.listdir(las_folder)
     las_files = [l for l in las_files if l.lower().endswith(".las")]
 
+    # DEBUG
     if args.mode == "DEV":
         shuffle(las_files)
         las_files = las_files[: (5 * 5)]  # nb plot by fold
 
-        # #LOOK AT SPECIFIC FILES
         # las_files = las_files[:10] + [
         #     l
         #     for l in las_files
@@ -42,7 +42,6 @@ def load_all_las_from_folder(args):
     for las_file in las_files:
         # Parse LAS files
         points_nparray, xy_centers = load_and_clean_single_las(las_folder, las_file)
-        # HERE: extract KNN normalization
         points_nparray = transform_features_of_plot_cloud(
             points_nparray, args.znorm_radius_in_meters
         )

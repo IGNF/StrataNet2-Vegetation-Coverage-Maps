@@ -5,14 +5,13 @@ from torch_scatter import scatter_max, scatter_mean
 
 def project_to_2d(pred_pointwise, cloud, pred_pointwise_b, PCC, args):
     """
-    We do all the computation to obtain
+    We compute the coverage scores :
     pred_pl - [Bx4] prediction vector for the plot
     scores -  [(BxN)x2] probas_ground_nonground that a point belongs to stratum 1 or stratum 2
     """
     index_batches = []
     index_group = []
     batches_len = []
-    z_all = np.empty((0))
 
     # we project 3D points to 2D plane
     # We use torch scatter to process

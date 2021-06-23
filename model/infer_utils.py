@@ -15,7 +15,7 @@ from rasterio.plot import show
 from utils.useful_functions import create_dir
 from utils.create_final_images import *
 from data_loader.loader import *
-from utils.reproject_to_2d_and_predict_plot_coverage import *
+from model.reproject_to_2d_and_predict_plot_coverage import *
 from model.loss_functions import *
 from utils.load_las_data import load_and_clean_single_las
 
@@ -254,22 +254,19 @@ def extract_points_within_disk(points_nparray, center, radius=10):
 
 def create_geotiff_raster(
     args,
-    xy_nparray,  # (2,N) tensor
     pred_pointwise,
-    plot_points_tensor,  # (1,f,N) tensor
+    plot_points_tensor,  # (N_feats, N_points) cloud 2D tensor
     plot_center,
     plot_name,
-    add_weights_band=False,
 ):
     """ """
     # we do raster reprojection, but we do not use torch scatter as we have to associate each value to a pixel
     image_low_veg, image_med_veg, image_high_veg = infer_and_project_on_rasters(
-        plot_points_tensor, args, pred_pointwise
+        plot_points_tensor, pred_pointwise, args
     )
 
-    # We normalize back x,y values to create a tiff file
-    img_to_write, geo = rescale_xy_and_get_geotransformation_(
-        xy_nparray,
+    # We normalize back x,y values to get the geotransform that position the raster on a map
+    img_to_write, geo = stack_the_rasters_and_get_their_geotransformation(
         plot_center,
         args,
         image_low_veg,
@@ -280,24 +277,7 @@ def create_geotiff_raster(
     # we get hard rasters for medium veg, creating a fourth canal
     img_to_write = add_hard_med_veg_raster_band(img_to_write, image_med_veg)
 
-    nb_channels = len(img_to_write)
-    if add_weights_band:
-        # Currently: linear variation with distance to center
-
-        x = (
-            np.arange(-args.diam_pix // 2, args.diam_pix // 2, 1) + 0.5
-        ) / args.diam_pix
-        y = (
-            np.arange(-args.diam_pix // 2, args.diam_pix // 2, 1) + 0.5
-        ) / args.diam_pix
-        xx, yy = np.meshgrid(x, y, sparse=True)
-        image_weights = 1 - np.sqrt(xx ** 2 + yy ** 2)
-
-        # add weights for each canal
-        for _ in range(nb_channels):
-            img_to_write = np.concatenate(
-                [img_to_write, [image_weights.copy()]], 0
-            )  # (nb_canals, 32, 32)
+    img_to_write = add_weights_band_to_rasters(img_to_write, args)
 
     # define save paths
     tiff_folder_path = os.path.join(
@@ -311,8 +291,8 @@ def create_geotiff_raster(
     )
 
     nb_channels = len(img_to_write)
-    create_tiff(
-        nb_channels=nb_channels,  # stratum + hard raster + weights
+    save_rasters_to_geotiff_file(
+        nb_channels=nb_channels,
         new_tiff_name=tiff_file_path,
         width=args.diam_pix,
         height=args.diam_pix,
@@ -320,6 +300,26 @@ def create_geotiff_raster(
         data_array=img_to_write,
         geotransformation=geo,
     )
+
+
+def add_weights_band_to_rasters(img_to_write, args):
+    """
+    Add weights rasters to stacked score rasters (n_rasters, width, height).
+    Weights are between 0 and 1 and have linear diminution with distance to center of plot.
+    """
+
+    nb_channels = len(img_to_write)
+    x = (np.arange(-args.diam_pix // 2, args.diam_pix // 2, 1) + 0.5) / args.diam_pix
+    y = (np.arange(-args.diam_pix // 2, args.diam_pix // 2, 1) + 0.5) / args.diam_pix
+    xx, yy = np.meshgrid(x, y, sparse=True)
+    image_weights = 1 - np.sqrt(xx ** 2 + yy ** 2)
+
+    # add one weight canal for each score channel
+    for _ in range(nb_channels):
+        img_to_write = np.concatenate(
+            [img_to_write, [image_weights.copy()]], 0
+        )  # (nb_channels, 32, 32)
+    return img_to_write
 
 
 def add_hard_med_veg_raster_band(img_to_write, image_med_veg):
@@ -388,6 +388,7 @@ def _weighted_average_of_rasters(
     old_data, new_data, old_nodata, new_nodata, index=None, roff=None, coff=None
 ):
     """
+    This function is used in rasterio.merge directly.
     Input data is composed of rasters with C * 2 bands, where C is the number of score.
     A weighted sum is performed on both scores bands [0:C] and weights [C:] using weights.
     One then needs to divide scores by the values of weights.
@@ -441,29 +442,3 @@ def _weighted_average_of_rasters(
 
     # we have to update the content of the input argument
     old_data[:] = out_data[:]
-
-
-# def save_centers_dict(centers_dict, centers_dict_path):
-#     with open(centers_dict_path, "w") as outfile:
-#         json.dump(centers_dict, outfile)
-
-
-# def infer_from_single_cloud(model, PCC, cloud, args):
-#     """
-#     Returns: prediction at the pixel level
-#     Cloud is a single cloud tensor with batch dimension = 1.
-#     """
-#     model.eval()
-#     # loader = torch.utils.data.DataLoader(
-#     #     test_set, collate_fn=cloud_collate, batch_size=1, shuffle=False
-#     # )
-#     # if PCC.is_cuda:
-#     #     gt = gt.cuda()
-
-#     pred_pointwise, pred_pointwise_b = PCC.run(model, cloud)  # compute the prediction
-
-#     _, _, pred_pixels = project_to_2d(
-#         pred_pointwise, cloud, pred_pointwise_b, PCC, args
-#     )  # compute plot prediction
-
-#     return pred_pointwise, pred_pixels

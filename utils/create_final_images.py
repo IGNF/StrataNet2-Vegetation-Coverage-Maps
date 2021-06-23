@@ -324,22 +324,21 @@ def create_final_images(
 
         # we do raster reprojection, but we do not use torch scatter as we have to associate each value to a pixel
         image_low_veg, image_med_veg, image_high_veg = infer_and_project_on_rasters(
-            current_cloud, args, pred_pointwise
+            current_cloud, pred_pointwise, args
         )
         # We normalize back x,y values to create a tiff file with 2 rasters
         if create_and_save_raster_as_TIFF_file:
             xy = (
                 current_cloud[:2, :].detach().cpu().numpy()
             )  # (2, N) tensor -> (2, N) nparray
-            img_to_write, geo = rescale_xy_and_get_geotransformation_(
-                xy,
+            img_to_write, geo = stack_the_rasters_and_get_their_geotransformation(
                 plot_center,
                 args,
                 image_low_veg,
                 image_med_veg,
                 image_high_veg,
             )
-            create_tiff(
+            save_rasters_to_geotiff_file(
                 nb_channels=args.nb_stratum,
                 new_tiff_name=stats_path + plot_name + ".tif",
                 width=args.diam_pix,
@@ -402,15 +401,10 @@ def create_final_images(
             )
 
 
-# TODO: correct rescaling to avoid artefact at borders
-def rescale_xy_and_get_geotransformation_(
-    xy_arr, plot_center_xy, args, image_low_veg, image_med_veg, image_high_veg
+def stack_the_rasters_and_get_their_geotransformation(
+    plot_center_xy, args, image_low_veg, image_med_veg, image_high_veg
 ):
-    # points_zone_center = (plot_center_xy.max(axis=1) + plot_center_xy.min(axis=1)) / 2
-    # xy_arr = xy_arr * 10 + points_zone_center.reshape(
-    #     -1, 1
-    # )  # 10 is hardcoded normalization factor
-
+    """ """
     # geotransform reference : https://gdal.org/user/raster_data_model.html
     # top_left_x, pix_width_in_meters, _, top_left_y, pix_heighgt_in_meters (neg for north up picture)
     DIAM_METERS = 20
@@ -433,39 +427,30 @@ def rescale_xy_and_get_geotransformation_(
     return img_to_write, geo
 
 
-def infer_and_project_on_rasters(current_cloud, args, pred_cloud):
+## TODO: correct
+def infer_and_project_on_rasters(current_cloud, pred_pointwise, args):
     """
     We do raster reprojection, but we do not use torch scatter as we have to associate each value to a pixel
     current_cloud: (2, N) 2D tensor
      image_low_veg, image_med_veg, image_high_veg
     """
 
-    # we get unique pixel coordinate to serve as group for raster prediction
     # TODO : extract somewhere else
     DIAM_METERS = 20
 
-    scaling_factor = 10 * (
-        args.diam_pix / DIAM_METERS
-    )  # * pix/normalized_unit, using hardcoded factor of 10
-
+    # we get unique pixel coordinate to serve as group for raster prediction
+    scaling_factor = 10 * (args.diam_pix / DIAM_METERS)  # * pix/normalized_unit
     xy = current_cloud[:2, :]
-
-    # width_height = (
-    #     (xy.max(axis=1).values - xy.min(axis=1).values).view(2, 1).expand_as(xy)
-    # )
-
-    # xy = (
-    #     torch.floor((xy + width_height / 2 + 0.0001) * scaling_factor)
-    # ).int()  # values are between 0 and args.dim_pix-1, as expected
-
     xy = (
         torch.floor(
-            (xy + 0.0001) * scaling_factor + torch.Tensor([[10], [10]]).expand_as(xy)
+            (xy + 0.0001) * scaling_factor
+            + torch.Tensor([[DIAM_METERS // 2], [DIAM_METERS // 2]]).expand_as(xy)
         )
-    ).int()  # values are between 0 and args.dim_pix-1, as expected
-
+    ).int()  # values are between 0 and args.dim_pix-1
     xy = xy.cpu().numpy()
     _, _, inverse = np.unique(xy.T, axis=0, return_index=True, return_inverse=True)
+
+    # TODO: CORRECT/CHECK that we are doing scatter_sum and not scatter_max !!!
 
     # we get the values for each unique pixel and write them to rasters
     image_low_veg = np.full((args.diam_pix, args.diam_pix), np.nan)
@@ -479,7 +464,11 @@ def infer_and_project_on_rasters(current_cloud, args, pred_cloud):
         k, m = xy.T[where][0]
         maxpool = nn.MaxPool1d(len(where))
         max_pool_val = (
-            maxpool(pred_cloud[:, where].unsqueeze(0)).cpu().detach().numpy().flatten()
+            maxpool(pred_pointwise[:, where].unsqueeze(0))
+            .cpu()
+            .detach()
+            .numpy()
+            .flatten()
         )
 
         if args.norm_ground:  # we normalize ground level coverage values
@@ -501,10 +490,15 @@ def infer_and_project_on_rasters(current_cloud, args, pred_cloud):
     return image_low_veg, image_med_veg, image_high_veg
 
 
-# We create a tiff file with 2 or 3 stratum
-def create_tiff(
+def save_rasters_to_geotiff_file(
     nb_channels, new_tiff_name, width, height, datatype, data_array, geotransformation
 ):
+    """
+    Create a tiff file from stacked rasters (and their weights during inference)
+    Note: for training plots, the xy localization may be approximative since the geotransformation has
+    its corner at -10, -10 of the *mean point* of the cloud.
+    """
+
     # We set Lambert 93 projection
     srs = osr.SpatialReference()
     srs.ImportFromEPSG(2154)
