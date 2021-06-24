@@ -2,6 +2,8 @@ import torch
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 
+# TODO: add an internal timer that will monitor the different operations :
+
 
 class PointCloudClassifier:
     """
@@ -29,19 +31,20 @@ class PointCloudClassifier:
 
         """
 
-        # number of clouds in the batch #TYPO
-        n_batch = len(clouds)
+        batch_size = len(clouds)
         # will contain the prediction for all clouds in the batch
         prediction_batch = torch.zeros((self.n_class, 0))
 
         # batch_data contain all the clouds in the batch subsampled to self.subsample_size points
-        sampled_clouds = torch.Tensor(n_batch, self.n_input_feats, self.subsample_size)
+        sampled_clouds = torch.Tensor(
+            batch_size, self.n_input_feats, self.subsample_size
+        )
         if self.is_cuda:
             sampled_clouds = sampled_clouds.cuda()
             prediction_batch = prediction_batch.cuda()
 
         # build batches of the same size
-        for i_batch in range(n_batch):
+        for i_batch in range(batch_size):
             # load the elements in the batch one by one and subsample/ oversample them
             # to a size of self.subsample_size points
 
@@ -65,12 +68,12 @@ class PointCloudClassifier:
 
         point_prediction = model(sampled_clouds)  # classify the batch of sampled clouds
         assert point_prediction.shape == torch.Size(
-            [n_batch, self.n_class, self.subsample_size]
+            [batch_size, self.n_class, self.subsample_size]
         )
 
         # interpolation to original point clouds
         prediction_batches = []
-        for i_batch in range(n_batch):
+        for i_batch in range(batch_size):
             # get the original point clouds positions
             cloud = clouds[i_batch]
             # and the corresponding sampled batch (only xyz position)

@@ -162,27 +162,79 @@ def main():
         if args.mode == "DEV" and fold_id >= 1:
             break
 
+    # create inference results csv
     stats_for_all_folds(
         all_folds_loss_train_lists, all_folds_loss_test_lists, args.stats_file, args
     )
-
-    # cloud_info_list_by_fold
     cloud_info_list_all_folds = [
         dict(p, **{"fold_id": fold_id})
         for fold_id, infos in cloud_info_list_by_fold.items()
         for p in infos
     ]
-
-    # create inference results csv
     df_inference = pd.DataFrame(cloud_info_list_all_folds)
-
     df_inference = calculate_performance_indicators(df_inference)
-
-    # save
     inference_path = os.path.join(args.stats_path, "PCC_inference_all_placettes.csv")
     df_inference.to_csv(inference_path, index=False)
     print_stats(
         args.stats_file, f"Saved infered, cross-validated results to {inference_path}"
+    )
+
+    # TRAIN full model
+    print_stats(args.stats_file, "Training on all data.")
+
+    full_train_set = tnt.dataset.ListDataset(
+        placettes_names,
+        functools.partial(
+            cloud_loader,
+            dataset=nparray_clouds_dict,
+            df_gt=df_gt,
+            train=True,
+            args=args,
+        ),
+    )
+    full_test_set = tnt.dataset.ListDataset(
+        placettes_names,
+        functools.partial(
+            cloud_loader,
+            dataset=nparray_clouds_dict,
+            df_gt=df_gt,
+            train=False,
+            args=args,
+        ),
+    )
+
+    start_time = time.time()
+    (
+        trained_model,
+        final_train_losses_list,
+        final_test_losses_list,
+        cloud_info_list,
+    ) = train_full(
+        args,
+        -1,
+        full_train_set,
+        full_test_set,
+        placettes_names,
+        xy_centers_dict,
+        params,
+    )
+
+    # save the trained model
+    PATH = os.path.join(
+        args.stats_path,
+        "model_ss_"
+        + str(args.subsample_size)
+        + "_dp_"
+        + str(args.diam_pix)
+        + "_full.pt",
+    )
+    torch.save(trained_model, PATH)
+
+    print_stats(
+        args.stats_file,
+        "Total training time: "
+        + str(time.strftime("%H:%M:%S", time.gmtime(time.time() - start_time))),
+        print_to_console=True,
     )
 
 

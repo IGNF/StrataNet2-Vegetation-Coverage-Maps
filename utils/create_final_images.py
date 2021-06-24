@@ -154,15 +154,6 @@ def visualize(
     nir_r_g_indexes = [6, 3, 4]
     c = cloud[nir_r_g_indexes].numpy().transpose()
 
-    # NDVI calculation
-    # r_infra = cloud[[3, 6]].numpy().transpose()
-    # r = r_infra[:, 0]
-    # infra = r_infra[:, 1]
-    # ndvi = (infra - r) / (infra + r)
-    # top = cm.get_cmap("Blues_r", 128)
-    # bottom = cm.get_cmap("Greens", 128)
-    # cmap = np.vstack((top(np.linspace(0, 1, 128)), bottom(np.linspace(0, 1, 128))))
-    # cmap = colors.ListedColormap(cmap, name="GreensBlues")
     ax1.scatter(
         cloud[0],
         cloud[1],
@@ -177,9 +168,6 @@ def visualize(
     ax1.set_yticklabels([])
     ax1.set_xticklabels([])
     ax1.set_title(f"{pl_id}")
-    # sm = ScalarMappable(cmap=cmap)  # bad norm 0-1 right now
-    # sm.set_array([])
-    # plt.colorbar(sm, ax=ax1)
 
     # LV stratum raster
     ax2 = fig.add_subplot(row, col, 2)
@@ -292,7 +280,7 @@ def visualize(
 
     if text_pred_vs_gt is not None:
         fig.text(0.5, 0.05, text_pred_vs_gt, ha="center")
-    plt.savefig(stats_path + pl_id + ".png", format="png", bbox_inches="tight", dpi=300)
+    plt.savefig(stats_path + pl_id + ".png", format="png", bbox_inches="tight", dpi=150)
     plt.clf()
     plt.close("all")
 
@@ -305,10 +293,10 @@ def create_final_images(
     likelihood,
     plot_name,
     xy_centers_dict,
-    stats_path,
+    plot_path,
     stats_file,
     args,
-    create_and_save_raster_as_TIFF_file=True,
+    plot_only_png=True,
     adm=None,
 ):
     """
@@ -326,27 +314,6 @@ def create_final_images(
         image_low_veg, image_med_veg, image_high_veg = infer_and_project_on_rasters(
             current_cloud, pred_pointwise, args
         )
-        # We normalize back x,y values to create a tiff file with 2 rasters
-        if create_and_save_raster_as_TIFF_file:
-            xy = (
-                current_cloud[:2, :].detach().cpu().numpy()
-            )  # (2, N) tensor -> (2, N) nparray
-            img_to_write, geo = stack_the_rasters_and_get_their_geotransformation(
-                plot_center,
-                args,
-                image_low_veg,
-                image_med_veg,
-                image_high_veg,
-            )
-            save_rasters_to_geotiff_file(
-                nb_channels=args.nb_stratum,
-                new_tiff_name=stats_path + plot_name + ".tif",
-                width=args.diam_pix,
-                height=args.diam_pix,
-                datatype=gdal.GDT_Float32,
-                data_array=img_to_write,
-                geotransformation=geo,
-            )
 
         if args.adm:
             preds_nparray = np.round(
@@ -380,7 +347,7 @@ def create_final_images(
             current_cloud,
             pred_pointwise,
             plot_name,
-            stats_path,
+            plot_path,
             args,
             text_pred_vs_gt=text_pred_vs_gt,
             scores=likelihood,
@@ -388,17 +355,36 @@ def create_final_images(
             predictions=preds_nparray,
             gt=gt_nparray,
         )
-        if args.nb_stratum == 3:
-            visualize_article(
+
+        if not plot_only_png:
+
+            img_to_write, geo = stack_the_rasters_and_get_their_geotransformation(
+                plot_center,
+                args,
                 image_low_veg,
                 image_med_veg,
                 image_high_veg,
-                current_cloud,
-                plot_name,
-                stats_path,
-                args,
-                txt=text_pred_vs_gt,
             )
+            save_rasters_to_geotiff_file(
+                nb_channels=args.nb_stratum,
+                new_tiff_name=plot_path + plot_name + ".tif",
+                width=args.diam_pix,
+                height=args.diam_pix,
+                datatype=gdal.GDT_Float32,
+                data_array=img_to_write,
+                geotransformation=geo,
+            )
+            if args.nb_stratum == 3:
+                visualize_article(
+                    image_low_veg,
+                    image_med_veg,
+                    image_high_veg,
+                    current_cloud,
+                    plot_name,
+                    plot_path,
+                    args,
+                    txt=text_pred_vs_gt,
+                )
 
 
 def stack_the_rasters_and_get_their_geotransformation(

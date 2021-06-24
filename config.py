@@ -39,7 +39,7 @@ parser.add_argument('--las_parcelles_folder_path', default=os.path.join(data_pat
 parser.add_argument('--gt_file_path', default=os.path.join(data_path, "placettes_dataset/placettes_metadata.csv"), type=str, help="Path to ground truth file. Put in dataset folder.")
 parser.add_argument('--cuda', default=0, type=int, help="Whether we use cuda (1) or not (0)")
 parser.add_argument('--coln_mapper_dict', default={"nom":"Name"}, type=str, help="Dict to rename columns of gt ")
-parser.add_argument('--create_final_images_bool', default=True, type=bool, help="Set to True to output")
+parser.add_argument('--plot_only_png', default=True, type=bool, help="Set to False to output SVG article format and GeoTIFF at last epoch.")
 
 parser.add_argument('--results_path', default=None, help="(Created on the fly) Path to all related experiments")
 parser.add_argument('--stats_path', default=None, help="(Created on the fly) Path to stats folder of current run")
