@@ -1,4 +1,8 @@
 import os
+from utils.useful_functions import (
+    get_filename_no_extension,
+    get_files_of_type_in_folder,
+)
 import numpy as np
 import pandas as pd
 from laspy.file import File
@@ -14,7 +18,6 @@ warnings.simplefilter(action="ignore")
 
 
 def load_all_las_from_folder(args):
-    las_folder = args.las_placettes_folder_path
 
     # We open las files and create a training dataset
     nparray_clouds_dict = {}  # dict to store numpy array with each plot separately
@@ -23,13 +26,12 @@ def load_all_las_from_folder(args):
     )  # we keep track of plots means to reverse the normalisation in the future
 
     # We iterate through las files and transform them to np array
-    las_files = os.listdir(las_folder)
-    las_files = [l for l in las_files if l.lower().endswith(".las")]
+    las_filenames = get_files_of_type_in_folder(args.las_placettes_folder_path, ".las")
 
     # DEBUG
     if args.mode == "DEV":
-        shuffle(las_files)
-        las_files = las_files[: (5 * 5)]  # nb plot by fold
+        shuffle(las_filenames)
+        las_filenames = las_filenames[: (5 * 5)]  # nb plot by fold
 
         # las_files = las_files[:10] + [
         #     l
@@ -37,26 +39,27 @@ def load_all_las_from_folder(args):
         #     if any(n in l for n in ["OBS15", "F68", "2021_POINT_OBS2"])
         # ]
 
-        print(las_files)
+        print(las_filenames)
     all_points_nparray = np.empty((0, args.nb_feats_for_train))
-    for las_file in las_files:
+    for las_filename in las_filenames:
         # Parse LAS files
-        points_nparray, xy_centers = load_and_clean_single_las(las_folder, las_file)
+        points_nparray, xy_centers = load_and_clean_single_las(las_filename)
         points_nparray = transform_features_of_plot_cloud(
             points_nparray, args.znorm_radius_in_meters
         )
         all_points_nparray = np.append(all_points_nparray, points_nparray, axis=0)
-        nparray_clouds_dict[os.path.splitext(las_file)[0]] = points_nparray
-        xy_centers_dict[os.path.splitext(las_file)[0]] = xy_centers
+        plot_name = get_filename_no_extension(las_filename)
+        nparray_clouds_dict[plot_name] = points_nparray
+        xy_centers_dict[plot_name] = xy_centers
 
     return all_points_nparray, nparray_clouds_dict, xy_centers_dict
 
 
 # TODO: simplify the signature so that only one argument (las_filename) is needed.
-def load_and_clean_single_las(las_folder, las_file):
+def load_and_clean_single_las(las_filename):
     """Load a LAD file into a np.array, convert coordinates to meters, clean a few anomalies in plots."""
     # Parse LAS files
-    las = File(os.path.join(las_folder, las_file), mode="r")
+    las = File(las_filename, mode="r")
     x_las = las.X / 100  # we divide by 100 as all the values in las are in cm
     y_las = las.Y / 100
     z_las = las.Z / 100
@@ -71,15 +74,15 @@ def load_and_clean_single_las(las_folder, las_file):
     ).T
 
     # There is a file with 2 points 60m above others (maybe birds), we delete these points
-    if las_file == "Releve_Lidar_F70.las":
+    if las_filename.endswith("Releve_Lidar_F70.las"):
         points_nparray = points_nparray[points_nparray[:, 2] < 640]
     # We do the same for the intensity
-    if las_file == "POINT_OBS8.las":
+    if las_filename.endswith("POINT_OBS8.las"):
         points_nparray = points_nparray[points_nparray[:, -2] < 32768]
-    if las_file == "Releve_Lidar_F39.las":
+    if las_filename.endswith("Releve_Lidar_F39.las"):
         points_nparray = points_nparray[points_nparray[:, -2] < 20000]
 
-    # get the average
+    # get the center of a rectangle bounding the points
     xy_centers = [
         (x_las.max() - x_las.min()) / 2.0,
         (y_las.max() - y_las.min()) / 2.0,

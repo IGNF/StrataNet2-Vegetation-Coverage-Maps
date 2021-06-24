@@ -34,8 +34,8 @@ parser.add_argument('--stats_file', default=None, help="(Created on the fly) Pat
 
 # Retraining/Inference parameters
 # TODO: replace this with an experiment folder
-parser.add_argument('--trained_model_path', default=os.path.join(repo_absolute_path, "experiments/RESULTS_3_strata/only_stratum/PROD/learning/2021-06-10_17h24m51s/model_ss_10000_dp_32_fold_1.pt"), help="Path to .pt file output by torch.save(net, path)")
-parser.add_argument("--use_prev_config", default=None, type=str, help="The id (e.g. 2021-06-10_17h29m42s) of a previous run from which to copy parameters from")
+parser.add_argument('--inference_model_id', default="2021-06-23_19h07m18s", help="Identifier of experiment to load saved model with torch.load (e.g. yyyy-mm-dd_XhXmXs).")
+parser.add_argument("--use_prev_config", default=None, type=str, help="Identifier of a previous run from which to copy parameters from (e.g. yyyy-mm-dd_XhXmXs).")
 
 # Model Parameters  
 parser.add_argument('--n_class', default=4, type=int,

@@ -12,12 +12,15 @@ from rasterio.plot import show
 
 
 # We import from other files
-from utils.useful_functions import create_dir
+from utils.useful_functions import create_dir, get_filename_no_extension
 from utils.create_final_images import *
 from data_loader.loader import *
 from model.reproject_to_2d_and_predict_plot_coverage import *
 from model.loss_functions import *
-from utils.load_las_data import load_and_clean_single_las
+from utils.load_las_data import (
+    load_and_clean_single_las,
+    transform_features_of_plot_cloud,
+)
 
 sns.set()
 
@@ -25,7 +28,7 @@ np.random.seed(42)
 
 
 def divide_parcel_las_and_get_disk_centers(
-    args, las_folder, las_filename, save_fig_of_division=True
+    args, las_filename, save_fig_of_division=True
 ):
     """
     Identify centers of plots whose squares cover at least partially every pixel of the parcel
@@ -40,11 +43,10 @@ def divide_parcel_las_and_get_disk_centers(
     Note: outputs are not normalized
     """
 
-    points_nparray, xy_centers = load_and_clean_single_las(las_folder, las_filename)
+    points_nparray, xy_centers = load_and_clean_single_las(las_filename)
     size_MB = getsizeof(round(getsizeof(points_nparray) / 1024 / 1024, 2))
     print(f"Size of LAS file is {size_MB}")
 
-    las_id = las_filename.split(".")[0]
     x_las, y_las = points_nparray[:, 0], points_nparray[:, 1]
 
     # DEBUG
@@ -97,7 +99,6 @@ def divide_parcel_las_and_get_disk_centers(
         save_image_of_parcel_division_into_plots(
             args,
             las_filename,
-            las_id,
             x_las,
             y_las,
             x_min,
@@ -116,7 +117,6 @@ def divide_parcel_las_and_get_disk_centers(
 def save_image_of_parcel_division_into_plots(
     args,
     las_filename,
-    las_id,
     x_las,
     y_las,
     x_min,
@@ -131,6 +131,8 @@ def save_image_of_parcel_division_into_plots(
     """
     Visualize and save to PNG file the division of a large parcel into many disk subplots.
     """
+    las_id = get_filename_no_extension(las_filename)
+
     x_center = (x_min + x_max) / 2
     y_center = (y_min + y_max) / 2
     x_min_c = x_min - x_center
@@ -184,12 +186,7 @@ def save_image_of_parcel_division_into_plots(
         ax.add_patch(a_circle)
         a_circle = plt.Circle((x, y), 10, fill=False, edgecolor="white", linewidth=0.3)
         ax.add_patch(a_circle)
-    #     a_square = matplotlib.patches.Rectangle((x-within_circle_square_width_meters/2,
-    #                                              y-within_circle_square_width_meters/2),
-    #                                             within_circle_square_width_meters,
-    #                                             within_circle_square_width_meters,
-    #                                             fill=True, alpha =0.1)
-    #     ax.add_patch(a_square)
+
     sns.scatterplot(data=centers, x="x_n", y="y_n", s=5)
 
     # plot boundaries of parcel
@@ -227,13 +224,10 @@ def save_image_of_parcel_division_into_plots(
     )
     # fig.show()
 
-    # saving
-    parcel_id = las_filename.split(".")[0]
-
     cutting_plot_save_folder_path = os.path.join(args.stats_path, f"img/cuttings/")
     create_dir(cutting_plot_save_folder_path)
     cutting_plot_save_path = os.path.join(
-        cutting_plot_save_folder_path, f"cut_{parcel_id}.png"
+        cutting_plot_save_folder_path, f"cut_{las_id}.png"
     )
 
     plt.savefig(cutting_plot_save_path, dpi=200)
@@ -250,6 +244,25 @@ def extract_points_within_disk(points_nparray, center, radius=10):
     ]  # (N, f)
 
     return contained_points
+
+
+def get_and_prepare_cloud_around_center(parcel_points_nparray, plot_center, args):
+    plots_point_nparray = extract_points_within_disk(parcel_points_nparray, plot_center)
+
+    if plots_point_nparray.shape[0] == 0:
+        return None
+
+    # TODO: Clarityt: make operations on the same axes instead of transposing inbetween
+    plots_point_nparray = transform_features_of_plot_cloud(
+        plots_point_nparray, args.znorm_radius_in_meters
+    )
+    plots_point_nparray = plots_point_nparray.transpose()
+    plots_point_nparray = rescale_cloud_data(plots_point_nparray, plot_center, args)
+
+    # add a batch dim before trying out dataloader
+    plots_point_nparray = np.expand_dims(plots_point_nparray, axis=0)
+    plot_points_tensor = torch.from_numpy(plots_point_nparray)
+    return plot_points_tensor
 
 
 def create_geotiff_raster(
@@ -435,10 +448,7 @@ def _weighted_average_of_rasters(
     out_data[:nb_scores_channels] = (
         out_data[:nb_scores_channels] / unweighted_weights_bands
     )
-    # # we do not average weights
-    # out_data[nb_scores_channels:] = (
-    #     out_data[nb_scores_channels:] / unweighted_weights_bands
-    # )
+    # # we do not average weights !
 
     # we have to update the content of the input argument
     old_data[:] = out_data[:]
