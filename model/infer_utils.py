@@ -45,7 +45,7 @@ def divide_parcel_las_and_get_disk_centers(
 
     points_nparray, xy_centers = load_and_clean_single_las(las_filename)
     size_MB = getsizeof(round(getsizeof(points_nparray) / 1024 / 1024, 2))
-    print(f"Size of LAS file is {size_MB}")
+    print(f"Size of LAS file is {size_MB}MB")
 
     x_las, y_las = points_nparray[:, 0], points_nparray[:, 1]
 

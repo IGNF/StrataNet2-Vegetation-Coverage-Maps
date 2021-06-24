@@ -407,14 +407,14 @@ def stack_the_rasters_and_get_their_geotransformation(
     """ """
     # geotransform reference : https://gdal.org/user/raster_data_model.html
     # top_left_x, pix_width_in_meters, _, top_left_y, pix_heighgt_in_meters (neg for north up picture)
-    DIAM_METERS = 20
+
     geo = [
-        plot_center_xy[0] - DIAM_METERS // 2,  # xmin
-        DIAM_METERS / args.diam_pix,
+        plot_center_xy[0] - args.diam_meters // 2,  # xmin
+        args.diam_meters / args.diam_pix,
         0,
-        plot_center_xy[1] + DIAM_METERS // 2,  # ymax
+        plot_center_xy[1] + args.diam_meters // 2,  # ymax
         0,
-        -DIAM_METERS / args.diam_pix,
+        -args.diam_meters / args.diam_pix,
         # negative b/c in geographic raster coordinates (0,0) is at top left
     ]
 
@@ -435,18 +435,20 @@ def infer_and_project_on_rasters(current_cloud, pred_pointwise, args):
      image_low_veg, image_med_veg, image_high_veg
     """
 
-    # TODO : extract somewhere else
-    DIAM_METERS = 20
-
     # we get unique pixel coordinate to serve as group for raster prediction
-    scaling_factor = 10 * (args.diam_pix / DIAM_METERS)  # * pix/normalized_unit
+    # Values are between 0 and args.diam_pix-1, sometimes (extremely rare) at args.diam_pix wich we correct
+
+    scaling_factor = 10 * (args.diam_pix / args.diam_meters)  # * pix/normalized_unit
     xy = current_cloud[:2, :]
     xy = (
         torch.floor(
             (xy + 0.0001) * scaling_factor
-            + torch.Tensor([[DIAM_METERS // 2], [DIAM_METERS // 2]]).expand_as(xy)
+            + torch.Tensor(
+                [[args.diam_meters // 2], [args.diam_meters // 2]]
+            ).expand_as(xy)
         )
-    ).int()  # values are between 0 and args.dim_pix-1
+    ).int()
+    xy = torch.clip(xy, 0, args.diam_pix - 1)
     xy = xy.cpu().numpy()
     _, _, inverse = np.unique(xy.T, axis=0, return_index=True, return_inverse=True)
 
