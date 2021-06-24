@@ -10,14 +10,15 @@ def rescale_cloud_data(cloud_data, cloud_center, args):
     """
     # normalizing data
     # Z data was already partially normalized during loading
+    input_feats = args.input_feats
 
     if cloud_center is None:
-        # Training scenario : the actual center is not that important
+        # Training scenario : the actual center is not important
         x_center, y_center = (
             np.min(cloud_data[0:2], axis=1) + np.max(cloud_data[0:2], axis=1)
         ) / 2
     else:
-        # Inference scenario : the actual center is important for projection
+        # Inference scenario : the actual center is important for reprojection to rasters
         x_center, y_center = cloud_center
 
     cloud_data[0] = (cloud_data[0] - x_center) / 10  # x
@@ -25,12 +26,19 @@ def rescale_cloud_data(cloud_data, cloud_center, args):
     cloud_data[2] = cloud_data[2] / args.z_max  # z (flattened by normalization)
 
     colors_max = 65536
-    cloud_data[3:7] = cloud_data[3:7] / colors_max
-    int_max = 32768
-    cloud_data[7] = cloud_data[7] / int_max
-    cloud_data[8] = (cloud_data[8] - 1) / (7 - 1)
+    for feature in ["red", "green", "blue", "near_infrared"]:
+        idx = input_feats.index(feature)
+        cloud_data[idx] = cloud_data[idx] / colors_max
 
-    cloud_data[9] = (cloud_data[9]) / args.z_max  # z non-flattened
+    intensity_max = 32768
+    idx = input_feats.index("intensity")
+    cloud_data[idx] = cloud_data[idx] / intensity_max
+    for feature in ["return_num", "num_returns"]:
+        idx = input_feats.index(feature)
+        cloud_data[idx] = (cloud_data[idx] - 1) / (7 - 1)
+
+    idx = input_feats.index("z_non_flat")
+    cloud_data[idx] = (cloud_data[idx]) / args.z_max  # z non-flattened
     return cloud_data
 
 

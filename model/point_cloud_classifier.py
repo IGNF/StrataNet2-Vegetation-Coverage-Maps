@@ -14,9 +14,7 @@ class PointCloudClassifier:
         self.subsample_size = (
             args.subsample_size
         )  # number of points to subsample each point cloud in the batches
-        self.n_input_feats = 3  # size of the point descriptors in input
-        if len(args.input_feats) > 3:
-            self.n_input_feats = len(args.input_feats)
+        self.n_input_feats = len(args.input_feats)
         self.n_class = args.n_class  # number of classes in the output
         self.is_cuda = args.cuda  # wether to use GPU acceleration
 

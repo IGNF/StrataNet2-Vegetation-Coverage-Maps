@@ -39,8 +39,7 @@ def load_all_las_from_folder(args):
         #     if any(n in l for n in ["OBS15", "F68", "2021_POINT_OBS2"])
         # ]
 
-        print(las_filenames)
-    all_points_nparray = np.empty((0, args.nb_feats_for_train))
+    all_points_nparray = np.empty((0, len(args.input_feats)))
     for las_filename in las_filenames:
         # Parse LAS files
         points_nparray, xy_centers = load_and_clean_single_las(las_filename)
@@ -68,9 +67,10 @@ def load_and_clean_single_las(las_filename):
     b = las.Blue
     nir = las.nir
     intensity = las.intensity
-    return_nb = las.return_num
+    return_num = las.return_num
+    num_returns = las.num_returns
     points_nparray = np.asarray(
-        [x_las, y_las, z_las, r, g, b, nir, intensity, return_nb]
+        [x_las, y_las, z_las, r, g, b, nir, intensity, return_num, num_returns]
     ).T
 
     # There is a file with 2 points 60m above others (maybe birds), we delete these points
@@ -96,15 +96,16 @@ def transform_features_of_plot_cloud(points_nparray, znorm_radius_in_meters):
     1) Add a feature:min-normalized using min-z of the plot
     2) Substract z_min at local level using KNN
     """
-
+    # normalize "z"
+    points_nparray = normalize_z_with_minz_in_a_radius(
+        points_nparray, znorm_radius_in_meters
+    )
+    # add "z_original"
     zmin_plot = np.min(points_nparray[:, 2])
     points_nparray = np.append(
         points_nparray, points_nparray[:, 2:3] - zmin_plot, axis=1
     )
 
-    points_nparray = normalize_z_with_minz_in_a_radius(
-        points_nparray, znorm_radius_in_meters
-    )
     return points_nparray
 
 
