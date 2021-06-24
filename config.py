@@ -5,7 +5,7 @@ from utils.useful_functions import get_args_from_prev_config
 # This script defines all parameters for data loading, model definition, sand I/O operations.
 
 # Set to DEV for faster iterations (1 fold, 4 epochs), in order to e.g. test saving results.
-MODE = "DEV"  # DEV or PROD
+MODE = "PROD"  # DEV or PROD
 
 FEATURE_NAMES = [
     "x",
@@ -47,7 +47,7 @@ parser.add_argument('--stats_file', default=None, help="(Created on the fly) Pat
 
 # Retraining/Inference parameters
 # TODO: replace this with an experiment folder
-parser.add_argument('--inference_model_id', default="2021-06-24_13h06m11s", help="Identifier of experiment to load saved model with torch.load (e.g. yyyy-mm-dd_XhXmXs).")
+parser.add_argument('--inference_model_id', default="2021-06-24_14h03m22s", help="Identifier of experiment to load saved model with torch.load (e.g. yyyy-mm-dd_XhXmXs).")
 parser.add_argument("--use_prev_config", default=None, type=str, help="Identifier of a previous run from which to copy parameters from (e.g. yyyy-mm-dd_XhXmXs).")
 
 # Model Parameters  
@@ -95,7 +95,7 @@ parser.add_argument('--step_size', default=50, type=int,
 parser.add_argument('--lr_decay', default=0.1, type=float,
                     help="We multiply learning rate by this value after certain number of steps (see --step_size). (Multiplicative factor of learning rate decay)")
 parser.add_argument('--n_epoch', default=100 if MODE=="PROD" else 2, type=int, help="Number of training epochs")
-parser.add_argument('--n_epoch_test', default=10 if MODE=="PROD" else 1, type=int, help="We evaluate every -th epoch")
+parser.add_argument('--n_epoch_test', default=5 if MODE=="PROD" else 1, type=int, help="We evaluate every -th epoch")
 parser.add_argument('--batch_size', default=20, type=int, help="Size of the training batch")
 
 # fmt: on

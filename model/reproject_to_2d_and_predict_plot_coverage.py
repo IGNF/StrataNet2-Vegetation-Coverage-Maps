@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from torch_scatter import scatter_max, scatter_mean
+from torch_scatter import scatter_max, scatter_mean, scatter_sum
 
 
 def project_to_2d(pred_pointwise, cloud, pred_pointwise_b, PCC, args):
@@ -43,14 +43,14 @@ def project_to_2d(pred_pointwise, cloud, pred_pointwise_b, PCC, args):
         index_batches = index_batches.cuda()
         index_group = index_group.cuda()
     pixel_max = scatter_max(pred_pointwise.T, index_batches)[0]
-    pixel_mean = scatter_mean(pred_pointwise.T, index_batches)
+    pixel_sum = scatter_sum(pred_pointwise.T, index_batches)
 
     # We compute prediction values per pixel
     if (
         args.norm_ground
     ):  # we normalize ground level coverage values, so c_low[i]+c_bare[i]=1
-        c_low_veg_pix = pixel_mean[0, :] / (pixel_mean[:2, :].sum(0))
-        c_bare_soil_pix = pixel_mean[1, :] / (pixel_mean[:2, :].sum(0))
+        c_low_veg_pix = pixel_sum[0, :] / (pixel_sum[:2, :].sum(0))
+        c_bare_soil_pix = pixel_sum[1, :] / (pixel_sum[:2, :].sum(0))
     else:  # we do not normalize anything, as bare soil coverage does not participate in absolute loss
         c_low_veg_pix = pixel_max[0, :]
         c_bare_soil_pix = 1 - c_low_veg_pix

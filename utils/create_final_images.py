@@ -472,13 +472,15 @@ def infer_and_project_on_rasters(current_cloud, pred_pointwise, args):
             .numpy()
             .flatten()
         )
+        sum_val = pred_pointwise[:, where].sum(axis=1)
 
         if args.norm_ground:  # we normalize ground level coverage values
-            proba_low_veg = max_pool_val[0] / (max_pool_val[:2].sum())
+            proba_low_veg = sum_val[0] / (sum_val[:2].sum())
         else:  # we do not normalize anything, as bare soil coverage does not participate in absolute loss
             proba_low_veg = max_pool_val[0]
-        proba_med_veg = max_pool_val[2]
         image_low_veg[m, k] = proba_low_veg
+
+        proba_med_veg = max_pool_val[2]
         image_med_veg[m, k] = proba_med_veg
 
         if args.nb_stratum == 3:
