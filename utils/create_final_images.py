@@ -484,6 +484,7 @@ def infer_and_project_on_rasters(current_cloud, pred_pointwise, args):
         if args.nb_stratum == 3:
             proba_high_veg = max_pool_val[3]
             image_high_veg[m, k] = proba_high_veg
+
     # We flip along y axis as the 1st raster row starts with 0
     image_low_veg = np.flip(image_low_veg, axis=0)
     image_med_veg = np.flip(image_med_veg, axis=0)

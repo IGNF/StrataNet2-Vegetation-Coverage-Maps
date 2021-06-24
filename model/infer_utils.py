@@ -2,13 +2,13 @@
 import os
 import glob
 from math import cos, pi, ceil
+import numpy.ma as ma  # masked array
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sys import getsizeof
 import rasterio
 from rasterio.merge import merge
-from rasterio.plot import show
 
 
 # We import from other files
@@ -325,13 +325,13 @@ def add_weights_band_to_rasters(img_to_write, args):
     x = (np.arange(-args.diam_pix // 2, args.diam_pix // 2, 1) + 0.5) / args.diam_pix
     y = (np.arange(-args.diam_pix // 2, args.diam_pix // 2, 1) + 0.5) / args.diam_pix
     xx, yy = np.meshgrid(x, y, sparse=True)
-    image_weights = 1 - np.sqrt(xx ** 2 + yy ** 2)
+    r = np.sqrt(xx ** 2 + yy ** 2)
+    image_weights = 1.5 - r  # 1.5 to avoid null weights
+    image_weights[r > 0.5] = np.nan
 
     # add one weight canal for each score channel
     for _ in range(nb_channels):
-        img_to_write = np.concatenate(
-            [img_to_write, [image_weights.copy()]], 0
-        )  # (nb_channels, 32, 32)
+        img_to_write = np.concatenate([img_to_write, [image_weights]], 0)
     return img_to_write
 
 
@@ -345,14 +345,18 @@ def add_hard_med_veg_raster_band(img_to_write, image_med_veg):
     """
 
     # TODO: update to keep np.nan in all boolean operations
+    mask = ma.masked_invalid(image_med_veg).mask
+
     target_coverage = np.nanmean(image_med_veg)
     lin = np.linspace(0, 1, 101)
     delta = np.ones_like(lin)
     for idx, threshold in enumerate(lin):
         image_med_veg_hard = 1.0 * (image_med_veg > threshold)
+        image_med_veg_hard[mask] = np.nan
         delta[idx] = abs(target_coverage - np.nanmean(image_med_veg_hard))
     threshold = lin[np.argmin(delta)]
     image_med_veg_hard = 1.0 * (image_med_veg > threshold)
+    image_med_veg_hard[mask] = np.nan
     img_to_write = np.concatenate([img_to_write, [image_med_veg_hard]], 0)
     return img_to_write
 
@@ -371,13 +375,11 @@ def merge_geotiff_rasters(args, plot_name):
     for fp in dem_fps:
         src = rasterio.open(fp)
         src_files_to_mosaic.append(src)
+
     mosaic, out_trans = merge(src_files_to_mosaic, method=_weighted_average_of_rasters)
 
     # hard raster wera also averaged and need to be set to 0 or 1
-    # TODO: update to keep np.nan in all boolean operations
-    mosaic[3] = 1 * (
-        mosaic[3] > 0.5
-    )  # Note: this forgets about NODATA values outside of the parcel.
+    mosaic = finalize_merged_raster(mosaic)
 
     # save
     out_meta = src.meta.copy()
@@ -395,6 +397,22 @@ def merge_geotiff_rasters(args, plot_name):
     with rasterio.open(out_fp, "w", **out_meta) as dest:
         dest.write(mosaic)
     print(f"Saved merged raster prediction to {out_fp}")
+
+
+def finalize_merged_raster(mosaic):
+
+    # hard raster wera also averaged and need to be set to 0 or 1
+    mask = np.isnan(mosaic[3])
+    mosaic[3] = 1 * (mosaic[3] > 0.5)
+    mosaic[3][mask] = np.nan
+
+    # we set np.nan where there is no predicted value at all, even for weights
+    # Before, we fill the np.nan with 0 within the parcel to have appropriate coverage calculations...
+
+    no_predicted_value = np.nansum(np.isnan(mosaic[:3]), axis=0) == 3
+    mosaic = np.nan_to_num(mosaic, nan=0.0, posinf=None, neginf=None)
+    mosaic[:, no_predicted_value] = np.nan
+    return mosaic
 
 
 def _weighted_average_of_rasters(
@@ -431,18 +449,22 @@ def _weighted_average_of_rasters(
         unweighted_weights_bands[band_idx] = np.nansum(
             np.concatenate([[w1], [w2]]), axis=0
         )
+        both_nodata = old_nodata[band_idx] * new_nodata[band_idx]
+        unweighted_weights_bands[band_idx][both_nodata] = np.nan
 
-        # Ignore if nodata in weights
-        old_data[w_idx] = w1  # contrib is zero if nodata
-        new_data[w_idx] = w2  # contrib is zero if nodata
+        # # Ignore if nodata in weights
+        # old_data[w_idx] = w1  # contrib is zero if nodata
+        # new_data[w_idx] = w2  # contrib is zero if nodata
 
-    # set back to NoDataValue
-    # TODO: asure that when saving initial tiff nodata is also np.nan and not something else
+    # set back to NoDataValue just in case we modified values where we should not
     old_data[old_nodata] = np.nan
     new_data[new_nodata] = np.nan
 
-    # we summ weighted scores, and weights
+    # we sum weighted scores, and weights. Set back to nan as nansum generates 0 if no data.
+    # TODO: assure that values are set to 0 and not to np.nan within the parcel for higher vegetation ! (not here)
+    both_nodata = old_nodata * new_nodata
     out_data = np.nansum([old_data, new_data], axis=0)
+    out_data[both_nodata] = np.nan
 
     # we average scores, using unweighted weights
     out_data[:nb_scores_channels] = (
