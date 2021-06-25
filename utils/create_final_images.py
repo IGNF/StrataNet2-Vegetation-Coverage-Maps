@@ -413,7 +413,6 @@ def stack_the_rasters_and_get_their_geotransformation(
     return img_to_write, geo
 
 
-## TODO: correct
 def infer_and_project_on_rasters(current_cloud, pred_pointwise, args):
     """
     We do raster reprojection, but we do not use torch scatter as we have to associate each value to a pixel
@@ -437,8 +436,6 @@ def infer_and_project_on_rasters(current_cloud, pred_pointwise, args):
     xy = torch.clip(xy, 0, args.diam_pix - 1)
     xy = xy.cpu().numpy()
     _, _, inverse = np.unique(xy.T, axis=0, return_index=True, return_inverse=True)
-
-    # TODO: CORRECT/CHECK that we are doing scatter_sum and not scatter_max !!!
 
     # we get the values for each unique pixel and write them to rasters
     image_low_veg = np.full((args.diam_pix, args.diam_pix), np.nan)
