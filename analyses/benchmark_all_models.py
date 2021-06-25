@@ -85,7 +85,7 @@ def main():
             f"No result file found via regex {args.results_files_lookup_expression}"
         )
     means = []
-    for fname in results_file_paths:
+    for fname in sorted(results_file_paths):
         print(fname)
         df = pd.read_csv(fname)
         df = format_cols(df)
@@ -98,8 +98,9 @@ def main():
             for f in results_file_paths
         ],
     )
+    df_out = df_out.reset_index().sort_values("index", ascending=False)
     create_dir(os.path.dirname(args.benchmark_file_path))
-    df_out.to_csv(args.benchmark_file_path, index=True)
+    df_out.to_csv(args.benchmark_file_path, index=False)
 
 
 if __name__ == "__main__":
