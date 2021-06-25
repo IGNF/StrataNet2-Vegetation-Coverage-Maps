@@ -79,13 +79,14 @@ def main():
     results_file_paths = [
         f for f in results_file_paths if ("(copie)" not in f) and ("/DEV/" not in f)
     ]
+    results_file_paths = sorted(results_file_paths)
     print(results_file_paths)
     if len(results_file_paths) == 0:
         sys.exit(
             f"No result file found via regex {args.results_files_lookup_expression}"
         )
     means = []
-    for fname in sorted(results_file_paths):
+    for fname in results_file_paths:
         print(fname)
         df = pd.read_csv(fname)
         df = format_cols(df)
