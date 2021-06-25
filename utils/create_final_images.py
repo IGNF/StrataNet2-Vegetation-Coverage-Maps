@@ -413,7 +413,6 @@ def stack_the_rasters_and_get_their_geotransformation(
     return img_to_write, geo
 
 
-## TODO: correct
 def infer_and_project_on_rasters(current_cloud, pred_pointwise, args):
     """
     We do raster reprojection, but we do not use torch scatter as we have to associate each value to a pixel
@@ -438,8 +437,6 @@ def infer_and_project_on_rasters(current_cloud, pred_pointwise, args):
     xy = xy.cpu().numpy()
     _, _, inverse = np.unique(xy.T, axis=0, return_index=True, return_inverse=True)
 
-    # TODO: CORRECT/CHECK that we are doing scatter_sum and not scatter_max !!!
-
     # we get the values for each unique pixel and write them to rasters
     image_low_veg = np.full((args.diam_pix, args.diam_pix), np.nan)
     image_med_veg = np.full((args.diam_pix, args.diam_pix), np.nan)
@@ -458,13 +455,15 @@ def infer_and_project_on_rasters(current_cloud, pred_pointwise, args):
             .numpy()
             .flatten()
         )
+        sum_val = pred_pointwise[:, where].sum(axis=1)
 
         if args.norm_ground:  # we normalize ground level coverage values
-            proba_low_veg = max_pool_val[0] / (max_pool_val[:2].sum())
+            proba_low_veg = sum_val[0] / (sum_val[:2].sum())
         else:  # we do not normalize anything, as bare soil coverage does not participate in absolute loss
             proba_low_veg = max_pool_val[0]
-        proba_med_veg = max_pool_val[2]
         image_low_veg[m, k] = proba_low_veg
+
+        proba_med_veg = max_pool_val[2]
         image_med_veg[m, k] = proba_med_veg
 
         if args.nb_stratum == 3:
