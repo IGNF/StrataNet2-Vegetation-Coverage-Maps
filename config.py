@@ -36,6 +36,8 @@ parser.add_argument('--path', default=repo_absolute_path, type=str, help="Repo a
 parser.add_argument('--data_path', default=data_path, type=str, help="Path to /repo_root/data/ folder.")
 parser.add_argument('--las_placettes_folder_path', default=os.path.join(data_path, "placettes_dataset/las_classes/"), type=str, help="Path to folder with placettes las files.")
 parser.add_argument('--las_parcelles_folder_path', default=os.path.join(data_path, "parcelles_dataset_test/"), type=str, help="Path to folder with parcelles las files.")
+parser.add_argument('--parcel_shapefile_path', default=os.path.join(data_path, "parcelles_dataset/Parcellaire_2020_zone_expe_BOP_SPL_SPH_J6P_PPH_CAE_CEE_ADM.shp"), type=str, help="Path to folder with parcelles las files.")
+
 parser.add_argument('--gt_file_path', default=os.path.join(data_path, "placettes_dataset/placettes_metadata.csv"), type=str, help="Path to ground truth file. Put in dataset folder.")
 parser.add_argument('--cuda', default=0, type=int, help="Whether we use cuda (1) or not (0)")
 parser.add_argument('--coln_mapper_dict', default={"nom":"Name"}, type=str, help="Dict to rename columns of gt ")
