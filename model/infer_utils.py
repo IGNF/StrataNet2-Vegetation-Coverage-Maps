@@ -336,12 +336,13 @@ def add_weights_band_to_rasters(img_to_write, args):
 
 def add_hard_med_veg_raster_band(mosaic):
     """
-    We classify pixels into medium veg or non medium veg, creating a fourth canal.
+    We classify pixels into medium veg or non medium veg, creating a fourth canal
     We use a threshold for which coverage_hard is the closest to coverage_soft.
     In case of global diffuse medium vegetation, this can overestimate areas with innaccessible medium vegetation,
     but has little consequences since they would be scattered on the surface.
-    Return shape : (nb_canals, 32, 32)
+    Return shape : (nb_canals, 32, 32) where canals are (Vb, Vm_soft, Vh, Vm_hard).
     """
+
     image_med_veg = mosaic[1]
     mask = ma.masked_invalid(image_med_veg).mask
 
@@ -355,8 +356,9 @@ def add_hard_med_veg_raster_band(mosaic):
     threshold = lin[np.argmin(delta)]
     image_med_veg_hard = 1.0 * (image_med_veg > threshold)
     image_med_veg_hard[mask] = np.nan
-    # TODO Here insert at 4th position instead of after all
-    mosaic = np.concatenate([mosaic, [image_med_veg_hard]], 0)
+
+    mosaic = np.insert(mosaic, 3, image_med_veg_hard, axis=0)
+
     return mosaic
 
 
