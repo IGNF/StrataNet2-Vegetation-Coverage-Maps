@@ -1,117 +1,158 @@
+# global imports
+import glob
+import os
 import warnings
+import numpy as np
+import pandas as pd
+import rasterio
+import torch
+from tqdm import tqdm
+import shapefile
 
 warnings.simplefilter(action="ignore")
-
-import numpy as np
-import os
-import torch
-import matplotlib
-
-# Weird behavior: loading twice in cell appears to remove an elsewise occuring error.
-for i in range(2):
-    try:
-        matplotlib.use("TkAgg")  # rerun this cell if an error occurs.
-    except:
-        print("!")
-
-print(torch.cuda.is_available())
 np.random.seed(42)
 torch.cuda.empty_cache()
 
-# We import from other files
+# Local imports
 from config import args
-from utils.useful_functions import create_new_experiment_folder, print_stats
-from data_loader.loader import normalize_cloud_data
-from utils.point_cloud_classifier import PointCloudClassifier
+from utils.useful_functions import (
+    create_new_experiment_folder,
+    fast_scandir,
+    get_filename_no_extension,
+    print_stats,
+    get_files_of_type_in_folder,
+    get_trained_model_path_from_experiment,
+)
+from model.point_cloud_classifier import PointCloudClassifier
 from model.infer_utils import (
     divide_parcel_las_and_get_disk_centers,
-    extract_points_within_disk,
     create_geotiff_raster,
+    merge_geotiff_rasters,
+    get_and_prepare_cloud_around_center,
 )
-
 
 args.z_max = 24.14  # the TRAINING args should be loaded from stats.csv/txt...
 
 
-print("Everything is imported")
+def main():
 
-print(torch.cuda.is_available())
-np.random.seed(42)
-torch.cuda.empty_cache()
+    # Create the result folder
+    create_new_experiment_folder(args, infer_mode=True)  # new paths are added to args
 
-# Create the result folder
-create_new_experiment_folder(args, infer_mode=True)  # new paths are added to args
+    # find parcels .LAS files
+    las_filenames = get_files_of_type_in_folder(args.las_parcelles_folder_path, ".las")
+    print(las_filenames)
 
-# find parcels .LAS files
-las_folder = args.las_parcelles_folder_path
-las_filenames = os.listdir(las_folder)
-las_filenames = [l for l in las_filenames if l.lower().endswith(".las")]
+    # Load a saved the classifier
+    trained_model_path = get_trained_model_path_from_experiment(
+        args.path, args.inference_model_id, use_full_model=False
+    )
+    model = torch.load(trained_model_path)
+    model.eval()
+    PCC = PointCloudClassifier(args)
 
-# define the classifier
-model = torch.load(args.trained_model_path)
-print_stats(
-    args.stats_file,
-    f"trained model was loaded from {args.trained_model_path}",
-    print_to_console=True,
-)
-model.eval()
-PCC = PointCloudClassifier(args)
-
-for las_filename in las_filenames:
     print_stats(
         args.stats_file,
-        f"Inference on parcel file {las_filename}",
+        f"Trained model loaded from {trained_model_path}",
         print_to_console=True,
     )
 
-    # TODO : remove this debug condition
-    # if args.mode == "DEV":
-    #     if las_filename != "004000715-5-18.las":  # "004009611-11-13.las":
-    #         continue
+    for las_filename in las_filenames:
+        # TODO : remove this debug condition
+        if args.mode == "DEV":
+            if not las_filename.endswith("004000715-5-18.las"):  # small
+                continue
 
-    # her we divide all parcels into plots
-    grid_pixel_xy_centers, points_nparray = divide_parcel_las_and_get_disk_centers(
-        args, las_folder, las_filename, save_fig_of_division=True
-    )
-    print(points_nparray.shape)
-    # TODO: replace this loop by a cleaner ad-hoc DataLoader
+        print_stats(
+            args.stats_file,
+            f"Inference on parcel file {las_filename}",
+            print_to_console=True,
+        )
 
-    idx_for_break = 0  # TODO: remove
-    idx_for_break_max = np.inf
-    for plot_center in grid_pixel_xy_centers:  # TODO: loop through all!
-        # break
-
-        plots_point_nparray = extract_points_within_disk(points_nparray, plot_center)
-
-        # infer if non-empty selection
-        # TODO: remove print
-        print(plots_point_nparray.shape)
-        if plots_point_nparray.shape[0] > 0:
-
-            plots_point_nparray = plots_point_nparray.transpose()
-            plots_point_nparray = normalize_cloud_data(plots_point_nparray, args)
-
-            # add a batch dim before trying out dataloader
-            plots_point_nparray = np.expand_dims(plots_point_nparray, axis=0)
-            plot_points_tensor = torch.from_numpy(plots_point_nparray)
-
-            # compute pointwise prediction
-            # TODO: upsample points before predictions
-            pred_pointwise, _ = PCC.run(model, plot_points_tensor)
-
-            # pred_pointwise was permuted from (N_scores, N_points) to (N_points, N_scores) for some reasons at the end of PCC.run
-            pred_pointwise = pred_pointwise.permute(1, 0)
-
-            las_id = las_filename.split(".")[0]
-            create_geotiff_raster(
-                args,
-                plots_point_nparray[0, :2, :],  # (2, N_points) xy nparray
-                pred_pointwise,
-                plot_points_tensor[0, :, :],  # cloud 2D tensor (N_feats, N_points)
-                plot_center,
-                las_id,
-                add_weights_band=True,
+        # Divide parcel into plots
+        (
+            grid_pixel_xy_centers,
+            parcel_points_nparray,
+        ) = divide_parcel_las_and_get_disk_centers(
+            args, las_filename, save_fig_of_division=True
+        )
+        # print(f"File {las_filename} with shape {parcel_points_nparray.shape}")
+        plot_name = get_filename_no_extension(las_filename)
+        centers = tqdm(
+            grid_pixel_xy_centers,
+            desc=f"Centers for parcel in {plot_name}",
+            leave=True,
+        )
+        # TODO: replace this loop by a cleaner ad-hoc DataLoader
+        for plot_center in centers:
+            plot_points_tensor = get_and_prepare_cloud_around_center(
+                parcel_points_nparray, plot_center, args
             )
-            idx_for_break += 1
-            if idx_for_break >= idx_for_break_max:
-                break
+            if plot_points_tensor is not None:
+                pred_pointwise, _ = PCC.run(model, plot_points_tensor)
+                create_geotiff_raster(
+                    args,
+                    pred_pointwise.permute(
+                        1, 0
+                    ),  # pred_pointwise was permuted from (N_scores, N_points) to (N_points, N_scores) at the end of PCC.run
+                    plot_points_tensor[0, :, :],  # (N_feats, N_points) cloud 2D tensor
+                    plot_center,
+                    plot_name,
+                )
+
+        # Then
+        merge_geotiff_rasters(args, plot_name)
+
+    # Now, compute the average values from the predicted rasters
+    sf = shapefile.Reader(args.parcel_shapefile_path)
+    records = {rec.ID: rec for rec in sf.records()}
+    predictions_tif = glob.glob(
+        os.path.join(args.stats_path, "**/prediction_raster_parcel_*.tif"),
+        recursive=True,
+    )
+    metadata_list = []
+    for tif in predictions_tif:
+        metadata = get_parcel_info_and_predictions(tif, records)
+        metadata_list.append(metadata)
+    # export to a csv
+    df_inference = pd.DataFrame(metadata_list)
+    csv_path = os.path.join(args.stats_path, "PCC_inference_all_parcels.csv")
+    df_inference.to_csv(csv_path, index=False)
+    print_stats(args.stats_file, f"Saved inference results to {csv_path}")
+
+
+def get_parcel_info_and_predictions(tif, records):
+    """From a prediction tif given by  its path and the records obtained from a shapefile,
+    get the parcel metadata as well as the predictions : coverage and admissibility
+    """
+    mosaic = rasterio.open(tif).read()
+
+    # Vb, Vmoy, Vh, Vmoy_hard
+    band_means = np.nanmean(mosaic[:4], axis=(1, 2))
+
+    # TODO: change the calculation of admissibility here
+    admissibility = np.nanmean(np.nanmax([[mosaic[0]], [mosaic[0]]], axis=0))
+
+    tif_name = get_filename_no_extension(tif).replace("prediction_raster_parcel_", "")
+    rec = records[tif_name]
+
+    metadata = {
+        "NOM": tif_name,
+        "SURFACE_m2": rec._area,
+        "SURFACE_ha": np.round((rec._area) / 10000, 2),
+        "SURF_ADM_ha": rec.SURF_ADM,
+        "REPORTED_ADM": float(rec.ADM),
+    }
+    infered_values = {
+        "pred_veg_b": band_means[0],
+        "pred_veg_moy": band_means[1],
+        "pred_veg_h": band_means[2],
+        "adm_max_over_veg_b_and_veg_moy": admissibility,
+        "pred_veg_moy_hard": band_means[3],
+    }
+    metadata.update(infered_values)
+    return metadata
+
+
+if __name__ == "__main__":
+    main()

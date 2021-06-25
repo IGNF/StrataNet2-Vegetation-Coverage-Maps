@@ -9,10 +9,10 @@ from torch.utils.tensorboard import SummaryWriter
 
 # We import from other files
 from data_loader.loader import *
-from utils.reproject_to_2d_and_predict_plot_coverage import *
+from model.reproject_to_2d_and_predict_plot_coverage import *
 from model.loss_functions import *
-from model.model import PointNet
-from utils.point_cloud_classifier import PointCloudClassifier
+from model.point_net import PointNet
+from model.point_cloud_classifier import PointCloudClassifier
 from torch.utils.tensorboard import SummaryWriter
 import os
 import torch
@@ -100,26 +100,25 @@ def train(model, PCC, train_set, params, optimizer, args):
     )
 
 
-def train_full(args, fold_id, train_set, test_set, test_list, mean_dataset, params):
-    """The full training loop"""
-    # initialize the model
+def train_full(args, fold_id, train_set, test_set, test_list, xy_centers_dict, params):
+    """The full training loop.
+    If fold_id = -1, this is the full training and we make inferences at last epoch for this test=train set.
+    """
+    # initialize the model and define the classifier
     model = PointNet(args.MLP_1, args.MLP_2, args.MLP_3, args)
     writer = SummaryWriter(os.path.join(args.stats_path, f"runs/fold_{fold_id}/"))
-
     print(
         "Total number of parameters: {}".format(
             sum([p.numel() for p in model.parameters()])
         )
     )
-    print(model)
-
-    # define the classifier
     PCC = PointCloudClassifier(args)
 
     # define the optimizer
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.wd)
     scheduler = StepLR(optimizer, step_size=args.step_size, gamma=args.lr_decay)
     cloud_info_list = None
+    test_losses = None
 
     for i_epoch in range(args.n_epoch):
         scheduler.step()
@@ -127,9 +126,9 @@ def train_full(args, fold_id, train_set, test_set, test_list, mean_dataset, para
         # train one epoch
         train_losses = train(model, PCC, train_set, params, optimizer, args)
         writer = write_to_writer(writer, args, i_epoch, train_losses, train=True)
-        if (
-            i_epoch + 1
-        ) == args.n_epoch:  # if last epoch, we creare 2D images with points projections and infer values for all plots
+
+        # if last epoch, we create 2D images with points projections and infer values for all test plots
+        if (i_epoch + 1) == args.n_epoch:
             print("Last epoch")
             test_losses, cloud_info_list = evaluate(
                 model,
@@ -138,15 +137,17 @@ def train_full(args, fold_id, train_set, test_set, test_list, mean_dataset, para
                 params,
                 args,
                 test_list,
-                mean_dataset,
+                xy_centers_dict,
                 args.stats_path,
                 args.stats_file,
                 last_epoch=True,
-                create_final_images_bool=args.create_final_images_bool,
+                plot_only_png=args.plot_only_png,
+                full_run_situation=fold_id < 0,
             )
             gc.collect()
             writer = write_to_writer(writer, args, i_epoch, test_losses, train=False)
-        elif (i_epoch + 1) % args.n_epoch_test == 0:
+        # if not last epoch, we just evaluate performances on test plots, during cross-validation only.
+        elif ((i_epoch + 1) % args.n_epoch_test == 0) and fold_id > 0:
             test_losses, _ = evaluate(
                 model,
                 PCC,
@@ -154,7 +155,7 @@ def train_full(args, fold_id, train_set, test_set, test_list, mean_dataset, para
                 params,
                 args,
                 test_list,
-                mean_dataset,
+                xy_centers_dict,
                 args.stats_path,
                 args.stats_file,
             )

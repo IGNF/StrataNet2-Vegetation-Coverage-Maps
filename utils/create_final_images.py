@@ -154,15 +154,6 @@ def visualize(
     nir_r_g_indexes = [6, 3, 4]
     c = cloud[nir_r_g_indexes].numpy().transpose()
 
-    # NDVI calculation
-    # r_infra = cloud[[3, 6]].numpy().transpose()
-    # r = r_infra[:, 0]
-    # infra = r_infra[:, 1]
-    # ndvi = (infra - r) / (infra + r)
-    # top = cm.get_cmap("Blues_r", 128)
-    # bottom = cm.get_cmap("Greens", 128)
-    # cmap = np.vstack((top(np.linspace(0, 1, 128)), bottom(np.linspace(0, 1, 128))))
-    # cmap = colors.ListedColormap(cmap, name="GreensBlues")
     ax1.scatter(
         cloud[0],
         cloud[1],
@@ -177,9 +168,6 @@ def visualize(
     ax1.set_yticklabels([])
     ax1.set_xticklabels([])
     ax1.set_title(f"{pl_id}")
-    # sm = ScalarMappable(cmap=cmap)  # bad norm 0-1 right now
-    # sm.set_array([])
-    # plt.colorbar(sm, ax=ax1)
 
     # LV stratum raster
     ax2 = fig.add_subplot(row, col, 2)
@@ -292,7 +280,7 @@ def visualize(
 
     if text_pred_vs_gt is not None:
         fig.text(0.5, 0.05, text_pred_vs_gt, ha="center")
-    plt.savefig(stats_path + pl_id + ".png", format="png", bbox_inches="tight", dpi=300)
+    plt.savefig(stats_path + pl_id + ".png", format="png", bbox_inches="tight", dpi=150)
     plt.clf()
     plt.close("all")
 
@@ -304,11 +292,11 @@ def create_final_images(
     cloud,
     likelihood,
     plot_name,
-    mean_dataset,
-    stats_path,
+    xy_centers_dict,
+    plot_path,
     stats_file,
     args,
-    create_and_save_raster_as_TIFF_file=True,
+    plot_only_png=True,
     adm=None,
 ):
     """
@@ -320,34 +308,12 @@ def create_final_images(
         # we get prediction stats string
         pred_pointwise = pred_pointwise_b[b]
         current_cloud = cloud[b]  # (9, N) tensor
-        plot_center = mean_dataset[plot_name]  # tuple (x,y)
+        plot_center = xy_centers_dict[plot_name]  # tuple (x,y)
 
         # we do raster reprojection, but we do not use torch scatter as we have to associate each value to a pixel
         image_low_veg, image_med_veg, image_high_veg = infer_and_project_on_rasters(
-            current_cloud, args, pred_pointwise
+            current_cloud, pred_pointwise, args
         )
-        # We normalize back x,y values to create a tiff file with 2 rasters
-        if create_and_save_raster_as_TIFF_file:
-            xy = (
-                current_cloud[:2, :].detach().cpu().numpy()
-            )  # (2, N) tensor -> (2, N) nparray
-            img_to_write, geo = rescale_xy_and_get_geotransformation_(
-                xy,
-                plot_center,
-                args,
-                image_low_veg,
-                image_med_veg,
-                image_high_veg,
-            )
-            create_tiff(
-                nb_channels=args.nb_stratum,
-                new_tiff_name=stats_path + plot_name + ".tif",
-                width=args.diam_pix,
-                height=args.diam_pix,
-                datatype=gdal.GDT_Float32,
-                data_array=img_to_write,
-                geotransformation=geo,
-            )
 
         if args.adm:
             preds_nparray = np.round(
@@ -381,7 +347,7 @@ def create_final_images(
             current_cloud,
             pred_pointwise,
             plot_name,
-            stats_path,
+            plot_path,
             args,
             text_pred_vs_gt=text_pred_vs_gt,
             scores=likelihood,
@@ -389,31 +355,55 @@ def create_final_images(
             predictions=preds_nparray,
             gt=gt_nparray,
         )
-        if args.nb_stratum == 3:
-            visualize_article(
+
+        if not plot_only_png:
+
+            img_to_write, geo = stack_the_rasters_and_get_their_geotransformation(
+                plot_center,
+                args,
                 image_low_veg,
                 image_med_veg,
                 image_high_veg,
-                current_cloud,
-                plot_name,
-                stats_path,
-                args,
-                txt=text_pred_vs_gt,
             )
+            save_rasters_to_geotiff_file(
+                nb_channels=args.nb_stratum,
+                new_tiff_name=plot_path + plot_name + ".tif",
+                width=args.diam_pix,
+                height=args.diam_pix,
+                datatype=gdal.GDT_Float32,
+                data_array=img_to_write,
+                geotransformation=geo,
+            )
+            if args.nb_stratum == 3:
+                visualize_article(
+                    image_low_veg,
+                    image_med_veg,
+                    image_high_veg,
+                    current_cloud,
+                    plot_name,
+                    plot_path,
+                    args,
+                    txt=text_pred_vs_gt,
+                )
 
 
-def rescale_xy_and_get_geotransformation_(
-    xy, plot_center_xy, args, image_low_veg, image_med_veg, image_high_veg
+def stack_the_rasters_and_get_their_geotransformation(
+    plot_center_xy, args, image_low_veg, image_med_veg, image_high_veg
 ):
-    xy = xy * 10 + np.asarray(plot_center_xy).reshape(-1, 1)
+    """ """
+    # geotransform reference : https://gdal.org/user/raster_data_model.html
+    # top_left_x, pix_width_in_meters, _, top_left_y, pix_heighgt_in_meters (neg for north up picture)
+
     geo = [
-        np.min(xy, axis=1)[0],
-        (np.max(xy, axis=1)[0] - np.min(xy, axis=1)[0]) / args.diam_pix,
+        plot_center_xy[0] - args.diam_meters // 2,  # xmin
+        args.diam_meters / args.diam_pix,
         0,
-        np.max(xy, axis=1)[1],
+        plot_center_xy[1] + args.diam_meters // 2,  # ymax
         0,
-        (-np.max(xy, axis=1)[1] + np.min(xy, axis=1)[1]) / args.diam_pix,
+        -args.diam_meters / args.diam_pix,
+        # negative b/c in geographic raster coordinates (0,0) is at top left
     ]
+
     if args.nb_stratum == 2:
         img_to_write = np.concatenate(([image_low_veg], [image_med_veg]), 0)
     else:
@@ -423,26 +413,29 @@ def rescale_xy_and_get_geotransformation_(
     return img_to_write, geo
 
 
-def infer_and_project_on_rasters(current_cloud, args, pred_cloud):
-    # we do raster reprojection, but we do not use torch scatter as we have to associate each value to a pixel
-    # Outputs are
+def infer_and_project_on_rasters(current_cloud, pred_pointwise, args):
     """
+    We do raster reprojection, but we do not use torch scatter as we have to associate each value to a pixel
     current_cloud: (2, N) 2D tensor
      image_low_veg, image_med_veg, image_high_veg
     """
+
+    # we get unique pixel coordinate to serve as group for raster prediction
+    # Values are between 0 and args.diam_pix-1, sometimes (extremely rare) at args.diam_pix wich we correct
+
+    scaling_factor = 10 * (args.diam_pix / args.diam_meters)  # * pix/normalized_unit
     xy = current_cloud[:2, :]
-    # center and normalize between 0 and 1 using MIN and MAX of points (instead of plot center  and width/height !)
-    xy = torch.floor(
-        (xy - torch.min(xy, dim=1).values.view(2, 1).expand_as(xy))
-        / (torch.max(xy, dim=1).values - torch.min(xy, dim=1).values + 0.0001)
-        .view(2, 1)
-        .expand_as(xy)
-        * args.diam_pix
+    xy = (
+        torch.floor(
+            (xy + 0.0001) * scaling_factor
+            + torch.Tensor(
+                [[args.diam_meters // 2], [args.diam_meters // 2]]
+            ).expand_as(xy)
+        )
     ).int()
+    xy = torch.clip(xy, 0, args.diam_pix - 1)
     xy = xy.cpu().numpy()
-    unique, index, inverse = np.unique(
-        xy.T, axis=0, return_index=True, return_inverse=True
-    )
+    _, _, inverse = np.unique(xy.T, axis=0, return_index=True, return_inverse=True)
 
     # we get the values for each unique pixel and write them to rasters
     image_low_veg = np.full((args.diam_pix, args.diam_pix), np.nan)
@@ -456,21 +449,28 @@ def infer_and_project_on_rasters(current_cloud, args, pred_cloud):
         k, m = xy.T[where][0]
         maxpool = nn.MaxPool1d(len(where))
         max_pool_val = (
-            maxpool(pred_cloud[:, where].unsqueeze(0)).cpu().detach().numpy().flatten()
+            maxpool(pred_pointwise[:, where].unsqueeze(0))
+            .cpu()
+            .detach()
+            .numpy()
+            .flatten()
         )
+        sum_val = pred_pointwise[:, where].sum(axis=1)
 
         if args.norm_ground:  # we normalize ground level coverage values
-            proba_low_veg = max_pool_val[0] / (max_pool_val[:2].sum())
+            proba_low_veg = sum_val[0] / (sum_val[:2].sum())
         else:  # we do not normalize anything, as bare soil coverage does not participate in absolute loss
             proba_low_veg = max_pool_val[0]
-        proba_med_veg = max_pool_val[2]
         image_low_veg[m, k] = proba_low_veg
+
+        proba_med_veg = max_pool_val[2]
         image_med_veg[m, k] = proba_med_veg
 
         if args.nb_stratum == 3:
             proba_high_veg = max_pool_val[3]
             image_high_veg[m, k] = proba_high_veg
-    # we flip along y axis as the 1st raster row starts with 0
+
+    # We flip along y axis as the 1st raster row starts with 0
     image_low_veg = np.flip(image_low_veg, axis=0)
     image_med_veg = np.flip(image_med_veg, axis=0)
     if args.nb_stratum == 3:
@@ -478,10 +478,15 @@ def infer_and_project_on_rasters(current_cloud, args, pred_cloud):
     return image_low_veg, image_med_veg, image_high_veg
 
 
-# We create a tiff file with 2 or 3 stratum
-def create_tiff(
+def save_rasters_to_geotiff_file(
     nb_channels, new_tiff_name, width, height, datatype, data_array, geotransformation
 ):
+    """
+    Create a tiff file from stacked rasters (and their weights during inference)
+    Note: for training plots, the xy localization may be approximative since the geotransformation has
+    its corner at -10, -10 of the *mean point* of the cloud.
+    """
+
     # We set Lambert 93 projection
     srs = osr.SpatialReference()
     srs.ImportFromEPSG(2154)
@@ -489,11 +494,21 @@ def create_tiff(
     # We create a datasource
     driver_tiff = gdal.GetDriverByName("GTiff")
     dst_ds = driver_tiff.Create(new_tiff_name, width, height, nb_channels, datatype)
-    if nb_channels == 1:
-        dst_ds.GetRasterBand(1).WriteArray(data_array)
-    else:
-        for ch in range(nb_channels):
-            dst_ds.GetRasterBand(ch + 1).WriteArray(data_array[ch])
     dst_ds.SetGeoTransform(geotransformation)
     dst_ds.SetProjection(proj)
-    return dst_ds
+    if nb_channels == 1:
+        outband = dst_ds.GetRasterBand(1)
+        outband.WriteArray(data_array)
+        outband.SetNoDataValue(np.nan)
+        outband = None
+    else:
+        for ch in range(nb_channels):
+            outband = dst_ds.GetRasterBand(ch + 1)
+            outband.WriteArray(data_array[ch])
+            # nodataval is needed for the first band only
+            if ch == 0:
+                outband.SetNoDataValue(np.nan)
+            outband = None
+    # write to file
+    dst_ds.FlushCache()
+    dst_ds = None

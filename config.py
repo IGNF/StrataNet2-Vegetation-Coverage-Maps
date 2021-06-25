@@ -7,6 +7,19 @@ from utils.useful_functions import get_args_from_prev_config
 # Set to DEV for faster iterations (1 fold, 4 epochs), in order to e.g. test saving results.
 MODE = "DEV"  # DEV or PROD
 
+FEATURE_NAMES = [
+    "x",
+    "y",
+    "z_flat",
+    "red",
+    "green",
+    "blue",
+    "near_infrared",
+    "intensity",
+    "return_num",
+    "num_returns",
+    "z_non_flat",
+]
 
 parser = ArgumentParser(description="model")  # Byte-compiled / optimized / DLL files
 
@@ -23,10 +36,12 @@ parser.add_argument('--path', default=repo_absolute_path, type=str, help="Repo a
 parser.add_argument('--data_path', default=data_path, type=str, help="Path to /repo_root/data/ folder.")
 parser.add_argument('--las_placettes_folder_path', default=os.path.join(data_path, "placettes_dataset/las_classes/"), type=str, help="Path to folder with placettes las files.")
 parser.add_argument('--las_parcelles_folder_path', default=os.path.join(data_path, "parcelles_dataset_test/"), type=str, help="Path to folder with parcelles las files.")
+parser.add_argument('--parcel_shapefile_path', default=os.path.join(data_path, "parcelles_dataset/Parcellaire_2020_zone_expe_BOP_SPL_SPH_J6P_PPH_CAE_CEE_ADM.shp"), type=str, help="Path to folder with parcelles las files.")
+
 parser.add_argument('--gt_file_path', default=os.path.join(data_path, "placettes_dataset/placettes_metadata.csv"), type=str, help="Path to ground truth file. Put in dataset folder.")
 parser.add_argument('--cuda', default=0, type=int, help="Whether we use cuda (1) or not (0)")
 parser.add_argument('--coln_mapper_dict', default={"nom":"Name"}, type=str, help="Dict to rename columns of gt ")
-parser.add_argument('--create_final_images_bool', default=True, type=bool, help="Set to True to output")
+parser.add_argument('--plot_only_png', default=True, type=bool, help="Set to False to output SVG article format and GeoTIFF at last epoch.")
 
 parser.add_argument('--results_path', default=None, help="(Created on the fly) Path to all related experiments")
 parser.add_argument('--stats_path', default=None, help="(Created on the fly) Path to stats folder of current run")
@@ -34,17 +49,18 @@ parser.add_argument('--stats_file', default=None, help="(Created on the fly) Pat
 
 # Retraining/Inference parameters
 # TODO: replace this with an experiment folder
-parser.add_argument('--trained_model_path', default=os.path.join(repo_absolute_path, "experiments/RESULTS_3_strata/only_stratum/PROD/learning/2021-06-10_17h24m51s/model_ss_10000_dp_32_fold_1.pt"), help="Path to .pt file output by torch.save(net, path)")
-parser.add_argument("--use_prev_config", default=None, type=str, help="The id (e.g. 2021-06-10_17h29m42s) of a previous run from which to copy parameters from")
+parser.add_argument('--inference_model_id', default="2021-06-24_18h29m49s", help="Identifier of experiment to load saved model with torch.load (e.g. yyyy-mm-dd_XhXmXs).")
+parser.add_argument("--use_prev_config", default=None, type=str, help="Identifier of a previous run from which to copy parameters from (e.g. yyyy-mm-dd_XhXmXs).")
 
-# Model Parameters
+# Model Parameters  
 parser.add_argument('--n_class', default=4, type=int,
                     help="Size of the model output vector. In our case 4 - different vegetation coverage types")
-parser.add_argument('--input_feats', default='xyzrgbnir', type=str,
-                    help="Point features that we keep. in this code, we keep them all. permuting those letters will break everything. To be modified")
-parser.add_argument('--nb_feats_for_train', default=10, type=int, help="Nb of feat given to model")
+parser.add_argument('--input_feats',
+    default=FEATURE_NAMES,
+    type=str, help="Point features that we keep. in this code, we keep them all. permuting those letters will break everything. To be modified")
 parser.add_argument('--subsample_size', default=10000, type=int, help="Subsample cloud size")
-parser.add_argument('--diam_pix', default=20, type=int,
+parser.add_argument('--diam_meters', default=20, type=int, help="Diameters of the plots.")
+parser.add_argument('--diam_pix', default=20, type=int, 
                     help="Size of the output stratum raster (its diameter in pixels)")
 parser.add_argument('--m', default=0.05, type=float,
                     help="Regularization loss for ground vs. non-ground membership. The weight of the negative loglikelihood loss in the total loss")
@@ -58,7 +74,7 @@ parser.add_argument('--nb_stratum', default=3, type=int,
                     help="[2, 3] Number of vegetation stratum that we compute 2 - ground level + medium level; 3 - ground level + medium level + high level")
 parser.add_argument('--ECM_ite_max', default=5, type=int, help='Max number of EVM iteration')
 parser.add_argument('--NR_ite_max', default=10, type=int, help='Max number of Netwon-Rachson iteration')
-parser.add_argument('--z_normalization_method', default="spline", type=str, help='Use either knn_radius or spline method to normalize z.')
+parser.add_argument('--z_normalization_method', default="knn", type=str, help='Use either knn or spline method to normalize z.')
 parser.add_argument('--znorm_radius_in_meters', default=1.5, type=float, help='Radius for KNN normalization of altitude.')
 parser.add_argument('--spline_pix_size', default=1.5, type=float, help='Pixel size for Spline normalization of altitude.')
 parser.add_argument('--z_max', default=None, type=float, help="Max (radius-normalized) altitude of points in plots, calculated on the fly.")
@@ -83,7 +99,7 @@ parser.add_argument('--step_size', default=50, type=int,
 parser.add_argument('--lr_decay', default=0.1, type=float,
                     help="We multiply learning rate by this value after certain number of steps (see --step_size). (Multiplicative factor of learning rate decay)")
 parser.add_argument('--n_epoch', default=100 if MODE=="PROD" else 2, type=int, help="Number of training epochs")
-parser.add_argument('--n_epoch_test', default=10 if MODE=="PROD" else 1, type=int, help="We evaluate every -th epoch")
+parser.add_argument('--n_epoch_test', default=5 if MODE=="PROD" else 1, type=int, help="We evaluate every -th epoch")
 parser.add_argument('--batch_size', default=20, type=int, help="Size of the training batch")
 
 # fmt: on

@@ -15,7 +15,7 @@ from utils.useful_functions import create_dir
 
 parser = ArgumentParser(description="describe_perf")
 parser.add_argument(
-    "--results_folder_path",
+    "--results_files_lookup_expression",
     default=os.path.join(
         repo_absolute_path,
         "experiments/**/*placettes*.csv",
@@ -75,13 +75,16 @@ def format_cols(df):
 
 
 def main():
-    results_file_paths = glob.glob(args.results_folder_path, recursive=True)
+    results_file_paths = glob.glob(args.results_files_lookup_expression, recursive=True)
     results_file_paths = [
         f for f in results_file_paths if ("(copie)" not in f) and ("/DEV/" not in f)
     ]
+    results_file_paths = sorted(results_file_paths)
     print(results_file_paths)
     if len(results_file_paths) == 0:
-        sys.exit(f"No result file found via regex {args.results_folder_path}")
+        sys.exit(
+            f"No result file found via regex {args.results_files_lookup_expression}"
+        )
     means = []
     for fname in results_file_paths:
         print(fname)
@@ -96,8 +99,9 @@ def main():
             for f in results_file_paths
         ],
     )
+    df_out = df_out.reset_index().sort_values("index", ascending=False)
     create_dir(os.path.dirname(args.benchmark_file_path))
-    df_out.to_csv(args.benchmark_file_path, index=True)
+    df_out.to_csv(args.benchmark_file_path, index=False)
 
 
 if __name__ == "__main__":

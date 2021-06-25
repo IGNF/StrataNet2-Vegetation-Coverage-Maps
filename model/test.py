@@ -1,7 +1,7 @@
 # We import from other files
 from utils.create_final_images import *
 from data_loader.loader import *
-from utils.reproject_to_2d_and_predict_plot_coverage import *
+from model.reproject_to_2d_and_predict_plot_coverage import *
 from model.loss_functions import *
 from utils.useful_functions import create_dir
 import torchnet as tnt
@@ -19,11 +19,12 @@ def evaluate(
     params,
     args,
     test_list,
-    mean_dataset,
+    xy_centers_dict,
     stats_path,
     stats_file,
     last_epoch=False,
-    create_final_images_bool=True,
+    plot_only_png=True,
+    full_run_situation=False,
 ):
     """Eval on test set and inference if this is the last epoch
     Outputs are: average losses (printed), infered values (csv) , k trained models, stats, and images.
@@ -53,7 +54,7 @@ def evaluate(
         pred_pointwise, pred_pointwise_b = PCC.run(
             model, cloud
         )  # compute the prediction
-        end_encoding_time = time.time()
+        # end_encoding_time = time.time()
 
         pred_pl, pred_adm, pred_pixels = project_to_2d(
             pred_pointwise, cloud, pred_pointwise_b, PCC, args
@@ -109,23 +110,25 @@ def evaluate(
             loss_meter_abs_ml.add(loss_abs_ml.item())
 
             # create final plot to visualize results
-            plot_path = os.path.join(stats_path, "img/placettes/")
+            if full_run_situation:
+                plot_path = os.path.join(stats_path, "img/placettes/full/")
+            else:
+                plot_path = os.path.join(stats_path, "img/placettes/crossval/")
             create_dir(plot_path)
-
-            if create_final_images_bool:
-                create_final_images(
-                    pred_pl,
-                    gt,
-                    pred_pointwise_b,
-                    cloud,
-                    likelihood,
-                    pl_id,
-                    mean_dataset,
-                    plot_path,
-                    stats_file,
-                    args,
-                    adm=pred_adm,
-                )  # create final images with stratum values
+            create_final_images(
+                pred_pl,
+                gt,
+                pred_pointwise_b,
+                cloud,
+                likelihood,
+                pl_id,
+                xy_centers_dict,
+                plot_path,
+                stats_file,
+                args,
+                adm=pred_adm,
+                plot_only_png=plot_only_png,
+            )  # create final images with stratum values
 
             # Keep and format prediction from pred_pl
             with torch.no_grad():
