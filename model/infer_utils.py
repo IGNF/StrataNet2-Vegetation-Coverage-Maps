@@ -252,7 +252,7 @@ def get_and_prepare_cloud_around_center(parcel_points_nparray, plot_center, args
     if plots_point_nparray.shape[0] == 0:
         return None
 
-    # TODO: Clarityt: make operations on the same axes instead of transposing inbetween
+    # TODO: for clarity: make operations on the same axes instead of transposing inbetween
     plots_point_nparray = transform_features_of_plot_cloud(
         plots_point_nparray, args.znorm_radius_in_meters
     )
@@ -260,6 +260,7 @@ def get_and_prepare_cloud_around_center(parcel_points_nparray, plot_center, args
     plots_point_nparray = rescale_cloud_data(plots_point_nparray, plot_center, args)
 
     # add a batch dim before trying out dataloader
+    # TODO: remove this useless batch dim (or use a DataLoader...)
     plots_point_nparray = np.expand_dims(plots_point_nparray, axis=0)
     plot_points_tensor = torch.from_numpy(plots_point_nparray)
     return plot_points_tensor
@@ -287,9 +288,7 @@ def create_geotiff_raster(
         image_high_veg,
     )
 
-    # we get hard rasters for medium veg, creating a fourth canal
-    img_to_write = add_hard_med_veg_raster_band(img_to_write, image_med_veg)
-
+    # add the weights band for each band
     img_to_write = add_weights_band_to_rasters(img_to_write, args)
 
     # define save paths
@@ -327,7 +326,7 @@ def add_weights_band_to_rasters(img_to_write, args):
     xx, yy = np.meshgrid(x, y, sparse=True)
     r = np.sqrt(xx ** 2 + yy ** 2)
     image_weights = 1.5 - r  # 1.5 to avoid null weights
-    image_weights[r > 0.5] = np.nan
+    image_weights[r > 0.5] = np.nan  # 0.5 = "half of the square"
 
     # add one weight canal for each score channel
     for _ in range(nb_channels):
@@ -335,7 +334,7 @@ def add_weights_band_to_rasters(img_to_write, args):
     return img_to_write
 
 
-def add_hard_med_veg_raster_band(img_to_write, image_med_veg):
+def add_hard_med_veg_raster_band(mosaic):
     """
     We classify pixels into medium veg or non medium veg, creating a fourth canal.
     We use a threshold for which coverage_hard is the closest to coverage_soft.
@@ -343,12 +342,11 @@ def add_hard_med_veg_raster_band(img_to_write, image_med_veg):
     but has little consequences since they would be scattered on the surface.
     Return shape : (nb_canals, 32, 32)
     """
-
-    # TODO: update to keep np.nan in all boolean operations
+    image_med_veg = mosaic[1]
     mask = ma.masked_invalid(image_med_veg).mask
 
     target_coverage = np.nanmean(image_med_veg)
-    lin = np.linspace(0, 1, 101)
+    lin = np.linspace(0, 1, 10001)
     delta = np.ones_like(lin)
     for idx, threshold in enumerate(lin):
         image_med_veg_hard = 1.0 * (image_med_veg > threshold)
@@ -357,8 +355,9 @@ def add_hard_med_veg_raster_band(img_to_write, image_med_veg):
     threshold = lin[np.argmin(delta)]
     image_med_veg_hard = 1.0 * (image_med_veg > threshold)
     image_med_veg_hard[mask] = np.nan
-    img_to_write = np.concatenate([img_to_write, [image_med_veg_hard]], 0)
-    return img_to_write
+    # TODO Here insert at 4th position instead of after all
+    mosaic = np.concatenate([mosaic, [image_med_veg_hard]], 0)
+    return mosaic
 
 
 def merge_geotiff_rasters(args, plot_name):
@@ -389,6 +388,7 @@ def merge_geotiff_rasters(args, plot_name):
             "driver": "GTiff",
             "height": mosaic.shape[1],
             "width": mosaic.shape[2],
+            "count": len(mosaic),
             "transform": out_trans,
             #         "crs": "+proj=utm +zone=35 +ellps=GRS80 +units=m +no_defs ",
         }
@@ -400,18 +400,16 @@ def merge_geotiff_rasters(args, plot_name):
 
 
 def finalize_merged_raster(mosaic):
-
-    # hard raster wera also averaged and need to be set to 0 or 1
-    mask = np.isnan(mosaic[3])
-    mosaic[3] = 1 * (mosaic[3] > 0.5)
-    mosaic[3][mask] = np.nan
-
-    # we set np.nan where there is no predicted value at all, even for weights
-    # Before, we fill the np.nan with 0 within the parcel to have appropriate coverage calculations...
+    """Create hard (0/1) raster from the averaged prediction of medium vegetation.
+    We then set np.nan where there is no predicted value at all, even for weights, after
+    filling the np.nan with 0 within the parcel to have appropriate coverage calculations...
+    """
+    mosaic = add_hard_med_veg_raster_band(mosaic)
 
     no_predicted_value = np.nansum(np.isnan(mosaic[:3]), axis=0) == 3
     mosaic = np.nan_to_num(mosaic, nan=0.0, posinf=None, neginf=None)
     mosaic[:, no_predicted_value] = np.nan
+
     return mosaic
 
 
@@ -452,16 +450,11 @@ def _weighted_average_of_rasters(
         both_nodata = old_nodata[band_idx] * new_nodata[band_idx]
         unweighted_weights_bands[band_idx][both_nodata] = np.nan
 
-        # # Ignore if nodata in weights
-        # old_data[w_idx] = w1  # contrib is zero if nodata
-        # new_data[w_idx] = w2  # contrib is zero if nodata
-
     # set back to NoDataValue just in case we modified values where we should not
     old_data[old_nodata] = np.nan
     new_data[new_nodata] = np.nan
 
     # we sum weighted scores, and weights. Set back to nan as nansum generates 0 if no data.
-    # TODO: assure that values are set to 0 and not to np.nan within the parcel for higher vegetation ! (not here)
     both_nodata = old_nodata * new_nodata
     out_data = np.nansum([old_data, new_data], axis=0)
     out_data[both_nodata] = np.nan

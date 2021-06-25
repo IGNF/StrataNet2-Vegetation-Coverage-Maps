@@ -119,13 +119,11 @@ def fast_scandir(dirname):
 def get_subfolder_path(path, subfolder_name):
     """Find the path to subfolder of path whose name is experiment_id."""
     subfolders = fast_scandir(path)
-    print(subfolders)
     prev_config_folder = [
         f
         for f in subfolders
         if (subfolder_name in f) and (f.split("/")[-1] == subfolder_name)
     ]
-    assert len(prev_config_folder) == 1  # is unique AND exists
     return prev_config_folder[0]
 
 

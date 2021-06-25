@@ -57,9 +57,6 @@ def main():
         if args.mode == "DEV":
             if not las_filename.endswith("004000715-5-18.las"):  # small
                 continue
-        # if args.mode == "DEV":
-        #     if las_filename == "004009611-11-13.las":  # too big
-        #         continue
 
         print_stats(
             args.stats_file,
