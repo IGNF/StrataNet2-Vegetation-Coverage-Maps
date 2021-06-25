@@ -47,9 +47,7 @@ def load_all_las_from_folder(args):
     for las_filename in las_filenames:
         # Parse LAS files
         points_nparray, xy_centers = load_and_clean_single_las(las_filename)
-        points_nparray = transform_features_of_plot_cloud(
-            points_nparray, args.znorm_radius_in_meters
-        )
+        points_nparray = transform_features_of_plot_cloud(points_nparray, args)
         all_points_nparray = np.append(all_points_nparray, points_nparray, axis=0)
         plot_name = get_filename_no_extension(las_filename)
         nparray_clouds_dict[plot_name] = points_nparray
@@ -58,7 +56,6 @@ def load_all_las_from_folder(args):
     return all_points_nparray, nparray_clouds_dict, xy_centers_dict
 
 
-# TODO: simplify the signature so that only one argument (las_filename) is needed.
 def load_and_clean_single_las(las_filename):
     """Load a LAD file into a np.array, convert coordinates to meters, clean a few anomalies in plots."""
     # Parse LAS files
