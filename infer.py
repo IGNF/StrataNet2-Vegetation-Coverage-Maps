@@ -8,6 +8,7 @@ import rasterio
 import torch
 from tqdm import tqdm
 import shapefile
+from codetiming import Timer
 
 warnings.simplefilter(action="ignore")
 np.random.seed(42)
@@ -56,9 +57,12 @@ def main():
         f"Trained model loaded from {trained_model_path}",
         print_to_console=True,
     )
-
+    times = dict()
     for las_filename in las_filenames:
-        # TODO : remove this debug condition
+
+        plot_name = get_filename_no_extension(las_filename)
+
+        # DEBUG : remove this debug condition
         if args.mode == "DEV":
             if not las_filename.endswith("004000715-5-18.las"):  # small
                 continue
@@ -69,6 +73,8 @@ def main():
             print_to_console=True,
         )
 
+        t = Timer(name="duration_divide_seconds")
+        t.start()
         # Divide parcel into plots
         (
             grid_pixel_xy_centers,
@@ -76,14 +82,17 @@ def main():
         ) = divide_parcel_las_and_get_disk_centers(
             args, las_filename, save_fig_of_division=True
         )
+        t.stop()
+
+        t.name = "duration_predict_seconds"
+        t.start()
         # print(f"File {las_filename} with shape {parcel_points_nparray.shape}")
-        plot_name = get_filename_no_extension(las_filename)
         centers = tqdm(
             grid_pixel_xy_centers,
             desc=f"Centers for parcel in {plot_name}",
             leave=True,
         )
-        # TODO: replace this loop by a cleaner ad-hoc DataLoader
+        # TODO: replace this loop by a cleaner ad-hoc DataLoader ?
         for plot_center in centers:
             plot_points_tensor = get_and_prepare_cloud_around_center(
                 parcel_points_nparray, plot_center, args
@@ -99,26 +108,64 @@ def main():
                     plot_center,
                     plot_name,
                 )
+        t.stop()
 
-        # Then
+        t.name = "duration_merge_seconds"
+        t.start()
         merge_geotiff_rasters(args, plot_name)
+        t.stop()
 
-    # Now, compute the average values from the predicted rasters
+        times.update(
+            {plot_name: {task: np.round(d, 1) for task, d in t.timers.items()}}
+        )
+        times[plot_name].update(
+            {"duration_total_seconds": np.sum(d for d in times[plot_name].values())}
+        )
+
+    # Compute coverage values from the predicted rasters and merge with additional metadata from shapefile
     sf = shapefile.Reader(args.parcel_shapefile_path)
     records = {rec.ID: rec for rec in sf.records()}
     predictions_tif = glob.glob(
         os.path.join(args.stats_path, "**/prediction_raster_parcel_*.tif"),
         recursive=True,
     )
-    metadata_list = []
+    infos = []
     for tif in predictions_tif:
-        metadata = get_parcel_info_and_predictions(tif, records)
-        metadata_list.append(metadata)
+        info = get_parcel_info_and_predictions(tif, records)
+        infos.append(info)
+    update_metadata_with_times(infos, times)
+
     # export to a csv
-    df_inference = pd.DataFrame(metadata_list)
+    df_inference = pd.DataFrame(infos)
     csv_path = os.path.join(args.stats_path, "PCC_inference_all_parcels.csv")
     df_inference.to_csv(csv_path, index=False)
     print_stats(args.stats_file, f"Saved inference results to {csv_path}")
+    print_stats(
+        args.stats_file,
+        f"Inference lasted {df_inference['duration_total_seconds'].sum():.2f} (seconds by hectar: {df_inference['duration_seconds_by_hectar'].mean():.2f})",
+    )
+
+
+def update_metadata_with_times(inference_info_list, times):
+    """
+
+    times = {plot_name : {dur1:val1, dur2:val2,...},...}
+    """
+    [
+        metadata.update(plot_times)
+        for metadata in inference_info_list
+        for plot_name, plot_times in times.items()
+        if metadata["NOM"] == plot_name
+    ]
+    [
+        metadata.update(
+            {
+                "duration_seconds_by_hectar": metadata["duration_total_seconds"]
+                / metadata["SURFACE_ha"]
+            }
+        )
+        for metadata in inference_info_list
+    ]
 
 
 def get_parcel_info_and_predictions(tif, records):
