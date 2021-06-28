@@ -138,17 +138,6 @@ def get_trained_model_path_from_experiment(path, experiment_id, use_full_model=T
     return model_path
 
 
-# def set_z_max_from_previous_experiment(args, path, experiment_id):
-#     path_experiments = os.path.join(path, "experiments/")
-#     experiment_folder = get_subfolder_path(path_experiments, experiment_id)
-#     prev_config_path = os.path.join(experiment_folder, "stats.txt")
-#     with open(prev_config_path) as f:
-#         l = f.readline()
-#         old_dict = vars(eval(l)).copy()
-#     args.z_max = old_dict["z_max"]
-#     return args
-
-
 def get_filename_no_extension(filename):
     "path/to/filename.extension -> filename"
     return os.path.splitext(filename.split("/")[-1])[-2]
