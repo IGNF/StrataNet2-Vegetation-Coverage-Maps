@@ -18,7 +18,7 @@ torch.cuda.empty_cache()
 from config import args
 from utils.useful_functions import (
     create_new_experiment_folder,
-    fast_scandir,
+    get_args_from_prev_config,
     get_filename_no_extension,
     print_stats,
     get_files_of_type_in_folder,
@@ -32,19 +32,21 @@ from model.infer_utils import (
     get_and_prepare_cloud_around_center,
 )
 
-args.z_max = 24.14  # the TRAINING args should be loaded from stats.csv/txt...
-
 
 def main():
+    # get model parameters like diam_pix, but also learnt parameters like z_max...
+    global args
+    args = get_args_from_prev_config(args, args.inference_model_id)
 
     # Create the result folder
     create_new_experiment_folder(args, infer_mode=True)  # new paths are added to args
 
     # find parcels .LAS files
     las_filenames = get_files_of_type_in_folder(args.las_parcelles_folder_path, ".las")
-    print(las_filenames)
+    print("  -  ".join(las_filenames))
 
     # Load a saved the classifier
+
     trained_model_path = get_trained_model_path_from_experiment(
         args.path, args.inference_model_id, use_full_model=False
     )
@@ -148,7 +150,7 @@ def main():
 
 def update_metadata_with_times(inference_info_list, times):
     """
-
+    Add inference times to t
     times = {plot_name : {dur1:val1, dur2:val2,...},...}
     """
     [

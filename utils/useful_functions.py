@@ -3,12 +3,12 @@ import time
 from argparse import Namespace
 
 
-def get_args_from_prev_config(args):
+def get_args_from_prev_config(args, experiment_id):
     """args is a Namespace created in config.py, and has a str argument args.use_prev_config"""
     prev_config_folder = get_subfolder_path(
-        args.path, args.use_prev_config
+        args.path, experiment_id
     )  # is unique AND exists
-    prev_config_path = os.path.join(prev_config_folder[0], "stats.txt")
+    prev_config_path = os.path.join(prev_config_folder, "stats.txt")
     with open(prev_config_path) as f:
         l = f.readline()
         old_dict = vars(eval(l)).copy()
@@ -29,13 +29,13 @@ def get_args_from_prev_config(args):
         "stats_file",
         "trained_model_path",
         "use_prev_config",
+        "inference_model_id",
     ]
     old_dict = {a: b for a, b in old_dict.items() if a not in args_to_ignore}
     # Namespace -> dict -> update -> Namespace
     new_dict = vars(args).copy()
     new_dict.update(old_dict)
     args = Namespace(**new_dict)
-    print(args)
 
     return args
 
@@ -136,6 +136,17 @@ def get_trained_model_path_from_experiment(path, experiment_id, use_full_model=T
     else:
         model_path = [m for m in models if "fold_1" in m][0]
     return model_path
+
+
+# def set_z_max_from_previous_experiment(args, path, experiment_id):
+#     path_experiments = os.path.join(path, "experiments/")
+#     experiment_folder = get_subfolder_path(path_experiments, experiment_id)
+#     prev_config_path = os.path.join(experiment_folder, "stats.txt")
+#     with open(prev_config_path) as f:
+#         l = f.readline()
+#         old_dict = vars(eval(l)).copy()
+#     args.z_max = old_dict["z_max"]
+#     return args
 
 
 def get_filename_no_extension(filename):

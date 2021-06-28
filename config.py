@@ -48,7 +48,6 @@ parser.add_argument('--stats_path', default=None, help="(Created on the fly) Pat
 parser.add_argument('--stats_file', default=None, help="(Created on the fly) Path to stats file including losses")
 
 # Retraining/Inference parameters
-# TODO: replace this with an experiment folder
 parser.add_argument('--inference_model_id', default="2021-06-24_18h29m49s", help="Identifier of experiment to load saved model with torch.load (e.g. yyyy-mm-dd_XhXmXs).")
 parser.add_argument("--use_prev_config", default=None, type=str, help="Identifier of a previous run from which to copy parameters from (e.g. yyyy-mm-dd_XhXmXs).")
 
@@ -104,7 +103,7 @@ parser.add_argument('--batch_size', default=20, type=int, help="Size of the trai
 args, _ = parser.parse_known_args()
 
 if args.use_prev_config is not None:
-    args = get_args_from_prev_config(args)
+    args = get_args_from_prev_config(args, args.use_prev_config)
 
 
 assert args.nb_stratum in [2, 3], "Number of stratum should be 2 or 3!"
