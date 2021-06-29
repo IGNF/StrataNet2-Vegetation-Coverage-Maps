@@ -39,14 +39,27 @@ def main():
     args = get_args_from_prev_config(args, args.inference_model_id)
 
     # Create the result folder
-    create_new_experiment_folder(args, infer_mode=True)  # new paths are added to args
+    create_new_experiment_folder(
+        args, infer_mode=True, resume_last_job=args.resume_last_job
+    )
 
     # find parcels .LAS files
     las_filenames = get_files_of_type_in_folder(args.las_parcelles_folder_path, ".las")
-    print("  -  ".join(las_filenames))
+    # Keep only file without a final prediction
+    las_filenames = [
+        l
+        for l in las_filenames
+        if os.path.join(
+            args.stats_path,
+            f"img/rasters/{get_filename_no_extension(l)}/prediction_raster_parcel_{get_filename_no_extension(l)}.tif",
+        )
+        not in glob.glob(
+            args.stats_path + "/**/prediction_raster_parcel_*.tif", recursive=True
+        )
+    ]
+    print(f"N={len(las_filenames)} parcels to infer on.")
 
     # Load a saved the classifier
-
     trained_model_path = get_trained_model_path_from_experiment(
         args.path, args.inference_model_id, use_full_model=False
     )
@@ -95,11 +108,13 @@ def main():
             leave=True,
         )
         # TODO: replace this loop by a cleaner ad-hoc DataLoader ?
+        # TODO: parallelize this loop - everything is independant except the loader model which could be multiplied ?
         for plot_center in centers:
             plot_points_tensor = get_and_prepare_cloud_around_center(
                 parcel_points_nparray, plot_center, args
             )
-            if plot_points_tensor is not None:
+            if plot_points_tensor is not None and plot_points_tensor.shape[-1] > 50:
+                print(plot_points_tensor.shape)
                 pred_pointwise, _ = PCC.run(model, plot_points_tensor)
                 create_geotiff_raster(
                     args,

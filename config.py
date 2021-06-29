@@ -48,10 +48,15 @@ parser.add_argument('--results_path', default=None, help="(Created on the fly) P
 parser.add_argument('--stats_path', default=None, help="(Created on the fly) Path to stats folder of current run")
 parser.add_argument('--stats_file', default=None, help="(Created on the fly) Path to stats file including losses")
 
-# Retraining/Inference parameters
-parser.add_argument('--inference_model_id', default="2021-06-24_18h29m49s", help="Identifier of experiment to load saved model with torch.load (e.g. yyyy-mm-dd_XhXmXs).")
-parser.add_argument("--use_prev_config", default=None, type=str, help="Identifier of a previous run from which to copy parameters from (e.g. yyyy-mm-dd_XhXmXs).")
+parser.add_argument('--resume_last_job', default=False, help="Use the folder of the last experiment.")
 
+# Retraining parameters
+parser.add_argument("--use_prev_config", default=None, type=str, help="Identifier of a previous run from which to copy parameters from (e.g. yyyy-mm-dd_XhXmXs).")
+# Inference parameters
+parser.add_argument('--inference_model_id', default="2021-06-24_18h29m49s", type=str, help="Identifier of experiment to load saved model with torch.load (e.g. yyyy-mm-dd_XhXmXs).")
+
+
+# Herafter are the args that are reused when use_prev_config is set to a previous experiment id.
 # Model Parameters  
 parser.add_argument('--n_class', default=4, type=int,
                     help="Size of the model output vector. In our case 4 - different vegetation coverage types")

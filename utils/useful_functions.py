@@ -13,25 +13,37 @@ def get_args_from_prev_config(args, experiment_id):
         l = f.readline()
         old_dict = vars(eval(l)).copy()
     # Ignore System args
-    args_to_ignore = [
-        "mode",
-        "path",
-        "data_path",
-        "las_placettes_folder_path",
-        "las_parcelles_folder_path",
-        "gt_file_path",
-        "cuda",
+    args_to_copy = [
+        "n_class",
+        "input_feats",
+        "subsample_size",
+        "diam_meters",
+        "diam_pix",
+        "m",
+        "norm_ground",
+        "ent",
+        "e",
+        "adm",
+        "nb_stratum",
+        "ECM_ite_max",
+        "NR_ite_max",
+        "znorm_radius_in_meters",
+        "z_max",
+        "MLP_1",
+        "MLP_2",
+        "MLP_3",
+        "drop",
+        "soft",
         "folds",
-        "coln_mapper_dict",
-        "create_final_images_bool",
-        "results_path",
-        "stats_path",
-        "stats_file",
-        "trained_model_path",
-        "use_prev_config",
-        "inference_model_id",
+        "wd",
+        "lr",
+        "step_size",
+        "lr_decay",
+        "n_epoch",
+        "n_epoch_test",
+        "batch_size",
     ]
-    old_dict = {a: b for a, b in old_dict.items() if a not in args_to_ignore}
+    old_dict = {a: b for a, b in old_dict.items() if a in args_to_copy}
     # Namespace -> dict -> update -> Namespace
     new_dict = vars(args).copy()
     new_dict.update(old_dict)
@@ -64,7 +76,7 @@ def create_dir(dir_name):
         os.makedirs(dir_name)
 
 
-def create_new_experiment_folder(args, infer_mode=False):
+def create_new_experiment_folder(args, infer_mode=False, resume_last_job=False):
 
     # We write results to different folders depending on the chosen parameters
     results_path = os.path.join(args.path, f"experiments/")
@@ -74,13 +86,18 @@ def create_new_experiment_folder(args, infer_mode=False):
     else:
         results_path = os.path.join(results_path, f"learning/{args.mode}")
 
-    # We keep track of time and stats
-    start_time = time.time()
-    print(time.strftime("%H:%M:%S", time.gmtime(start_time)))
+    if resume_last_job:
+        # Use last job
+        prev_jobs = os.listdir(results_path)
+        run_name = sorted(prev_jobs)[-1]
+    else:
+        # Define a new job by date and time
+        start_time = time.time()
+        print(time.strftime("%H:%M:%S", time.gmtime(start_time)))
+        run_name = str(time.strftime("%Y-%m-%d_%Hh%Mm%Ss"))
 
-    run_name = str(time.strftime("%Y-%m-%d_%Hh%Mm%Ss"))
     stats_path = os.path.join(results_path, run_name) + "/"
-    print("Results folder: ", stats_path)
+    print(f"Results folder: {stats_path} (with resume_last_job = {resume_last_job}")
     stats_file = os.path.join(stats_path, "stats.txt")
 
     create_dir(stats_path)
