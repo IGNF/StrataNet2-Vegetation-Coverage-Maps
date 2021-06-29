@@ -148,6 +148,7 @@ def main():
     )
 
 
+# TODO: put those functions in infer_utils.py
 def update_metadata_with_times(inference_info_list, times):
     """
     Add inference times to t
