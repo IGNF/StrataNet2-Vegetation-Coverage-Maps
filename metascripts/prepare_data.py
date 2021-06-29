@@ -2,16 +2,17 @@ import os, sys
 
 repo_absolute_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(repo_absolute_path)
-from utils.useful_functions import (
-    get_filename_no_extension,
-    get_files_of_type_in_folder,
-)
+
 import shutil
 from argparse import ArgumentParser
 import shapefile
 import pandas as pd
 from tqdm import tqdm
 
+from utils.useful_functions import (
+    get_filename_no_extension,
+    get_files_of_type_in_folder,
+)
 
 parser = ArgumentParser(description="model")  # Byte-compiled / optimized / DLL files
 parser.add_argument(

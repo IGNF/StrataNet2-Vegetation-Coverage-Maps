@@ -54,7 +54,6 @@ def load_all_las_from_folder(args):
     return all_points_nparray, nparray_clouds_dict, xy_centers_dict
 
 
-# TODO: simplify the signature so that only one argument (las_filename) is needed.
 def load_and_clean_single_las(las_filename):
     """Load a LAD file into a np.array, convert coordinates to meters, clean a few anomalies in plots."""
     # Parse LAS files

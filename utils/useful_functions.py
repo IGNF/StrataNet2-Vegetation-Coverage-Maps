@@ -67,19 +67,12 @@ def create_dir(dir_name):
 def create_new_experiment_folder(args, infer_mode=False):
 
     # We write results to different folders depending on the chosen parameters
-    results_path = os.path.join(
-        args.path, f"experiments/RESULTS_{2 if args.nb_stratum == 2 else 3}_strata/"
-    )
+    results_path = os.path.join(args.path, f"experiments/")
 
-    # TODO: simplify this path if we do not need this level of definition in paths.
-    if args.adm:
-        results_path = os.path.join(results_path, f"admissibility/{args.mode}/")
-    else:
-        results_path = os.path.join(results_path, f"only_stratum/{args.mode}/")
     if infer_mode:
-        results_path = os.path.join(results_path, "inference/")
+        results_path = os.path.join(results_path, f"inference/{args.mode}")
     else:
-        results_path = os.path.join(results_path, "learning/")
+        results_path = os.path.join(results_path, f"learning/{args.mode}")
 
     # We keep track of time and stats
     start_time = time.time()

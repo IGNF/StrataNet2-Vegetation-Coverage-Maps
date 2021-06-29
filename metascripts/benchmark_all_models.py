@@ -1,14 +1,12 @@
-import time
-import pandas as pd
-from argparse import ArgumentParser
-import os
-import sys
-import glob
-
-# repo_absolute_path = "/home/CGaydon/Documents/LIDAR PAC/plot_vegetation_coverage/"  # for inline debug only TODO: remove
+import os, sys
 
 repo_absolute_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(repo_absolute_path)
+import glob
+import time
+import pandas as pd
+from argparse import ArgumentParser
+
 from model.accuracy import calculate_performance_indicators
 from utils.useful_functions import create_dir
 
