@@ -35,7 +35,7 @@ parser.add_argument('--mode', default=MODE, type=str, help="DEV or PROD mode - D
 parser.add_argument('--path', default=repo_absolute_path, type=str, help="Repo absolute path directory")
 parser.add_argument('--data_path', default=data_path, type=str, help="Path to /repo_root/data/ folder.")
 parser.add_argument('--las_placettes_folder_path', default=os.path.join(data_path, "placettes_dataset/las_classes/"), type=str, help="Path to folder with plot las files.")
-parser.add_argument('--las_parcelles_folder_path', default=os.path.join(data_path, "parcelles_dataset_test/"), type=str, help="Path to folder with parcels las files.")
+parser.add_argument('--las_parcelles_folder_path', default=os.path.join(data_path, "SubsetParcelle_v0/"), type=str, help="Path to folder with parcels las files.")
 parser.add_argument('--parcel_shapefile_path', default=os.path.join(data_path, "parcelles_dataset/Parcellaire_2020_zone_expe_BOP_SPL_SPH_J6P_PPH_CAE_CEE_ADM.shp"), type=str, help="Path to shapefile of parcels.")
 
 

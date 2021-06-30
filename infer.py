@@ -91,12 +91,18 @@ def main():
         t = Timer(name="duration_divide_seconds")
         t.start()
         # Divide parcel into plots
-        (
-            grid_pixel_xy_centers,
-            parcel_points_nparray,
-        ) = divide_parcel_las_and_get_disk_centers(
-            args, las_filename, save_fig_of_division=True
-        )
+        try:
+
+            (
+                grid_pixel_xy_centers,
+                parcel_points_nparray,
+            ) = divide_parcel_las_and_get_disk_centers(
+                args, las_filename, save_fig_of_division=True
+            )
+        except ValueError:
+            print_stats(args.stats_file, f"Problem when loading file {las_filename}")
+            print(ValueError)
+            continue
         t.stop()
 
         t.name = "duration_predict_seconds"
@@ -114,7 +120,6 @@ def main():
                 parcel_points_nparray, plot_center, args
             )
             if plot_points_tensor is not None and plot_points_tensor.shape[-1] > 50:
-                print(plot_points_tensor.shape)
                 pred_pointwise, _ = PCC.run(model, plot_points_tensor)
                 create_geotiff_raster(
                     args,
@@ -157,10 +162,11 @@ def main():
     csv_path = os.path.join(args.stats_path, "PCC_inference_all_parcels.csv")
     df_inference.to_csv(csv_path, index=False)
     print_stats(args.stats_file, f"Saved inference results to {csv_path}")
-    print_stats(
-        args.stats_file,
-        f"Inference lasted {df_inference['duration_total_seconds'].sum():.2f} (seconds by hectar: {df_inference['duration_seconds_by_hectar'].mean():.2f})",
-    )
+    if "duration_total_seconds" in df_inference.columns:
+        print_stats(
+            args.stats_file,
+            f"Inference lasted {df_inference['duration_total_seconds'].sum():.2f} (seconds by hectar: {df_inference['duration_seconds_by_hectar'].mean():.2f})",
+        )
 
 
 # TODO: put those functions in infer_utils.py
@@ -175,15 +181,16 @@ def update_metadata_with_times(inference_info_list, times):
         for plot_name, plot_times in times.items()
         if metadata["NOM"] == plot_name
     ]
-    [
-        metadata.update(
-            {
-                "duration_seconds_by_hectar": metadata["duration_total_seconds"]
-                / metadata["SURFACE_ha"]
-            }
-        )
-        for metadata in inference_info_list
-    ]
+    for metadata in inference_info_list:
+        try:
+            metadata.update(
+                {
+                    "duration_seconds_by_hectar": metadata["duration_total_seconds"]
+                    / metadata["SURFACE_ha"]
+                }
+            )
+        except:
+            pass
 
 
 def get_parcel_info_and_predictions(tif, records):
