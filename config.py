@@ -5,7 +5,7 @@ from utils.useful_functions import get_args_from_prev_config
 # This script defines all parameters for data loading, model definition, sand I/O operations.
 
 # Set to DEV for faster iterations (1 fold, 4 epochs), in order to e.g. test saving results.
-MODE = "PROD"  # DEV or PROD
+MODE = "DEV"  # DEV or PROD
 
 FEATURE_NAMES = [
     "x",
@@ -29,7 +29,6 @@ parser = ArgumentParser(description="model")  # Byte-compiled / optimized / DLL 
 # System Parameters
 repo_absolute_path = os.path.dirname(os.path.abspath(__file__))
 data_path = os.path.join(repo_absolute_path, "data/")
-print(f"Dataset folder in use: {data_path}")
 
 parser.add_argument('--mode', default=MODE, type=str, help="DEV or PROD mode - DEV is a quick debug mode")
 parser.add_argument('--path', default=repo_absolute_path, type=str, help="Repo absolute path directory")
@@ -48,7 +47,7 @@ parser.add_argument('--results_path', default=None, help="(Created on the fly) P
 parser.add_argument('--stats_path', default=None, help="(Created on the fly) Path to stats folder of current run")
 parser.add_argument('--stats_file', default=None, help="(Created on the fly) Path to stats file including losses")
 
-parser.add_argument('--resume_last_job', default=False, help="Use the folder of the last experiment.")
+parser.add_argument('--resume_last_job', default=0, type=bool, help="Use (1) or do not use (0) the folder of the last experiment.")
 
 # Retraining parameters
 parser.add_argument("--use_prev_config", default=None, type=str, help="Identifier of a previous run from which to copy parameters from (e.g. yyyy-mm-dd_XhXmXs).")

@@ -28,71 +28,57 @@ from model.point_cloud_classifier import PointCloudClassifier
 from model.infer_utils import (
     divide_parcel_las_and_get_disk_centers,
     create_geotiff_raster,
+    get_list_las_files_not_infered_yet,
+    log_inference_times,
+    make_parcel_predictions_csv,
     merge_geotiff_rasters,
     get_and_prepare_cloud_around_center,
 )
 
 
 def main():
-    # get model parameters like diam_pix, but also learnt parameters like z_max...
+    # Setup
     global args
     args = get_args_from_prev_config(args, args.inference_model_id)
-
-    # Create the result folder
     create_new_experiment_folder(
         args, infer_mode=True, resume_last_job=args.resume_last_job
     )
-
-    # find parcels .LAS files
-    las_filenames = get_files_of_type_in_folder(args.las_parcelles_folder_path, ".las")
-    # Keep only file without a final prediction
-    las_filenames = [
-        l
-        for l in las_filenames
-        if os.path.join(
-            args.stats_path,
-            f"img/rasters/{get_filename_no_extension(l)}/prediction_raster_parcel_{get_filename_no_extension(l)}.tif",
-        )
-        not in glob.glob(
-            args.stats_path + "/**/prediction_raster_parcel_*.tif", recursive=True
-        )
-    ]
-    print(f"N={len(las_filenames)} parcels to infer on.")
-
-    # Load a saved the classifier
     trained_model_path = get_trained_model_path_from_experiment(
         args.path, args.inference_model_id, use_full_model=False
     )
     model = torch.load(trained_model_path)
     model.eval()
     PCC = PointCloudClassifier(args)
-
     print_stats(
         args.stats_file,
         f"Trained model loaded from {trained_model_path}",
-        print_to_console=True,
     )
-    times = dict()
+
+    # Get the shapefile records and las filenames
+    sf = shapefile.Reader(args.parcel_shapefile_path)
+    shp_records = {rec.ID: rec for rec in sf.records()}
+    las_filenames = get_list_las_files_not_infered_yet(
+        args.stats_path, args.las_parcelles_folder_path
+    )
+    print_stats(args.stats_file, f"N={len(las_filenames)} parcels to infer on.")
+
     for las_filename in las_filenames:
 
         plot_name = get_filename_no_extension(las_filename)
 
         # DEBUG : remove this debug condition
-        if args.mode == "DEV":
-            if not las_filename.endswith("004000715-5-18.las"):  # small
-                continue
+        # if args.mode == "DEV":
+        #     if not las_filename.endswith("004000715-5-18.las"):  # small
+        #         continue
 
         print_stats(
             args.stats_file,
             f"Inference on parcel file {las_filename}",
-            print_to_console=True,
         )
 
         t = Timer(name="duration_divide_seconds")
         t.start()
-        # Divide parcel into plots
         try:
-
             (
                 grid_pixel_xy_centers,
                 parcel_points_nparray,
@@ -107,15 +93,13 @@ def main():
 
         t.name = "duration_predict_seconds"
         t.start()
-        # print(f"File {las_filename} with shape {parcel_points_nparray.shape}")
-        centers = tqdm(
-            grid_pixel_xy_centers,
-            desc=f"Centers for parcel in {plot_name}",
-            leave=True,
-        )
         # TODO: replace this loop by a cleaner ad-hoc DataLoader ?
         # TODO: parallelize this loop - everything is independant except the loader model which could be multiplied ?
-        for plot_center in centers:
+        for plot_center in tqdm(
+            grid_pixel_xy_centers[100:120],
+            desc=f"Centers for parcel in {plot_name}",
+            leave=True,
+        ):
             plot_points_tensor = get_and_prepare_cloud_around_center(
                 parcel_points_nparray, plot_center, args
             )
@@ -137,93 +121,15 @@ def main():
         merge_geotiff_rasters(args, plot_name)
         t.stop()
 
-        times.update(
-            {plot_name: {task: np.round(d, 1) for task, d in t.timers.items()}}
-        )
-        times[plot_name].update(
-            {"duration_total_seconds": np.sum(d for d in times[plot_name].values())}
-        )
+        # Append to infer_times.csv
+        with open(args.times_file, encoding="utf-8", mode="a") as f:
+            log_inference_times(plot_name, t, shp_records, f)
 
-    # Compute coverage values from the predicted rasters and merge with additional metadata from shapefile
-    sf = shapefile.Reader(args.parcel_shapefile_path)
-    records = {rec.ID: rec for rec in sf.records()}
-    predictions_tif = glob.glob(
-        os.path.join(args.stats_path, "**/prediction_raster_parcel_*.tif"),
-        recursive=True,
+    # Compute coverage values from ALL predicted rasters and merge with additional metadata from shapefile
+    df_inference, csv_path = make_parcel_predictions_csv(
+        args.parcel_shapefile_path, args.stats_path
     )
-    infos = []
-    for tif in predictions_tif:
-        info = get_parcel_info_and_predictions(tif, records)
-        infos.append(info)
-    update_metadata_with_times(infos, times)
-
-    # export to a csv
-    df_inference = pd.DataFrame(infos)
-    csv_path = os.path.join(args.stats_path, "PCC_inference_all_parcels.csv")
-    df_inference.to_csv(csv_path, index=False)
     print_stats(args.stats_file, f"Saved inference results to {csv_path}")
-    if "duration_total_seconds" in df_inference.columns:
-        print_stats(
-            args.stats_file,
-            f"Inference lasted {df_inference['duration_total_seconds'].sum():.2f} (seconds by hectar: {df_inference['duration_seconds_by_hectar'].mean():.2f})",
-        )
-
-
-# TODO: put those functions in infer_utils.py
-def update_metadata_with_times(inference_info_list, times):
-    """
-    Add inference times to t
-    times = {plot_name : {dur1:val1, dur2:val2,...},...}
-    """
-    [
-        metadata.update(plot_times)
-        for metadata in inference_info_list
-        for plot_name, plot_times in times.items()
-        if metadata["NOM"] == plot_name
-    ]
-    for metadata in inference_info_list:
-        try:
-            metadata.update(
-                {
-                    "duration_seconds_by_hectar": metadata["duration_total_seconds"]
-                    / metadata["SURFACE_ha"]
-                }
-            )
-        except:
-            pass
-
-
-def get_parcel_info_and_predictions(tif, records):
-    """From a prediction tif given by  its path and the records obtained from a shapefile,
-    get the parcel metadata as well as the predictions : coverage and admissibility
-    """
-    mosaic = rasterio.open(tif).read()
-
-    # Vb, Vmoy, Vh, Vmoy_hard
-    band_means = np.nanmean(mosaic[:4], axis=(1, 2))
-
-    # TODO: change the calculation of admissibility here
-    admissibility = np.nanmean(np.nanmax([[mosaic[0]], [mosaic[0]]], axis=0))
-
-    tif_name = get_filename_no_extension(tif).replace("prediction_raster_parcel_", "")
-    rec = records[tif_name]
-
-    metadata = {
-        "NOM": tif_name,
-        "SURFACE_m2": rec._area,
-        "SURFACE_ha": np.round((rec._area) / 10000, 2),
-        "SURF_ADM_ha": rec.SURF_ADM,
-        "REPORTED_ADM": float(rec.ADM),
-    }
-    infered_values = {
-        "pred_veg_b": band_means[0],
-        "pred_veg_moy": band_means[1],
-        "pred_veg_h": band_means[2],
-        "adm_max_over_veg_b_and_veg_moy": admissibility,
-        "pred_veg_moy_hard": band_means[3],
-    }
-    metadata.update(infered_values)
-    return metadata
 
 
 if __name__ == "__main__":

@@ -85,6 +85,7 @@ def create_new_experiment_folder(args, infer_mode=False, resume_last_job=False):
         results_path = os.path.join(results_path, f"inference/{args.mode}")
     else:
         results_path = os.path.join(results_path, f"learning/{args.mode}")
+    args.results_path = results_path
 
     if resume_last_job:
         # Use last job
@@ -97,15 +98,16 @@ def create_new_experiment_folder(args, infer_mode=False, resume_last_job=False):
         run_name = str(time.strftime("%Y-%m-%d_%Hh%Mm%Ss"))
 
     stats_path = os.path.join(results_path, run_name) + "/"
-    print(f"Results folder: {stats_path} (with resume_last_job = {resume_last_job}")
-    stats_file = os.path.join(stats_path, "stats.txt")
-
     create_dir(stats_path)
-
-    # add to args
-    args.results_path = results_path
     args.stats_path = stats_path
+    print(f"Results folder: {stats_path} (with resume_last_job = {resume_last_job})")
+
+    stats_file = os.path.join(stats_path, "stats.txt")
     args.stats_file = stats_file
+
+    if infer_mode:
+        times_file = os.path.join(stats_path, "infer_times.csv")
+        args.times_file = times_file
 
 
 def get_files_of_type_in_folder(folder_path, extension):
