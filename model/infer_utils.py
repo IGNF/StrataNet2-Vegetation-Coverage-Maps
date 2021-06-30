@@ -9,6 +9,9 @@ import matplotlib.pyplot as plt
 from sys import getsizeof
 import rasterio
 from rasterio.merge import merge
+import rasterio.features
+from rasterio.transform import Affine
+from shapely import geometry
 import shapefile
 
 # We import from other files
@@ -357,7 +360,7 @@ def add_weights_band_to_rasters(img_to_write, args):
     return img_to_write
 
 
-def add_hard_med_veg_raster_band(mosaic):
+def insert_hard_med_veg_raster_band(mosaic):
     """
     We classify pixels into medium veg or non medium veg, creating a fourth canal
     We use a threshold for which coverage_hard is the closest to coverage_soft.
@@ -385,6 +388,56 @@ def add_hard_med_veg_raster_band(mosaic):
     return mosaic
 
 
+def insert_admissibility_raster(src_mosaic):
+    """
+    Return first bands are now : (Vb, Vm_soft, Vh, Vm_hard, admissibility)
+    Ref:
+    - https://gis.stackexchange.com/a/131080/184486
+    - https://rasterio.readthedocs.io/en/latest/api/rasterio.features.html#rasterio.features.geometry_mask
+    """
+    # Get data
+    mosaic = src_mosaic.copy()
+    veg_b = mosaic[0]
+    veg_moy_soft = mosaic[1]
+    veg_moy_hard = mosaic[3]
+    mask = np.isnan(veg_moy_hard)
+
+    # Eliminate zones < 5 pixels.
+    veg_moy_hard_sieve = rasterio.features.sieve(
+        veg_moy_hard.astype(np.int16), 5, mask=mask
+    )
+    # Set hard veg outside of parcel to avoid border effects.
+    veg_moy_hard_sieve[mask] = 1
+    # Use min is to keep small patches of zeros surround by ones (but not ones surrounder by zero).
+    veg_moy_hard_sieve = np.nanmin(
+        [[veg_moy_hard], [veg_moy_hard_sieve]], axis=0
+    ).squeeze()
+
+    # Vectorize + negative buffer of 1.5m -for shapes with value == 1 (i.e. with medium vegetation)
+    BUFFER_WIDTH_METERS = -1.5
+    poly = [
+        geometry.shape(polygon).buffer(BUFFER_WIDTH_METERS)
+        for polygon, value in rasterio.features.shapes(veg_moy_hard_sieve, mask=None)
+        if value == 1
+    ]
+    poly = [s for s in poly if not s.is_empty]
+
+    # Create an inaccessibility array mask (i.e. True for pixels whose center is in shapes)
+    identity_transform = Affine(1.0, 0.0, 0.0, 0.0, 1.0, 0.0)
+    inaccessibility_mask = rasterio.features.geometry_mask(
+        poly, veg_moy_hard.shape, identity_transform, invert=True
+    )
+
+    # Gather results
+    admissibility = np.max([[veg_b], [veg_moy_soft]], axis=0).squeeze()
+    admissibility[inaccessibility_mask] = 0
+    admissibility[mask] = np.nan
+
+    mosaic = np.insert(mosaic, 4, admissibility, axis=0)
+
+    return mosaic
+
+
 def merge_geotiff_rasters(args, plot_name):
     """
     Create a weighted average form a folder of tif files with channels [C1, C2, ..., Cn, W1, W2, ..., Wn].
@@ -408,7 +461,6 @@ def merge_geotiff_rasters(args, plot_name):
 
         # save
         out_meta = src.meta.copy()
-        print(out_meta)
         out_meta.update(
             {
                 "driver": "GTiff",
@@ -422,23 +474,40 @@ def merge_geotiff_rasters(args, plot_name):
         out_fp = os.path.join(
             tiff_folder_path, f"prediction_raster_parcel_{plot_name}.tif"
         )
+        descriptions = [
+            "VegetationBasse",
+            "VegetationIntermediaire",
+            "VegetationHaute",
+            "VegetationIntermediaireDiscretisee",
+            "Admissibilite",
+            "PonderationPredictions",
+        ]
         with rasterio.open(out_fp, "w", **out_meta) as dest:
             dest.write(mosaic)
+            for idx in range(len(descriptions)):
+                dest.set_band_description(1 + idx, descriptions[idx])
         print(f"Saved merged raster prediction to {out_fp}")
     else:
         print(f"No predictions for {plot_name}. Cannot merge.")
 
 
 def finalize_merged_raster(mosaic):
-    """Create hard (0/1) raster from the averaged prediction of medium vegetation.
-    We then set np.nan where there is no predicted value at all, even for weights, after
-    filling the np.nan with 0 within the parcel to have appropriate coverage calculations...
     """
-    mosaic = add_hard_med_veg_raster_band(mosaic)
+    From the mosaic containing predictions (Vb, Vm, Vh), we:
+    - Keep only one weight layer instead of three initially
+    - Insert hard (0/1) raster for medium vegetation.
+    - Insert admissibility raster
+    - Replace np.nan with 0 in pixels which have at least one predicted value (for one of the coverage)
+    to have appropriate coverage calculations.
+    """
+    mosaic = mosaic[: (3 + 1)]  # 3 * pred + 1 weights
+    mosaic = insert_hard_med_veg_raster_band(mosaic)
 
     no_predicted_value = np.nansum(np.isnan(mosaic[:3]), axis=0) == 3
     mosaic = np.nan_to_num(mosaic, nan=0.0, posinf=None, neginf=None)
     mosaic[:, no_predicted_value] = np.nan
+
+    mosaic = insert_admissibility_raster(mosaic)
 
     return mosaic
 
@@ -526,7 +595,7 @@ def get_parcel_info_and_predictions(tif, records):
     # Vb, Vmoy, Vh, Vmoy_hard
     band_means = np.nanmean(mosaic[:4], axis=(1, 2))
 
-    # TODO: change the calculation of admissibility here
+    # TODO: admissibility computed at merging
     admissibility = np.nanmean(np.nanmax([[mosaic[0]], [mosaic[0]]], axis=0))
 
     tif_name = get_filename_no_extension(tif).replace("prediction_raster_parcel_", "")

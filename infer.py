@@ -96,7 +96,7 @@ def main():
         # TODO: replace this loop by a cleaner ad-hoc DataLoader ?
         # TODO: parallelize this loop - everything is independant except the loader model which could be multiplied ?
         for plot_center in tqdm(
-            grid_pixel_xy_centers[100:120],
+            grid_pixel_xy_centers,
             desc=f"Centers for parcel in {plot_name}",
             leave=True,
         ):
