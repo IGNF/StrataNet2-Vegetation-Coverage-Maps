@@ -44,7 +44,7 @@ def main():
         args, infer_mode=True, resume_last_job=args.resume_last_job
     )
     trained_model_path = get_trained_model_path_from_experiment(
-        args.path, args.inference_model_id, use_full_model=False
+        args.path, args.inference_model_id, use_full_model=True
     )
     model = torch.load(trained_model_path)
     model.eval()

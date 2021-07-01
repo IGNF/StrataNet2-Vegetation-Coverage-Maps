@@ -593,7 +593,7 @@ def get_parcel_info_and_predictions(tif, records):
     mosaic = rasterio.open(tif).read()
 
     # Vb, Vmoy, Vh, Vmoy_hard
-    band_means = np.nanmean(mosaic[:4], axis=(1, 2))
+    band_means = np.nanmean(mosaic[:5], axis=(1, 2))
 
     # TODO: admissibility computed at merging
     admissibility = np.nanmean(np.nanmax([[mosaic[0]], [mosaic[0]]], axis=0))
@@ -614,6 +614,7 @@ def get_parcel_info_and_predictions(tif, records):
         "pred_veg_h": band_means[2],
         "adm_max_over_veg_b_and_veg_moy": admissibility,
         "pred_veg_moy_hard": band_means[3],
+        "fifth_band_mean_ie_weights_or_admissibility": band_means[4],
     }
     metadata.update(infered_values)
     return metadata
