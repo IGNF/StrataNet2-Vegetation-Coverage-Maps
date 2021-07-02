@@ -52,7 +52,7 @@ parser.add_argument('--resume_last_job', default=0, type=bool, help="Use (1) or 
 # Retraining parameters
 parser.add_argument("--use_prev_config", default=None, type=str, help="Identifier of a previous run from which to copy parameters from (e.g. yyyy-mm-dd_XhXmXs).")
 # Inference parameters
-parser.add_argument('--inference_model_id', default="2021-06-24_18h29m49s", type=str, help="Identifier of experiment to load saved model with torch.load (e.g. yyyy-mm-dd_XhXmXs).")
+parser.add_argument('--inference_model_id', default="2021-07-01_17h57m35s", type=str, help="Identifier of experiment to load saved model with torch.load (e.g. yyyy-mm-dd_XhXmXs).")
 
 
 # Herafter are the args that are reused when use_prev_config is set to a previous experiment id.
@@ -68,7 +68,7 @@ parser.add_argument('--diam_pix', default=20, type=int,
                     help="Size of the output stratum raster (its diameter in pixels)")
 parser.add_argument('--m', default=1., type=float,
                     help="Loss regularization. The weight of the negative loglikelihood loss in the total loss")
-parser.add_argument('--norm_ground', default=True, type=bool,
+parser.add_argument('--norm_ground', default=False, type=bool,
                     help="Whether we normalize low vegetation and bare soil values, so LV+BS=1 (True) or we keep unmodified LV value (False) (recommended)")
 parser.add_argument('--ent', default=True, type=bool, help="Whether we add antropy loss or not")
 parser.add_argument('--e', default=0.2, type=float,
