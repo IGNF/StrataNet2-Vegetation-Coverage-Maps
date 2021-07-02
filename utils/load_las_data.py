@@ -46,12 +46,14 @@ def load_all_las_from_folder(args):
     all_points_nparray = np.empty((0, len(args.input_feats)))
     for las_filename in las_filenames:
         # Parse LAS files
-        points_nparray, xy_centers = load_and_clean_single_las(las_filename)
-        points_nparray = transform_features_of_plot_cloud(points_nparray, args)
+        points_nparray, xy_center = load_and_clean_single_las(las_filename)
+        points_nparray = transform_features_of_plot_cloud(
+            points_nparray, xy_center, args
+        )
         all_points_nparray = np.append(all_points_nparray, points_nparray, axis=0)
         plot_name = get_filename_no_extension(las_filename)
         nparray_clouds_dict[plot_name] = points_nparray
-        xy_centers_dict[plot_name] = xy_centers
+        xy_centers_dict[plot_name] = xy_center
 
     return all_points_nparray, nparray_clouds_dict, xy_centers_dict
 
@@ -91,7 +93,7 @@ def load_and_clean_single_las(las_filename):
     return points_nparray, xy_centers
 
 
-def transform_features_of_plot_cloud(points_nparray, args):
+def transform_features_of_plot_cloud(points_nparray, xy_center, args):
     """From the loaded points_nparray, process features and add additional ones.
     This is different from [0;1] normalization which is performed in
     1) Add a feature:min-normalized using min-z of the plot
@@ -103,9 +105,7 @@ def transform_features_of_plot_cloud(points_nparray, args):
             points_nparray, args.znorm_radius_in_meters
         )
     elif args.z_normalization_method == "spline":
-        points_nparray = normalize_z_with_approximate_spline(
-            points_nparray, args.spline_pix_size
-        )
+        points_nparray = normalize_z_with_smooth_spline(points_nparray, xy_center, args)
     else:
         sys.exit(f"Unknown normalization method {args.z_normalization_method}")
     # add "z_original"
@@ -132,21 +132,86 @@ def normalize_z_with_minz_in_a_radius(cloud, znorm_radius_in_meters):
     return cloud
 
 
-def normalize_z_with_approximate_spline(cloud, pix_size):
-    """Approximate a DTM using Spline from min points gathered on a grid on the plot, with a smoothing that avoids most artefact.
-    This method is less robust that KNN radius and can yield artefact at ploit borders.
+def center_plot(cloud, xy_center):
+    """Center the cloud to 0, also return the initial xymin to decenter the cloud"""
+    cloud[:, :2] = cloud[:, :2] - xy_center
+    return cloud
+
+
+def decenter_plot(cloud, xy_center):
+    cloud[:, :2] = cloud[:, :2] + xy_center
+    return cloud
+
+
+def xy_to_polar_coordinates(xy):
+    r = np.sqrt((1.0 * xy * xy).sum(axis=1))
+    teta = np.arctan2(
+        xy[:, 1], xy[:, 0]
+    )  # -pi, pi around (0,0) to (1,0). y and x are args in this order.
+    rteta = np.stack([r, teta], axis=1)
+    return rteta
+
+
+def polar_coordinates_to_xy(rteta):
+    x = rteta[:, 0] * np.cos(rteta[:, 1])
+    y = rteta[:, 0] * np.sin(rteta[:, 1])
+    xy = np.stack([x, y], axis=1)
+    return xy
+
+
+def create_buffer_points(cloud, ring_thickness_meters, diam_meters):
+    """cloud is centered with xy as first coordinates in meters."""
+    candidates_polar = cloud.copy()
+    candidates_polar[:, :2] = xy_to_polar_coordinates(candidates_polar[:, :2])
+    candidates_polar = candidates_polar[
+        candidates_polar[:, 0] > (diam_meters // 2 - ring_thickness_meters)
+    ]  # points in external ring
+    candidates_polar[:, 0] = candidates_polar[:, 0] + 2 * (
+        abs(diam_meters // 2 - candidates_polar[:, 0])
+    )  # use border of plot as a mirror
+    candidates_polar[:, :2] = polar_coordinates_to_xy(candidates_polar[:, :2])
+    return candidates_polar
+
+
+def normalize_z_with_smooth_spline(cloud, xy_center, args):
+    """From a regular grid, find lowest point in each cell/pixel and use them to approximate
+    the DTM with a spline. Then, normalize z by flattening the ground using the DTM.
     """
     norm_cloud = cloud.copy()
-    xy_quantified = (
-        norm_cloud[:, :2] // pix_size + 0.5
-    ) * pix_size  # quantify and center coordinates
-    xy_pairs, z_min = npi.group_by(xy_quantified).min(norm_cloud[:, 2])
-    sbs = SmoothBivariateSpline(
-        xy_pairs[:, 0], xy_pairs[:, 1], z_min, kx=3, ky=3, s=xy_pairs.shape[0]
+    s = (20 // args.spline_pix_size) ** 2 * 2
+
+    # center in order to use polar coordinate
+    norm_cloud = center_plot(norm_cloud, xy_center)
+
+    # create buffer
+    buffer_points = create_buffer_points(
+        norm_cloud, args.ring_thickness_meters, args.diam_meters
     )
+    extended_cloud = np.concatenate([norm_cloud, buffer_points])
+
+    # fit
+    xy_quantified = (
+        extended_cloud[:, :2] // args.spline_pix_size + 0.5
+    ) * args.spline_pix_size  # quantify (and center) coordinates
+    _, z_argmin = npi.group_by(xy_quantified).argmin(extended_cloud[:, 2])
+    sbs = SmoothBivariateSpline(
+        extended_cloud[z_argmin, 0],
+        extended_cloud[z_argmin, 1],
+        extended_cloud[z_argmin, 2],
+        kx=3,
+        ky=3,
+        s=s,
+    )
+
+    # predict on normcloud
     norm_cloud[:, 2] = norm_cloud[:, 2] - sbs(
         norm_cloud[:, 0], norm_cloud[:, 1], grid=False
     )
+    # add bias and clip as a first method to deal with the gamma distributions
+    norm_cloud[:, 2] = np.clip(1.5 + norm_cloud[:, 2], a_min=0, a_max=np.inf)
+
+    # get back to initial coordinate system
+    norm_cloud = decenter_plot(norm_cloud, xy_center)
     return norm_cloud
 
 

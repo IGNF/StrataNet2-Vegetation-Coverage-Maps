@@ -22,7 +22,7 @@ def loss_loglikelihood(pred_pointwise, cloud, params, PCC, args):
     # We extract heights of every point
     z_all = np.empty((0))
     for current_cloud in cloud:
-        z = current_cloud[2] * args.z_max  # we go back from normalized data
+        z = current_cloud[2] * args.z_max  # we go back from scaled data
         z_all = np.append(z_all, z)
 
     z_all = np.asarray(z_all).reshape(-1)
