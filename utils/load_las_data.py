@@ -1,3 +1,4 @@
+import math
 import os
 from utils.useful_functions import (
     get_filename_no_extension,
@@ -43,9 +44,7 @@ def load_all_las_from_folder(args):
     for las_filename in las_filenames:
         # Parse LAS files
         points_nparray, xy_centers = load_and_clean_single_las(las_filename)
-        points_nparray = transform_features_of_plot_cloud(
-            points_nparray, args.znorm_radius_in_meters
-        )
+        points_nparray = transform_features_of_plot_cloud(points_nparray, args)
         all_points_nparray = np.append(all_points_nparray, points_nparray, axis=0)
         plot_name = get_filename_no_extension(las_filename)
         nparray_clouds_dict[plot_name] = points_nparray
@@ -55,7 +54,11 @@ def load_all_las_from_folder(args):
 
 
 def load_and_clean_single_las(las_filename):
-    """Load a LAD file into a np.array, convert coordinates to meters, clean a few anomalies in plots."""
+    """Load a LAD file into a np.array, and perform a few conversions and cleaning:
+    - convert coordinates to meters
+    - convert scan angle to degrees (relative to nadir)
+    - clean a few anomalies in plots.
+    """
     # Parse LAS files
     las = File(las_filename, mode="r")
     x_las = las.X / 100  # we divide by 100 as all the values in las are in cm
@@ -68,8 +71,24 @@ def load_and_clean_single_las(las_filename):
     intensity = las.intensity
     return_num = las.return_num
     num_returns = las.num_returns
+    scan_angle = scaled_scan_angle_to_degree(las.scan_angle)
+    scan_dir_flag = las.scan_dir_flag
+
     points_nparray = np.asarray(
-        [x_las, y_las, z_las, r, g, b, nir, intensity, return_num, num_returns]
+        [
+            x_las,
+            y_las,
+            z_las,
+            r,
+            g,
+            b,
+            nir,
+            intensity,
+            return_num,
+            num_returns,
+            scan_angle,
+            scan_dir_flag,
+        ]
     ).T
 
     # There is a file with 2 points 60m above others (maybe birds), we delete these points
@@ -89,20 +108,22 @@ def load_and_clean_single_las(las_filename):
     return points_nparray, xy_centers
 
 
-def transform_features_of_plot_cloud(points_nparray, znorm_radius_in_meters):
+def transform_features_of_plot_cloud(points_nparray, args):
     """From the loaded points_nparray, process features and add additional ones.
     This is different from [0;1] normalization which is performed in
     1) Add a feature:min-normalized using min-z of the plot
     2) Substract z_min at local level using KNN
     """
-    # normalize "z"
+
+    # From "z" to "z_flat"
     points_nparray = normalize_z_with_minz_in_a_radius(
-        points_nparray, znorm_radius_in_meters
+        points_nparray, args.znorm_radius_in_meters
     )
     # add "z_original"
-    zmin_plot = np.min(points_nparray[:, 2])
+    idx = args.input_feats.index("z_flat")
+    zmin_plot = np.min(points_nparray[:, idx])
     points_nparray = np.append(
-        points_nparray, points_nparray[:, 2:3] - zmin_plot, axis=1
+        points_nparray, points_nparray[:, idx : (idx + 1)] - zmin_plot, axis=1
     )
 
     return points_nparray
@@ -125,6 +146,13 @@ def normalize_z_with_minz_in_a_radius(points_placette, znorm_radius_in_meters):
 
 def normalize_z_with_approximate_DTM(points_placette, args):
     pass
+
+
+def scaled_scan_angle_to_degree(scan_angle, DIVISION_RATIO=10000):
+    """Convert las scan angle info, which are minutes divided by 10000,"""
+    DEGREES_BY_MINUTE = 1.0 / ((math.pi / (180 * 60)) / (math.pi / 180))  # 1/0.01666667
+    degrees = (scan_angle / DIVISION_RATIO) * DEGREES_BY_MINUTE
+    return degrees
 
 
 def open_metadata_dataframe(args, pl_id_to_keep):

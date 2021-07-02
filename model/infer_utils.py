@@ -279,9 +279,7 @@ def get_and_prepare_cloud_around_center(parcel_points_nparray, plot_center, args
         return None
 
     # TODO: for clarity: make operations on the same axes instead of transposing inbetween
-    plots_point_nparray = transform_features_of_plot_cloud(
-        plots_point_nparray, args.znorm_radius_in_meters
-    )
+    plots_point_nparray = transform_features_of_plot_cloud(plots_point_nparray, args)
     plots_point_nparray = plots_point_nparray.transpose()
     plots_point_nparray = rescale_cloud_data(plots_point_nparray, plot_center, args)
 

@@ -7,6 +7,7 @@ from utils.useful_functions import get_args_from_prev_config
 # Set to DEV for faster iterations (1 fold, 4 epochs), in order to e.g. test saving results.
 MODE = "PROD"  # DEV or PROD
 
+# FEATURE NAMES used to get the right index. Do not permutate features x, y, z, red, green, blue, nir and intensity.
 FEATURE_NAMES = [
     "x",
     "y",
@@ -19,6 +20,8 @@ FEATURE_NAMES = [
     "return_num",
     "num_returns",
     "z_non_flat",
+    "scan_angle",
+    "scan_dir_flag",
 ]
 
 parser = ArgumentParser(description="model")  # Byte-compiled / optimized / DLL files
