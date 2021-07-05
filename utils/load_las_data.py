@@ -178,7 +178,6 @@ def normalize_z_with_smooth_spline(cloud, xy_center, args):
     the DTM with a spline. Then, normalize z by flattening the ground using the DTM.
     """
     norm_cloud = cloud.copy()
-    s = (20 // args.spline_pix_size) ** 2 * 2
 
     # center in order to use polar coordinate
     norm_cloud = center_plot(norm_cloud, xy_center)
@@ -194,21 +193,44 @@ def normalize_z_with_smooth_spline(cloud, xy_center, args):
         extended_cloud[:, :2] // args.spline_pix_size + 0.5
     ) * args.spline_pix_size  # quantify (and center) coordinates
     _, z_argmin = npi.group_by(xy_quantified).argmin(extended_cloud[:, 2])
-    sbs = SmoothBivariateSpline(
-        extended_cloud[z_argmin, 0],
-        extended_cloud[z_argmin, 1],
-        extended_cloud[z_argmin, 2],
-        kx=3,
-        ky=3,
-        s=s,
-    )
+    extended_cloud = extended_cloud[z_argmin]
+    max_n_iter = 10
+    for i in range(max_n_iter):
+        sbs = SmoothBivariateSpline(
+            extended_cloud[:, 0],
+            extended_cloud[:, 1],
+            extended_cloud[:, 2],
+            kx=3,
+            ky=3,
+            s=None,
+        )
 
-    # predict on normcloud
+        # predict on normcloud
+        norm_cloud_iter = norm_cloud.copy()
+        norm_cloud_iter[:, 2] = norm_cloud_iter[:, 2] - sbs(
+            norm_cloud_iter[:, 0], norm_cloud_iter[:, 1], grid=False
+        )
+
+        # Stop iteration if no points below 0 or if most are close to 0
+        mask_below_spline = norm_cloud_iter[:, 2] < 0
+        if mask_below_spline.sum() == 0:
+            break
+        else:
+            q = np.quantile(norm_cloud_iter[mask_below_spline, 2], 0.1)  # lowest 10%
+            if q > -0.05:
+                break
+        # find points falling below spline surface and add them to points used to fit the spline
+        points_below_spline = norm_cloud[mask_below_spline]
+        extended_cloud = np.concatenate([extended_cloud, points_below_spline])
+
+    # Normalize original cloud with finalized Spline
     norm_cloud[:, 2] = norm_cloud[:, 2] - sbs(
         norm_cloud[:, 0], norm_cloud[:, 1], grid=False
     )
-    # add bias and clip as a first method to deal with the gamma distributions
-    norm_cloud[:, 2] = np.clip(1.5 + norm_cloud[:, 2], a_min=0, a_max=np.inf)
+
+    # Set z=0 for points below the spline
+    mask_below_spline = norm_cloud[:, 2] < 0
+    norm_cloud[mask_below_spline, 2] = 0.0
 
     # get back to initial coordinate system
     norm_cloud = decenter_plot(norm_cloud, xy_center)
