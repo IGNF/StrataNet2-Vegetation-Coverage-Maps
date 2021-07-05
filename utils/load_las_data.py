@@ -178,6 +178,7 @@ def normalize_z_with_smooth_spline(cloud, xy_center, args):
     the DTM with a spline. Then, normalize z by flattening the ground using the DTM.
     """
     norm_cloud = cloud.copy()
+    cloud_z_min = norm_cloud[:, 2].min()
 
     # center in order to use polar coordinate
     norm_cloud = center_plot(norm_cloud, xy_center)
@@ -207,9 +208,9 @@ def normalize_z_with_smooth_spline(cloud, xy_center, args):
 
         # predict on normcloud
         norm_cloud_iter = norm_cloud.copy()
-        norm_cloud_iter[:, 2] = norm_cloud_iter[:, 2] - sbs(
-            norm_cloud_iter[:, 0], norm_cloud_iter[:, 1], grid=False
-        )
+        sbs_pred = sbs(norm_cloud_iter[:, 0], norm_cloud_iter[:, 1], grid=False)
+        sbs_pred[sbs_pred < cloud_z_min] = cloud_z_min
+        norm_cloud_iter[:, 2] = norm_cloud_iter[:, 2] - sbs_pred
 
         # Stop iteration if no points below 0 or if most are close to 0
         mask_below_spline = norm_cloud_iter[:, 2] < 0
@@ -224,9 +225,9 @@ def normalize_z_with_smooth_spline(cloud, xy_center, args):
         extended_cloud = np.concatenate([extended_cloud, points_below_spline])
 
     # Normalize original cloud with finalized Spline
-    norm_cloud[:, 2] = norm_cloud[:, 2] - sbs(
-        norm_cloud[:, 0], norm_cloud[:, 1], grid=False
-    )
+    sbs_pred = sbs(norm_cloud[:, 0], norm_cloud[:, 1], grid=False)
+    sbs_pred[sbs_pred < cloud_z_min] = cloud_z_min
+    norm_cloud[:, 2] = norm_cloud[:, 2] - sbs_pred
 
     # Set z=0 for points below the spline
     mask_below_spline = norm_cloud[:, 2] < 0
