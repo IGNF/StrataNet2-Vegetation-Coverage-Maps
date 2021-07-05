@@ -106,15 +106,17 @@ def main():
             if plot_points_tensor is not None and plot_points_tensor.shape[-1] > 50:
                 with torch.no_grad():
                     pred_pointwise, _ = PCC.run(model, plot_points_tensor)
-                create_geotiff_raster(
-                    args,
-                    pred_pointwise.permute(
-                        1, 0
-                    ),  # pred_pointwise was permuted from (N_scores, N_points) to (N_points, N_scores) at the end of PCC.run
-                    plot_points_tensor[0, :, :],  # (N_feats, N_points) cloud 2D tensor
-                    plot_center,
-                    plot_name,
-                )
+                    create_geotiff_raster(
+                        args,
+                        pred_pointwise.permute(
+                            1, 0
+                        ),  # pred_pointwise was permuted from (N_scores, N_points) to (N_points, N_scores) at the end of PCC.run
+                        plot_points_tensor[
+                            0, :, :
+                        ],  # (N_feats, N_points) cloud 2D tensor
+                        plot_center,
+                        plot_name,
+                    )
         t.stop()
 
         t.name = "duration_merge_seconds"
