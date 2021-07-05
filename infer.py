@@ -104,7 +104,8 @@ def main():
                 parcel_points_nparray, plot_center, args
             )
             if plot_points_tensor is not None and plot_points_tensor.shape[-1] > 50:
-                pred_pointwise, _ = PCC.run(model, plot_points_tensor)
+                with torch.no_grad():
+                    pred_pointwise, _ = PCC.run(model, plot_points_tensor)
                 create_geotiff_raster(
                     args,
                     pred_pointwise.permute(
