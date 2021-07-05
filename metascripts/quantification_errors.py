@@ -2,18 +2,20 @@ import os, sys
 
 repo_absolute_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(repo_absolute_path)
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
 from utils.useful_functions import create_dir
+from functools import partial
+
 from model.accuracy import (
     compute_mae,
     compute_mae2,
     compute_accuracy,
     compute_accuracy2,
 )  # do not "import *"
-from functools import partial
 
 
 ##############################################################

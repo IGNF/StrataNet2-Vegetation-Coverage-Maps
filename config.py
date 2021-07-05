@@ -5,7 +5,7 @@ from utils.useful_functions import get_args_from_prev_config
 # This script defines all parameters for data loading, model definition, sand I/O operations.
 
 # Set to DEV for faster iterations (1 fold, 4 epochs), in order to e.g. test saving results.
-MODE = "DEV"  # DEV or PROD
+MODE = "PROD"  # DEV or PROD
 
 FEATURE_NAMES = [
     "x",
@@ -29,14 +29,14 @@ parser = ArgumentParser(description="model")  # Byte-compiled / optimized / DLL 
 # System Parameters
 repo_absolute_path = os.path.dirname(os.path.abspath(__file__))
 data_path = os.path.join(repo_absolute_path, "data/")
-print(f"Dataset folder in use: {data_path}")
 
 parser.add_argument('--mode', default=MODE, type=str, help="DEV or PROD mode - DEV is a quick debug mode")
 parser.add_argument('--path', default=repo_absolute_path, type=str, help="Repo absolute path directory")
 parser.add_argument('--data_path', default=data_path, type=str, help="Path to /repo_root/data/ folder.")
-parser.add_argument('--las_placettes_folder_path', default=os.path.join(data_path, "placettes_dataset/las_classes/"), type=str, help="Path to folder with placettes las files.")
-parser.add_argument('--las_parcelles_folder_path', default=os.path.join(data_path, "parcelles_dataset_test/"), type=str, help="Path to folder with parcelles las files.")
-parser.add_argument('--parcel_shapefile_path', default=os.path.join(data_path, "parcelles_dataset/Parcellaire_2020_zone_expe_BOP_SPL_SPH_J6P_PPH_CAE_CEE_ADM.shp"), type=str, help="Path to folder with parcelles las files.")
+parser.add_argument('--las_placettes_folder_path', default=os.path.join(data_path, "placettes_dataset/las_classes/"), type=str, help="Path to folder with plot las files.")
+parser.add_argument('--las_parcelles_folder_path', default=os.path.join(data_path, "SubsetParcelle_v0/"), type=str, help="Path to folder with parcels las files.")
+parser.add_argument('--parcel_shapefile_path', default=os.path.join(data_path, "parcelles_dataset/Parcellaire_2020_zone_expe_BOP_SPL_SPH_J6P_PPH_CAE_CEE_ADM.shp"), type=str, help="Path to shapefile of parcels.")
+
 
 parser.add_argument('--gt_file_path', default=os.path.join(data_path, "placettes_dataset/placettes_metadata.csv"), type=str, help="Path to ground truth file. Put in dataset folder.")
 parser.add_argument('--cuda', default=0, type=int, help="Whether we use cuda (1) or not (0)")
@@ -47,11 +47,15 @@ parser.add_argument('--results_path', default=None, help="(Created on the fly) P
 parser.add_argument('--stats_path', default=None, help="(Created on the fly) Path to stats folder of current run")
 parser.add_argument('--stats_file', default=None, help="(Created on the fly) Path to stats file including losses")
 
-# Retraining/Inference parameters
-# TODO: replace this with an experiment folder
-parser.add_argument('--inference_model_id', default="2021-06-24_18h29m49s", help="Identifier of experiment to load saved model with torch.load (e.g. yyyy-mm-dd_XhXmXs).")
-parser.add_argument("--use_prev_config", default=None, type=str, help="Identifier of a previous run from which to copy parameters from (e.g. yyyy-mm-dd_XhXmXs).")
+parser.add_argument('--resume_last_job', default=0, type=bool, help="Use (1) or do not use (0) the folder of the last experiment.")
 
+# Retraining parameters
+parser.add_argument("--use_prev_config", default=None, type=str, help="Identifier of a previous run from which to copy parameters from (e.g. yyyy-mm-dd_XhXmXs).")
+# Inference parameters
+parser.add_argument('--inference_model_id', default="2021-07-01_17h57m35s", type=str, help="Identifier of experiment to load saved model with torch.load (e.g. yyyy-mm-dd_XhXmXs).")
+
+
+# Herafter are the args that are reused when use_prev_config is set to a previous experiment id.
 # Model Parameters  
 parser.add_argument('--n_class', default=4, type=int,
                     help="Size of the model output vector. In our case 4 - different vegetation coverage types")
@@ -62,9 +66,9 @@ parser.add_argument('--subsample_size', default=10000, type=int, help="Subsample
 parser.add_argument('--diam_meters', default=20, type=int, help="Diameters of the plots.")
 parser.add_argument('--diam_pix', default=20, type=int, 
                     help="Size of the output stratum raster (its diameter in pixels)")
-parser.add_argument('--m', default=0.05, type=float,
-                    help="Regularization loss for ground vs. non-ground membership. The weight of the negative loglikelihood loss in the total loss")
-parser.add_argument('--norm_ground', default=True, type=bool,
+parser.add_argument('--m', default=1., type=float,
+                    help="Loss regularization. The weight of the negative loglikelihood loss in the total loss")
+parser.add_argument('--norm_ground', default=False, type=bool,
                     help="Whether we normalize low vegetation and bare soil values, so LV+BS=1 (True) or we keep unmodified LV value (False) (recommended)")
 parser.add_argument('--ent', default=True, type=bool, help="Whether we add antropy loss or not")
 parser.add_argument('--e', default=0.2, type=float,
@@ -107,7 +111,7 @@ parser.add_argument('--batch_size', default=20, type=int, help="Size of the trai
 args, _ = parser.parse_known_args()
 
 if args.use_prev_config is not None:
-    args = get_args_from_prev_config(args)
+    args = get_args_from_prev_config(args, args.use_prev_config)
 
 
 assert args.nb_stratum in [2, 3], "Number of stratum should be 2 or 3!"

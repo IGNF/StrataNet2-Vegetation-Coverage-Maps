@@ -9,10 +9,17 @@ import matplotlib.pyplot as plt
 from sys import getsizeof
 import rasterio
 from rasterio.merge import merge
-
+import rasterio.features
+from rasterio.transform import Affine
+from shapely import geometry
+import shapefile
 
 # We import from other files
-from utils.useful_functions import create_dir, get_filename_no_extension
+from utils.useful_functions import (
+    create_dir,
+    get_filename_no_extension,
+    get_files_of_type_in_folder,
+)
 from utils.create_final_images import *
 from data_loader.loader import *
 from model.reproject_to_2d_and_predict_plot_coverage import *
@@ -25,6 +32,25 @@ from utils.load_las_data import (
 sns.set()
 
 np.random.seed(42)
+
+
+def get_list_las_files_not_infered_yet(stats_path, las_parcelles_folder_path):
+    """
+    List paths of las parcel files which for which we do not have a global prediction raster yet.
+    """
+    las_filenames = get_files_of_type_in_folder(las_parcelles_folder_path, ".las")
+    las_filenames = [
+        l
+        for l in las_filenames
+        if os.path.join(
+            stats_path,
+            f"img/rasters/{get_filename_no_extension(l)}/prediction_raster_parcel_{get_filename_no_extension(l)}.tif",
+        )
+        not in glob.glob(
+            stats_path + "/**/prediction_raster_parcel_*.tif", recursive=True
+        )
+    ]
+    return las_filenames
 
 
 def divide_parcel_las_and_get_disk_centers(
@@ -334,7 +360,7 @@ def add_weights_band_to_rasters(img_to_write, args):
     return img_to_write
 
 
-def add_hard_med_veg_raster_band(mosaic):
+def insert_hard_med_veg_raster_band(mosaic):
     """
     We classify pixels into medium veg or non medium veg, creating a fourth canal
     We use a threshold for which coverage_hard is the closest to coverage_soft.
@@ -362,6 +388,56 @@ def add_hard_med_veg_raster_band(mosaic):
     return mosaic
 
 
+def insert_admissibility_raster(src_mosaic):
+    """
+    Return first bands are now : (Vb, Vm_soft, Vh, Vm_hard, admissibility)
+    Ref:
+    - https://gis.stackexchange.com/a/131080/184486
+    - https://rasterio.readthedocs.io/en/latest/api/rasterio.features.html#rasterio.features.geometry_mask
+    """
+    # Get data
+    mosaic = src_mosaic.copy()
+    veg_b = mosaic[0]
+    veg_moy_soft = mosaic[1]
+    veg_moy_hard = mosaic[3]
+    mask = np.isnan(veg_moy_hard)
+
+    # Eliminate zones < 5 pixels.
+    veg_moy_hard_sieve = rasterio.features.sieve(
+        veg_moy_hard.astype(np.int16), 5, mask=mask
+    )
+    # Set hard veg outside of parcel to avoid border effects.
+    veg_moy_hard_sieve[mask] = 1
+    # Use min is to keep small patches of zeros surround by ones (but not ones surrounder by zero).
+    veg_moy_hard_sieve = np.nanmin(
+        [[veg_moy_hard], [veg_moy_hard_sieve]], axis=0
+    ).squeeze()
+
+    # Vectorize + negative buffer of 1.5m -for shapes with value == 1 (i.e. with medium vegetation)
+    BUFFER_WIDTH_METERS = -1.5
+    poly = [
+        geometry.shape(polygon).buffer(BUFFER_WIDTH_METERS)
+        for polygon, value in rasterio.features.shapes(veg_moy_hard_sieve, mask=None)
+        if value == 1
+    ]
+    poly = [s for s in poly if not s.is_empty]
+
+    # Create an inaccessibility array mask (i.e. True for pixels whose center is in shapes)
+    identity_transform = Affine(1.0, 0.0, 0.0, 0.0, 1.0, 0.0)
+    inaccessibility_mask = rasterio.features.geometry_mask(
+        poly, veg_moy_hard.shape, identity_transform, invert=True
+    )
+
+    # Gather results
+    admissibility = np.max([[veg_b], [veg_moy_soft]], axis=0).squeeze()
+    admissibility[inaccessibility_mask] = 0
+    admissibility[mask] = np.nan
+
+    mosaic = np.insert(mosaic, 4, admissibility, axis=0)
+
+    return mosaic
+
+
 def merge_geotiff_rasters(args, plot_name):
     """
     Create a weighted average form a folder of tif files with channels [C1, C2, ..., Cn, W1, W2, ..., Wn].
@@ -376,41 +452,62 @@ def merge_geotiff_rasters(args, plot_name):
     for fp in dem_fps:
         src = rasterio.open(fp)
         src_files_to_mosaic.append(src)
+    if src_files_to_mosaic:
+        mosaic, out_trans = merge(
+            src_files_to_mosaic, method=_weighted_average_of_rasters
+        )
+        # hard raster wera also averaged and need to be set to 0 or 1
+        mosaic = finalize_merged_raster(mosaic)
 
-    mosaic, out_trans = merge(src_files_to_mosaic, method=_weighted_average_of_rasters)
-
-    # hard raster wera also averaged and need to be set to 0 or 1
-    mosaic = finalize_merged_raster(mosaic)
-
-    # save
-    out_meta = src.meta.copy()
-    print(out_meta)
-    out_meta.update(
-        {
-            "driver": "GTiff",
-            "height": mosaic.shape[1],
-            "width": mosaic.shape[2],
-            "count": len(mosaic),
-            "transform": out_trans,
-            #         "crs": "+proj=utm +zone=35 +ellps=GRS80 +units=m +no_defs ",
-        }
-    )
-    out_fp = os.path.join(tiff_folder_path, f"prediction_raster_parcel_{plot_name}.tif")
-    with rasterio.open(out_fp, "w", **out_meta) as dest:
-        dest.write(mosaic)
-    print(f"Saved merged raster prediction to {out_fp}")
+        # save
+        out_meta = src.meta.copy()
+        out_meta.update(
+            {
+                "driver": "GTiff",
+                "height": mosaic.shape[1],
+                "width": mosaic.shape[2],
+                "count": len(mosaic),
+                "transform": out_trans,
+                #         "crs": "+proj=utm +zone=35 +ellps=GRS80 +units=m +no_defs ",
+            }
+        )
+        out_fp = os.path.join(
+            tiff_folder_path, f"prediction_raster_parcel_{plot_name}.tif"
+        )
+        descriptions = [
+            "VegetationBasse",
+            "VegetationIntermediaire",
+            "VegetationHaute",
+            "VegetationIntermediaireDiscretisee",
+            "Admissibilite",
+            "PonderationPredictions",
+        ]
+        with rasterio.open(out_fp, "w", **out_meta) as dest:
+            dest.write(mosaic)
+            for idx in range(len(descriptions)):
+                dest.set_band_description(1 + idx, descriptions[idx])
+        print(f"Saved merged raster prediction to {out_fp}")
+    else:
+        print(f"No predictions for {plot_name}. Cannot merge.")
 
 
 def finalize_merged_raster(mosaic):
-    """Create hard (0/1) raster from the averaged prediction of medium vegetation.
-    We then set np.nan where there is no predicted value at all, even for weights, after
-    filling the np.nan with 0 within the parcel to have appropriate coverage calculations...
     """
-    mosaic = add_hard_med_veg_raster_band(mosaic)
+    From the mosaic containing predictions (Vb, Vm, Vh), we:
+    - Keep only one weight layer instead of three initially
+    - Insert hard (0/1) raster for medium vegetation.
+    - Insert admissibility raster
+    - Replace np.nan with 0 in pixels which have at least one predicted value (for one of the coverage)
+    to have appropriate coverage calculations.
+    """
+    mosaic = mosaic[: (3 + 1)]  # 3 * pred + 1 weights
+    mosaic = insert_hard_med_veg_raster_band(mosaic)
 
     no_predicted_value = np.nansum(np.isnan(mosaic[:3]), axis=0) == 3
     mosaic = np.nan_to_num(mosaic, nan=0.0, posinf=None, neginf=None)
     mosaic[:, no_predicted_value] = np.nan
+
+    mosaic = insert_admissibility_raster(mosaic)
 
     return mosaic
 
@@ -469,3 +566,74 @@ def _weighted_average_of_rasters(
 
     # we have to update the content of the input argument
     old_data[:] = out_data[:]
+
+
+def log_inference_times(plot_name, timer, shp_records, file_append_mode):
+    """
+    Add a row to file with the time of inference contained in Timer object t.
+    """
+    times_row = {plot_name: {task: np.round(d, 1) for task, d in timer.timers.items()}}
+    times_row = pd.DataFrame(times_row).transpose()
+    times_row["duration_total_seconds"] = times_row.sum(axis=1)
+    rec = shp_records[plot_name]
+    times_row["surface_m2"] = rec._area
+    times_row["surface_ha"] = np.round((rec._area) / 10000, 2)
+    times_row["duration_seconds_by_hectar"] = (
+        times_row["duration_total_seconds"] / times_row["surface_ha"]
+    )
+    times_row.reset_index().rename(columns={"index": "name"}).to_csv(
+        file_append_mode, index=False, header=file_append_mode.tell() == 0
+    )
+
+
+def get_parcel_info_and_predictions(tif, records):
+    """From a prediction tif given by  its path and the records obtained from a shapefile,
+    get the parcel metadata as well as the predictions : coverage and admissibility
+    """
+    mosaic = rasterio.open(tif).read()
+
+    # Vb, Vmoy, Vh, Vmoy_hard
+    band_means = np.nanmean(mosaic[:5], axis=(1, 2))
+
+    # TODO: admissibility computed at merging
+    admissibility = np.nanmean(np.nanmax([[mosaic[0]], [mosaic[0]]], axis=0))
+
+    tif_name = get_filename_no_extension(tif).replace("prediction_raster_parcel_", "")
+    rec = records[tif_name]
+
+    metadata = {
+        "NOM": tif_name,
+        "SURFACE_m2": rec._area,
+        "SURFACE_ha": np.round((rec._area) / 10000, 2),
+        "SURF_ADM_ha": rec.SURF_ADM,
+        "REPORTED_ADM": float(rec.ADM),
+    }
+    infered_values = {
+        "pred_veg_b": band_means[0],
+        "pred_veg_moy": band_means[1],
+        "pred_veg_h": band_means[2],
+        "adm_max_over_veg_b_and_veg_moy": admissibility,
+        "pred_veg_moy_hard": band_means[3],
+        "fifth_band_mean_ie_weights_or_admissibility": band_means[4],
+    }
+    metadata.update(infered_values)
+    return metadata
+
+
+def make_parcel_predictions_csv(parcel_shapefile_path, stats_path):
+    sf = shapefile.Reader(parcel_shapefile_path)
+    records = {rec.ID: rec for rec in sf.records()}
+    predictions_tif = glob.glob(
+        os.path.join(stats_path, "**/prediction_raster_parcel_*.tif"),
+        recursive=True,
+    )
+    infos = []
+    for tif_filename in predictions_tif:
+        info = get_parcel_info_and_predictions(tif_filename, records)
+        infos.append(info)
+
+    # export to a csv
+    df_inference = pd.DataFrame(infos)
+    csv_path = os.path.join(stats_path, "PCC_inference_all_parcels.csv")
+    df_inference.to_csv(csv_path, index=False)
+    return df_inference, csv_path
