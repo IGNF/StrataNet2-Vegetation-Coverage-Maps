@@ -196,6 +196,11 @@ def normalize_z_with_smooth_spline(cloud, xy_center, args):
     _, z_argmin = npi.group_by(xy_quantified).argmin(extended_cloud[:, 2])
     extended_cloud = extended_cloud[z_argmin]
     max_n_iter = 10
+
+    # If small surface, get more points to have a sbs that functions
+    if extended_cloud.shape[0] < (3 + 1) * (3 + 1):
+        extended_cloud = extended_cloud[np.random.choice(len(extended_cloud), 16)]
+
     for i in range(max_n_iter):
         sbs = SmoothBivariateSpline(
             extended_cloud[:, 0],
@@ -221,6 +226,7 @@ def normalize_z_with_smooth_spline(cloud, xy_center, args):
             if q > -0.05:
                 break
         # find points falling below spline surface and add them to points used to fit the spline
+        # TODO: assure that we do not have multiple times the same points ? Or keep so that they have more weight ?
         points_below_spline = norm_cloud[mask_below_spline]
         extended_cloud = np.concatenate([extended_cloud, points_below_spline])
 

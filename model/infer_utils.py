@@ -13,6 +13,7 @@ import rasterio.features
 from rasterio.transform import Affine
 from shapely import geometry
 import shapefile
+from shapely.geometry.point import Point
 
 # We import from other files
 from utils.useful_functions import (
@@ -54,7 +55,7 @@ def get_list_las_files_not_infered_yet(stats_path, las_parcelles_folder_path):
 
 
 def divide_parcel_las_and_get_disk_centers(
-    args, las_filename, save_fig_of_division=True
+    args, las_filename, parcel_shape, save_fig_of_division=True
 ):
     """
     Identify centers of plots whose squares cover at least partially every pixel of the parcel
@@ -63,6 +64,7 @@ def divide_parcel_las_and_get_disk_centers(
     We add an overlap of s*0.625 i.e. a pixel in currently produced plots of size 32 pix = 10
     :param las_folder: path
     :param las_filenae: "004000715-5-18.las" like string
+    :param sf: shapefile of parcels
     :returns:
         centers_nparray: a nparray of centers coordinates
         points_nparray: a nparray of full cloud coordinates
@@ -118,6 +120,13 @@ def divide_parcel_las_and_get_disk_centers(
             current_y = start_y + i_dy * movement_in_meters  # move along y axis
             new_plot_center = [current_x, current_y]
             grid_pixel_xy_centers.append(new_plot_center)
+
+    # Ignore plot center if not in shape of shapefile
+    grid_pixel_xy_centers = [
+        x
+        for x in grid_pixel_xy_centers
+        if parcel_shape.buffer(args.diam_meters//2).contains(Point(x[0], x[1]))
+    ]
 
     # visualization
     if save_fig_of_division:
