@@ -163,13 +163,15 @@ def evaluate(
     )
 
     # Here we log embeddings of test plot for this fold
-
+    image_data = [
+        Image.open(a[2]).convert("RGB").resize((500, 720)) for a in last_G_tensor_list
+    ]
     args.experiment.log_embedding(
         [a[0] for a in last_G_tensor_list],
         [a[1] for a in last_G_tensor_list],
-        image_data=[Image.open(a[2]).convert("RGB") for a in last_G_tensor_list],
+        image_data=image_data,
         image_transparent_color=(0, 0, 0),
-        image_size=(400, 600),
+        image_size=image_data[0].size,
         title="G_tensor",
     )
 
