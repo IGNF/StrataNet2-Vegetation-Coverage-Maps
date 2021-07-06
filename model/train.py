@@ -128,6 +128,7 @@ def train_full(args, fold_id, train_set, test_set, test_list, xy_centers_dict, p
     cloud_info_list = None
 
     for i_epoch in range(args.n_epoch):
+        experiment.set_epoch(1 + i_epoch)
         scheduler.step()
 
         # train one epoch

@@ -41,6 +41,9 @@ def rescale_cloud_data(cloud_data, cloud_center, args):
     cloud_data[idx] = (cloud_data[idx]) / args.z_max  # z non-flattened
 
     idx = input_feats.index("scan_angle")
+    cloud_data[idx] = (
+        cloud_data[idx]
+    ) / 30.0  # angles in degrees    idx = input_feats.index("scan_angle")
     cloud_data[idx] = (cloud_data[idx]) / 30.0  # angles in degrees
 
     return cloud_data

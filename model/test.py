@@ -1,13 +1,14 @@
 # We import from other files
+import imp
 from utils.create_final_images import *
 from data_loader.loader import *
 from model.reproject_to_2d_and_predict_plot_coverage import *
 from model.loss_functions import *
 from utils.useful_functions import create_dir
 import torchnet as tnt
-import time
 import gc
 import os
+from PIL import Image
 
 np.random.seed(42)
 
@@ -46,8 +47,9 @@ def evaluate(
     loss_meter_abs_adm = tnt.meter.AverageValueMeter()
 
     cloud_info_list = []
-    for index_batch, (cloud, gt) in enumerate(loader):
-        pl_id = test_list[index_batch]
+    last_G_tensor_list = []
+    for index_cloud, (cloud, gt) in enumerate(loader):
+        plot_name = test_list[index_cloud]
 
         if PCC.is_cuda:
             gt = gt.cuda()
@@ -56,6 +58,7 @@ def evaluate(
         pred_pl, pred_adm, pred_pixels = project_to_2d(
             pred_pointwise, cloud, pred_pointwise_b, PCC, args
         )
+
         # we compute two losses (negative loglikelihood and the absolute error loss for 2 stratum)
         loss_abs = loss_absolute(pred_pl, gt, args)  # absolut loss
         loss_log, likelihood = loss_loglikelihood(
@@ -102,17 +105,17 @@ def evaluate(
                 loss_meter_abs_hl.add(loss_abs_hl.item())
         loss_meter_abs_gl.add(loss_abs_gl.item())
         loss_meter_abs_ml.add(loss_abs_ml.item())
-        # if last_epoch:
-        # create final plot to visualize results
+
+        # create final plot to visualize results and track progress
         plot_path = os.path.join(stats_path, f"img/placettes/{situation}/")
         create_dir(plot_path)
-        create_final_images(
+        png_path = create_final_images(
             pred_pl,
             gt,
             pred_pointwise_b,
             cloud,
             likelihood,
-            pl_id,
+            plot_name,
             xy_centers_dict,
             plot_path,
             stats_file,
@@ -126,7 +129,7 @@ def evaluate(
             pred_pl_cpu = pred_pl.cpu().numpy()[0]
             gt_cpu = gt.cpu().numpy()[0]
         cloud_info = {
-            "pl_id": pl_id,
+            "pl_id": plot_name,
             "pl_N_points": pred_pointwise.shape[0],
             "pred_veg_b": pred_pl_cpu[0],
             "pred_sol_nu": pred_pl_cpu[1],
@@ -138,7 +141,37 @@ def evaluate(
             "vt_veg_h": gt_cpu[3],
         }
 
+        # log the embeddings for this plot
+        last_G_tensor_list.append(
+            [model.last_G_tensor.cpu().numpy(), plot_name, png_path]
+        )
+
         cloud_info_list.append(cloud_info)
+
+    # Here we log histograms of the absolute errors
+    args.experiment.log_histogram_3d(
+        [abs(info["pred_veg_b"] - info["vt_veg_b"]) for info in cloud_info_list],
+        name="val_MAE_veg_b",
+    )
+    args.experiment.log_histogram_3d(
+        [abs(info["pred_veg_moy"] - info["vt_veg_moy"]) for info in cloud_info_list],
+        name="val_MAE_veg_moy",
+    )
+    args.experiment.log_histogram_3d(
+        [abs(info["pred_veg_h"] - info["vt_veg_h"]) for info in cloud_info_list],
+        name="val_MAE_veg_h",
+    )
+
+    # Here we log embeddings of test plot for this fold
+
+    args.experiment.log_embedding(
+        [a[0] for a in last_G_tensor_list],
+        [a[1] for a in last_G_tensor_list],
+        image_data=[Image.open(a[2]).convert("RGB") for a in last_G_tensor_list],
+        image_transparent_color=(0, 0, 0),
+        image_size=(400, 600),
+        title="G_tensor",
+    )
 
     return (
         {

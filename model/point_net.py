@@ -84,6 +84,9 @@ class PointNet(nn.Module):
         self.maxpool = nn.MaxPool1d(self.subsample_size)
         self.softmax = nn.Softmax(dim=1)
         self.sigmoid = nn.Sigmoid()
+
+        self.last_G_tensor = None
+
         if self.is_cuda:
             self = self.cuda()
 
@@ -99,6 +102,7 @@ class PointNet(nn.Module):
         f1 = self.MLP_1(input)
         f2 = self.MLP_2(f1)
         G = self.maxpool(f2)
+        self.last_G_tensor = G
         Gf1 = torch.cat((G.repeat(1, 1, self.subsample_size), f1), 1)
         out_pointwise = self.MLP_3(Gf1)
         if self.soft:

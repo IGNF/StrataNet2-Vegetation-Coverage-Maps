@@ -307,88 +307,86 @@ def create_final_images(
     by associating the points to the pixels.
     Then we create the images with those stratum
     """
-    for b in range(len(pred_pointwise_b)):
-        # we get prediction stats string
-        pred_pointwise = pred_pointwise_b[b]
-        current_cloud = cloud[b]  # (9, N) tensor
-        plot_center = xy_centers_dict[plot_name]  # tuple (x,y)
+    # we get prediction stats string
+    pred_pointwise = pred_pointwise_b[0]
+    current_cloud = cloud[0]  # (9, N) tensor
+    plot_center = xy_centers_dict[plot_name]  # tuple (x,y)
 
-        # we do raster reprojection, but we do not use torch scatter as we have to associate each value to a pixel
-        image_low_veg, image_med_veg, image_high_veg = infer_and_project_on_rasters(
-            current_cloud, pred_pointwise, args
+    # we do raster reprojection, but we do not use torch scatter as we have to associate each value to a pixel
+    image_low_veg, image_med_veg, image_high_veg = infer_and_project_on_rasters(
+        current_cloud, pred_pointwise, args
+    )
+
+    if args.adm:
+        preds_nparray = np.round(
+            np.asarray(pred_pl[0].cpu().detach().numpy().reshape(-1)), 2
+        )
+        adm_ = adm[0].cpu().detach().numpy().round(2)
+        gt_nparray = gt.cpu().numpy()[0]
+        text_pred_vs_gt = (
+            f"Coverage: Pred {preds_nparray[:4]} GT   {gt_nparray[:-1]}\n "
+            + f"Admissibility: Pred {adm_:.2f}  GT  {gt_nparray[-1]:.2f}"
+        )
+    else:
+        preds_nparray = np.round(
+            np.asarray(pred_pl[0].cpu().detach().numpy().reshape(-1)), 2
+        )
+        gt_nparray = gt.cpu().numpy()[0]
+        text_pred_vs_gt = (
+            f"Coverage: Pred {preds_nparray[:4]} GT   {gt_nparray[:-1]}\n "
+            + f"Admissibility (GT only) {gt_nparray[-1]:.2f}"
         )
 
-        if args.adm:
-            preds_nparray = np.round(
-                np.asarray(pred_pl[b].cpu().detach().numpy().reshape(-1)), 2
-            )
-            adm_ = adm[b].cpu().detach().numpy().round(2)
-            gt_nparray = gt.cpu().numpy()[0]
-            text_pred_vs_gt = (
-                f"Coverage: Pred {preds_nparray[:4]} GT   {gt_nparray[:-1]}\n "
-                + f"Admissibility: Pred {adm_:.2f}  GT  {gt_nparray[-1]:.2f}"
-            )
-        else:
-            preds_nparray = np.round(
-                np.asarray(pred_pl[b].cpu().detach().numpy().reshape(-1)), 2
-            )
-            gt_nparray = gt.cpu().numpy()[0]
-            text_pred_vs_gt = (
-                f"Coverage: Pred {preds_nparray[:4]} GT   {gt_nparray[:-1]}\n "
-                + f"Admissibility (GT only) {gt_nparray[-1]:.2f}"
-            )
+    text_pred_vs_gt = "LOW, soil, MID, HIGH \n" + text_pred_vs_gt
+    print_stats(stats_file, plot_name + " " + text_pred_vs_gt, print_to_console=True)
+    # We create an image with 5 or 6 subplots:
+    # 1. original point cloud, 2. LV image, 3. pointwise prediction point cloud, 4. MV image, 5.Stratum probabilities point cloud, 6.(optional) HV image
+    png_path = visualize(
+        image_low_veg,
+        image_med_veg,
+        current_cloud,
+        pred_pointwise,
+        plot_name,
+        plot_path,
+        args,
+        text_pred_vs_gt=text_pred_vs_gt,
+        scores=likelihood,
+        image_high_veg=image_high_veg,
+        predictions=preds_nparray,
+        gt=gt_nparray,
+    )
+    args.experiment.log_image(png_path, overwrite=True)
 
-        text_pred_vs_gt = "LOW, soil, MID, HIGH \n" + text_pred_vs_gt
-        print_stats(
-            stats_file, plot_name + " " + text_pred_vs_gt, print_to_console=True
-        )
-        # We create an image with 5 or 6 subplots:
-        # 1. original point cloud, 2. LV image, 3. pointwise prediction point cloud, 4. MV image, 5.Stratum probabilities point cloud, 6.(optional) HV image
-        png_path = visualize(
+    if not plot_only_png:
+
+        img_to_write, geo = stack_the_rasters_and_get_their_geotransformation(
+            plot_center,
+            args,
             image_low_veg,
             image_med_veg,
-            current_cloud,
-            pred_pointwise,
-            plot_name,
-            plot_path,
-            args,
-            text_pred_vs_gt=text_pred_vs_gt,
-            scores=likelihood,
-            image_high_veg=image_high_veg,
-            predictions=preds_nparray,
-            gt=gt_nparray,
+            image_high_veg,
         )
-        args.experiment.log_image(png_path, overwrite=True)
-
-        if not plot_only_png:
-
-            img_to_write, geo = stack_the_rasters_and_get_their_geotransformation(
-                plot_center,
-                args,
+        save_rasters_to_geotiff_file(
+            nb_channels=args.nb_stratum,
+            new_tiff_name=plot_path + plot_name + ".tif",
+            width=args.diam_pix,
+            height=args.diam_pix,
+            datatype=gdal.GDT_Float32,
+            data_array=img_to_write,
+            geotransformation=geo,
+        )
+        if args.nb_stratum == 3:
+            visualize_article(
                 image_low_veg,
                 image_med_veg,
                 image_high_veg,
+                current_cloud,
+                plot_name,
+                plot_path,
+                args,
+                txt=text_pred_vs_gt,
             )
-            save_rasters_to_geotiff_file(
-                nb_channels=args.nb_stratum,
-                new_tiff_name=plot_path + plot_name + ".tif",
-                width=args.diam_pix,
-                height=args.diam_pix,
-                datatype=gdal.GDT_Float32,
-                data_array=img_to_write,
-                geotransformation=geo,
-            )
-            if args.nb_stratum == 3:
-                visualize_article(
-                    image_low_veg,
-                    image_med_veg,
-                    image_high_veg,
-                    current_cloud,
-                    plot_name,
-                    plot_path,
-                    args,
-                    txt=text_pred_vs_gt,
-                )
+    return png_path
 
 
 def stack_the_rasters_and_get_their_geotransformation(
