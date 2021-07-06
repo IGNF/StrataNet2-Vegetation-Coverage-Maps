@@ -93,22 +93,20 @@ def evaluate(
         gc.collect()
 
         # This is where we get results
+        # give separate losses for each stratum
+        component_losses = loss_absolute(
+            pred_pl, gt, args, level_loss=True
+        )  # gl_mv_loss gives separated losses for each stratum
+        if args.nb_stratum == 2:
+            loss_abs_gl, loss_abs_ml = component_losses
+        else:
+            loss_abs_gl, loss_abs_ml, loss_abs_hl = component_losses
+            loss_abs_hl = loss_abs_hl[~torch.isnan(loss_abs_hl)]
+            if loss_abs_hl.size(0) > 0:
+                loss_meter_abs_hl.add(loss_abs_hl.item())
+        loss_meter_abs_gl.add(loss_abs_gl.item())
+        loss_meter_abs_ml.add(loss_abs_ml.item())
         if last_epoch:
-
-            # give separate losses for each stratum
-            component_losses = loss_absolute(
-                pred_pl, gt, args, level_loss=True
-            )  # gl_mv_loss gives separated losses for each stratum
-            if args.nb_stratum == 2:
-                loss_abs_gl, loss_abs_ml = component_losses
-            else:
-                loss_abs_gl, loss_abs_ml, loss_abs_hl = component_losses
-                loss_abs_hl = loss_abs_hl[~torch.isnan(loss_abs_hl)]
-                if loss_abs_hl.size(0) > 0:
-                    loss_meter_abs_hl.add(loss_abs_hl.item())
-            loss_meter_abs_gl.add(loss_abs_gl.item())
-            loss_meter_abs_ml.add(loss_abs_ml.item())
-
             # create final plot to visualize results
             if full_run_situation:
                 plot_path = os.path.join(stats_path, "img/placettes/full/")

@@ -1,10 +1,11 @@
+from comet_ml import Experiment
+
 import warnings
 
 warnings.simplefilter(action="ignore")
 
 import torchnet as tnt
 import gc
-from torch.utils.tensorboard import SummaryWriter
 
 
 # We import from other files
@@ -104,15 +105,17 @@ def train_full(args, fold_id, train_set, test_set, test_list, xy_centers_dict, p
     """The full training loop.
     If fold_id = -1, this is the full training and we make inferences at last epoch for this test=train set.
     """
+    experiment = args.experiment
+
     # initialize the model and define the classifier
     model = PointNet(args.MLP_1, args.MLP_2, args.MLP_3, args)
+    PCC = PointCloudClassifier(args)
     writer = SummaryWriter(os.path.join(args.stats_path, f"runs/fold_{fold_id}/"))
     print(
         "Total number of parameters: {}".format(
             sum([p.numel() for p in model.parameters()])
         )
     )
-    PCC = PointCloudClassifier(args)
 
     # define the optimizer
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.wd)
@@ -124,43 +127,81 @@ def train_full(args, fold_id, train_set, test_set, test_list, xy_centers_dict, p
         scheduler.step()
 
         # train one epoch
-        train_losses = train(model, PCC, train_set, params, optimizer, args)
-        writer = write_to_writer(writer, args, i_epoch, train_losses, train=True)
+        with experiment.context_manager("training"):
+            train_losses = train(model, PCC, train_set, params, optimizer, args)
+            writer = write_to_writer(writer, args, i_epoch, train_losses, train=True)
+            loss, loss_abs, loss_log, loss_adm = train_losses
+            experiment.log_metrics(
+                {
+                    "loss_total": loss,
+                    "loss_MAE": loss_abs,
+                    "loss_log": loss_log,
+                    "loss_adm": loss_adm,
+                },
+                epoch=i_epoch,
+            )
 
         # if last epoch, we create 2D images with points projections and infer values for all test plots
-        if (i_epoch + 1) == args.n_epoch:
-            print("Last epoch")
-            test_losses, cloud_info_list = evaluate(
-                model,
-                PCC,
-                test_set,
-                params,
-                args,
-                test_list,
-                xy_centers_dict,
-                args.stats_path,
-                args.stats_file,
-                last_epoch=True,
-                plot_only_png=args.plot_only_png,
-                full_run_situation=fold_id < 0,
-            )
-            gc.collect()
-            writer = write_to_writer(writer, args, i_epoch, test_losses, train=False)
-        # if not last epoch, we just evaluate performances on test plots, during cross-validation only.
-        elif ((i_epoch + 1) % args.n_epoch_test == 0) and fold_id > 0:
-            test_losses, _ = evaluate(
-                model,
-                PCC,
-                test_set,
-                params,
-                args,
-                test_list,
-                xy_centers_dict,
-                args.stats_path,
-                args.stats_file,
-            )
-            gc.collect()
-            writer = write_to_writer(writer, args, i_epoch, test_losses, train=False)
+        with experiment.context_manager("validation"):
+            if (i_epoch + 1) == args.n_epoch:
+                print("Last epoch")
+                test_losses, cloud_info_list = evaluate(
+                    model,
+                    PCC,
+                    test_set,
+                    params,
+                    args,
+                    test_list,
+                    xy_centers_dict,
+                    args.stats_path,
+                    args.stats_file,
+                    last_epoch=True,
+                    plot_only_png=args.plot_only_png,
+                    full_run_situation=fold_id < 0,
+                )
+                gc.collect()
+                writer = write_to_writer(
+                    writer, args, i_epoch, test_losses, train=False
+                )
+            # if not last epoch, we just evaluate performances on test plots, during cross-validation only.
+            elif ((i_epoch + 1) % args.n_epoch_test == 0) and fold_id > 0:
+                test_losses, _ = evaluate(
+                    model,
+                    PCC,
+                    test_set,
+                    params,
+                    args,
+                    test_list,
+                    xy_centers_dict,
+                    args.stats_path,
+                    args.stats_file,
+                )
+                gc.collect()
+                writer = write_to_writer(
+                    writer, args, i_epoch, test_losses, train=False
+                )
+            if test_losses is not None:
+                (
+                    loss,
+                    loss_abs,
+                    loss_log,
+                    loss_low_veg,
+                    loss_medium_veg,
+                    loss_high_veg,
+                    loss_adm,
+                ) = test_losses
+                experiment.log_metrics(
+                    {
+                        "loss_total": loss,
+                        "loss_MAE": loss_abs,
+                        "loss_log": loss_log,
+                        "loss_adm": loss_adm,
+                        "loss_low_veg": loss_low_veg,
+                        "loss_medium_veg": loss_medium_veg,
+                        "loss_high_veg": loss_high_veg,
+                    },
+                    epoch=i_epoch,
+                )
     writer.flush()
 
     final_train_losses_list = train_losses

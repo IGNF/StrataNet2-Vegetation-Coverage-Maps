@@ -1,3 +1,5 @@
+from comet_ml import Experiment
+
 import warnings
 
 warnings.simplefilter(action="ignore")
@@ -47,8 +49,14 @@ torch.cuda.empty_cache()
 
 def main():
 
-    # Create the result folder
-    create_new_experiment_folder(args)  # new paths are added to args
+    # Create the experiment and its local folder
+    experiment = Experiment(
+        project_name="lidar_pac",
+    )
+    create_new_experiment_folder(args)  # Define output paths
+    experiment.log_parameters(vars(args))
+    experiment.add_tag(args.mode)
+    args.experiment = experiment  # be sure that this is not saved in text somewhere...
 
     # Load Las files for placettes
     (
@@ -117,6 +125,7 @@ def main():
         )
 
         # TRAINING on fold
+
         (
             trained_model,
             final_train_losses_list,
@@ -159,7 +168,7 @@ def main():
             print_to_console=True,
         )
         fold_id += 1
-        if args.mode == "DEV" and fold_id >= 1:
+        if args.mode == "DEV" and fold_id >= 3:
             break
 
     # create inference results csv
