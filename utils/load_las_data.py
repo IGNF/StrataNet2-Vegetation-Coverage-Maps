@@ -12,7 +12,6 @@ import warnings
 import random
 
 random.seed(0)
-from scipy.interpolate import SmoothBivariateSpline
 import numpy_indexed as npi
 from random import random, shuffle
 
@@ -100,14 +99,10 @@ def transform_features_of_plot_cloud(points_nparray, xy_center, args):
     2) Substract z_min at local level using KNN
     """
     # normalize "z"
-    if args.z_normalization_method == "knn":
-        points_nparray = normalize_z_with_minz_in_a_radius(
-            points_nparray, args.znorm_radius_in_meters
-        )
-    elif args.z_normalization_method == "spline":
-        points_nparray = normalize_z_with_smooth_spline(points_nparray, xy_center, args)
-    else:
-        sys.exit(f"Unknown normalization method {args.z_normalization_method}")
+    points_nparray = normalize_z_with_minz_in_a_radius(
+        points_nparray, args.znorm_radius_in_meters
+    )
+
     # add "z_original"
     zmin_plot = np.min(points_nparray[:, 2])
     points_nparray = np.append(
@@ -130,118 +125,6 @@ def normalize_z_with_minz_in_a_radius(cloud, znorm_radius_in_meters):
         zmin_neigh.append(np.min(z[neigh[n]]))
     cloud[:, 2] = cloud[:, 2] - zmin_neigh
     return cloud
-
-
-def center_plot(cloud, xy_center):
-    """Center the cloud to 0, also return the initial xymin to decenter the cloud"""
-    cloud[:, :2] = cloud[:, :2] - xy_center
-    return cloud
-
-
-def decenter_plot(cloud, xy_center):
-    cloud[:, :2] = cloud[:, :2] + xy_center
-    return cloud
-
-
-def xy_to_polar_coordinates(xy):
-    r = np.sqrt((1.0 * xy * xy).sum(axis=1))
-    teta = np.arctan2(
-        xy[:, 1], xy[:, 0]
-    )  # -pi, pi around (0,0) to (1,0). y and x are args in this order.
-    rteta = np.stack([r, teta], axis=1)
-    return rteta
-
-
-def polar_coordinates_to_xy(rteta):
-    x = rteta[:, 0] * np.cos(rteta[:, 1])
-    y = rteta[:, 0] * np.sin(rteta[:, 1])
-    xy = np.stack([x, y], axis=1)
-    return xy
-
-
-def create_buffer_points(cloud, ring_thickness_meters, diam_meters):
-    """cloud is centered with xy as first coordinates in meters."""
-    candidates_polar = cloud.copy()
-    candidates_polar[:, :2] = xy_to_polar_coordinates(candidates_polar[:, :2])
-    candidates_polar = candidates_polar[
-        candidates_polar[:, 0] > (diam_meters // 2 - ring_thickness_meters)
-    ]  # points in external ring
-    candidates_polar[:, 0] = candidates_polar[:, 0] + 2 * (
-        abs(diam_meters // 2 - candidates_polar[:, 0])
-    )  # use border of plot as a mirror
-    candidates_polar[:, :2] = polar_coordinates_to_xy(candidates_polar[:, :2])
-    return candidates_polar
-
-
-def normalize_z_with_smooth_spline(cloud, xy_center, args):
-    """From a regular grid, find lowest point in each cell/pixel and use them to approximate
-    the DTM with a spline. Then, normalize z by flattening the ground using the DTM.
-    """
-    norm_cloud = cloud.copy()
-    cloud_z_min = norm_cloud[:, 2].min()
-
-    # center in order to use polar coordinate
-    norm_cloud = center_plot(norm_cloud, xy_center)
-
-    # create buffer
-    buffer_points = create_buffer_points(
-        norm_cloud, args.ring_thickness_meters, args.diam_meters
-    )
-    extended_cloud = np.concatenate([norm_cloud, buffer_points])
-
-    # fit
-    xy_quantified = (
-        extended_cloud[:, :2] // args.spline_pix_size + 0.5
-    ) * args.spline_pix_size  # quantify (and center) coordinates
-    _, z_argmin = npi.group_by(xy_quantified).argmin(extended_cloud[:, 2])
-    extended_cloud = extended_cloud[z_argmin]
-    max_n_iter = 10
-
-    # If small surface, get more points to have a sbs that functions
-    if extended_cloud.shape[0] < (3 + 1) * (3 + 1):
-        extended_cloud = extended_cloud[np.random.choice(len(extended_cloud), 16)]
-
-    for i in range(max_n_iter):
-        sbs = SmoothBivariateSpline(
-            extended_cloud[:, 0],
-            extended_cloud[:, 1],
-            extended_cloud[:, 2],
-            kx=3,
-            ky=3,
-            s=None,
-        )
-
-        # predict on normcloud
-        norm_cloud_iter = norm_cloud.copy()
-        sbs_pred = sbs(norm_cloud_iter[:, 0], norm_cloud_iter[:, 1], grid=False)
-        sbs_pred[sbs_pred < cloud_z_min] = cloud_z_min
-        norm_cloud_iter[:, 2] = norm_cloud_iter[:, 2] - sbs_pred
-
-        # Stop iteration if no points below 0 or if most are close to 0
-        mask_below_spline = norm_cloud_iter[:, 2] < 0
-        if mask_below_spline.sum() == 0:
-            break
-        else:
-            q = np.quantile(norm_cloud_iter[mask_below_spline, 2], 0.1)  # lowest 10%
-            if q > -0.05:
-                break
-        # find points falling below spline surface and add them to points used to fit the spline
-        # TODO: assure that we do not have multiple times the same points ? Or keep so that they have more weight ?
-        points_below_spline = norm_cloud[mask_below_spline]
-        extended_cloud = np.concatenate([extended_cloud, points_below_spline])
-
-    # Normalize original cloud with finalized Spline
-    sbs_pred = sbs(norm_cloud[:, 0], norm_cloud[:, 1], grid=False)
-    sbs_pred[sbs_pred < cloud_z_min] = cloud_z_min
-    norm_cloud[:, 2] = norm_cloud[:, 2] - sbs_pred
-
-    # Set z=0 for points below the spline
-    mask_below_spline = norm_cloud[:, 2] < 0
-    norm_cloud[mask_below_spline, 2] = 0.0
-
-    # get back to initial coordinate system
-    norm_cloud = decenter_plot(norm_cloud, xy_center)
-    return norm_cloud
 
 
 def open_metadata_dataframe(args, pl_id_to_keep):
