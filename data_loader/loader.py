@@ -36,15 +36,15 @@ def rescale_cloud_data(cloud_data, cloud_center, args):
     for feature in ["return_num", "num_returns"]:
         idx = input_feats.index(feature)
         cloud_data[idx] = (cloud_data[idx] - 1) / (7 - 1)
+    if "z_non_flat" in input_feats:
+        idx = input_feats.index("z_non_flat")
+        cloud_data[idx] = (cloud_data[idx]) / args.z_max  # z non-flattened
 
-    idx = input_feats.index("z_non_flat")
-    cloud_data[idx] = (cloud_data[idx]) / args.z_max  # z non-flattened
-
-    idx = input_feats.index("scan_angle")
-    cloud_data[idx] = (
-        cloud_data[idx]
-    ) / 30.0  # angles in degrees    idx = input_feats.index("scan_angle")
-    cloud_data[idx] = (cloud_data[idx]) / 30.0  # angles in degrees
+    # idx = input_feats.index("scan_angle")
+    # cloud_data[idx] = (
+    #     cloud_data[idx]
+    # ) / 30.0  # angles in degrees    idx = input_feats.index("scan_angle")
+    # cloud_data[idx] = (cloud_data[idx]) / 30.0  # angles in degrees
 
     return cloud_data
 
@@ -90,11 +90,11 @@ def augment(cloud_data):
     M = np.array(((c, -s), (s, c)))  # rotation matrix around axis z with angle "angle"
     cloud_data[:2] = np.dot(cloud_data[:2].T, M).T  # perform the rotation efficiently
 
-    # Random flipping along x and/or y axis
-    if np.random.random() > 0.5:
-        cloud_data[0] = -cloud_data[0]
-    if np.random.random() > 0.5:
-        cloud_data[1] = -cloud_data[1]
+    # # Random flipping along x and/or y axis
+    # if np.random.random() > 0.5:
+    #     cloud_data[0] = -cloud_data[0]
+    # if np.random.random() > 0.5:
+    #     cloud_data[1] = -cloud_data[1]
 
     # random gaussian noise everywhere except z and return number
     sigma, clip = 0.01, 0.03

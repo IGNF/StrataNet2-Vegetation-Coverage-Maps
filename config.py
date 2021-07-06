@@ -5,7 +5,7 @@ from utils.useful_functions import get_args_from_prev_config
 # This script defines all parameters for data loading, model definition, sand I/O operations.
 
 # Set to DEV for faster iterations (1 fold, 4 epochs), in order to e.g. test saving results.
-MODE = "DEV"  # DEV or PROD
+MODE = "PROD"  # DEV or PROD
 
 # FEATURE NAMES used to get the right index. Do not permutate features x, y, z, red, green, blue, nir and intensity.
 FEATURE_NAMES = [
@@ -19,9 +19,7 @@ FEATURE_NAMES = [
     "intensity",
     "return_num",
     "num_returns",
-    "z_non_flat",
-    "scan_angle",
-    "scan_dir_flag",
+    # "z_non_flat",
 ]
 
 parser = ArgumentParser(description="model")  # Byte-compiled / optimized / DLL files

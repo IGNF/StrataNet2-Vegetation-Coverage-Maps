@@ -129,7 +129,7 @@ def main():
         # Append to infer_times.csv
         with open(args.times_file, encoding="utf-8", mode="a") as f:
             log_inference_times(parcel_ID, t, shp_records, f)
-
+DEV
     # Compute coverage values from ALL predicted rasters and merge with additional metadata from shapefile
     df_inference, csv_path = make_parcel_predictions_csv(
         args.parcel_shapefile_path, args.stats_path

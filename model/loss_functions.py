@@ -118,6 +118,6 @@ def loss_entropy(pred_pixels):
     """Loss entropy on coverage raster (probabilities) to favor coverage values close to 0 or 1 for medium and high vegetation.
     This should avoid low pixel values where there are typically no non-ground vegetation."""
     return -(
-        pred_pixels[:, 1:] * torch.log(pred_pixels[:, 1:] + EPS)
-        + (1 - pred_pixels[:, 1:]) * torch.log(1 - pred_pixels[:, 1:] + EPS)
+        pred_pixels * torch.log(pred_pixels + EPS)
+        + (1 - pred_pixels) * torch.log(1 - pred_pixels + EPS)
     ).mean()
