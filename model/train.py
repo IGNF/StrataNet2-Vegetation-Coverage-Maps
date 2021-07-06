@@ -93,12 +93,13 @@ def train(model, PCC, train_set, params, optimizer, args):
         loss_meter.add(loss.item())
         gc.collect()
 
-    return (
-        loss_meter.value()[0],
-        loss_meter_abs.value()[0],
-        loss_meter_log.value()[0],
-        loss_meter_abs_adm.value()[0],
-    )
+    train_losses_dict = {
+        "total_loss": loss_meter.value()[0],
+        "MAE_loss": loss_meter_abs.value()[0],
+        "log_loss": loss_meter_log.value()[0],
+        "adm_loss": loss_meter_abs_adm.value()[0],
+    }
+    return train_losses_dict
 
 
 def train_full(args, fold_id, train_set, test_set, test_list, xy_centers_dict, params):
@@ -120,32 +121,30 @@ def train_full(args, fold_id, train_set, test_set, test_list, xy_centers_dict, p
     # define the optimizer
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.wd)
     scheduler = StepLR(optimizer, step_size=args.step_size, gamma=args.lr_decay)
+    train_loss_dict = None
+    test_loss_dict = None
+    all_epochs_train_loss_dict = []
+    all_epochs_test_loss_dict = []
     cloud_info_list = None
-    test_losses = None
 
     for i_epoch in range(args.n_epoch):
         scheduler.step()
 
         # train one epoch
-        with experiment.context_manager("training"):
-            train_losses = train(model, PCC, train_set, params, optimizer, args)
-            writer = write_to_writer(writer, args, i_epoch, train_losses, train=True)
-            loss, loss_abs, loss_log, loss_adm = train_losses
+        with experiment.context_manager(f"train"):
+            train_loss_dict = train(model, PCC, train_set, params, optimizer, args)
+            writer = write_to_writer(writer, args, i_epoch, train_loss_dict, train=True)
+
             experiment.log_metrics(
-                {
-                    "loss_total": loss,
-                    "loss_MAE": loss_abs,
-                    "loss_log": loss_log,
-                    "loss_adm": loss_adm,
-                },
-                epoch=i_epoch,
+                train_loss_dict,
+                epoch=1 + i_epoch,
             )
 
         # if last epoch, we create 2D images with points projections and infer values for all test plots
-        with experiment.context_manager("validation"):
+        with experiment.context_manager(f"val"):
             if (i_epoch + 1) == args.n_epoch:
                 print("Last epoch")
-                test_losses, cloud_info_list = evaluate(
+                test_loss_dict, cloud_info_list = evaluate(
                     model,
                     PCC,
                     test_set,
@@ -157,15 +156,15 @@ def train_full(args, fold_id, train_set, test_set, test_list, xy_centers_dict, p
                     args.stats_file,
                     last_epoch=True,
                     plot_only_png=args.plot_only_png,
-                    full_run_situation=fold_id < 0,
+                    situation="crossval" if fold_id >= 0 else "full",
                 )
                 gc.collect()
                 writer = write_to_writer(
-                    writer, args, i_epoch, test_losses, train=False
+                    writer, args, i_epoch, test_loss_dict, train=False
                 )
             # if not last epoch, we just evaluate performances on test plots, during cross-validation only.
             elif ((i_epoch + 1) % args.n_epoch_test == 0) and fold_id > 0:
-                test_losses, _ = evaluate(
+                test_loss_dict, _ = evaluate(
                     model,
                     PCC,
                     test_set,
@@ -178,32 +177,19 @@ def train_full(args, fold_id, train_set, test_set, test_list, xy_centers_dict, p
                 )
                 gc.collect()
                 writer = write_to_writer(
-                    writer, args, i_epoch, test_losses, train=False
+                    writer, args, i_epoch, test_loss_dict, train=False
                 )
-            if test_losses is not None:
-                (
-                    loss,
-                    loss_abs,
-                    loss_log,
-                    loss_low_veg,
-                    loss_medium_veg,
-                    loss_high_veg,
-                    loss_adm,
-                ) = test_losses
+            if test_loss_dict is not None:
                 experiment.log_metrics(
-                    {
-                        "loss_total": loss,
-                        "loss_MAE": loss_abs,
-                        "loss_log": loss_log,
-                        "loss_adm": loss_adm,
-                        "loss_low_veg": loss_low_veg,
-                        "loss_medium_veg": loss_medium_veg,
-                        "loss_high_veg": loss_high_veg,
-                    },
-                    epoch=i_epoch,
+                    test_loss_dict,
+                    epoch=1 + i_epoch,
                 )
+                test_loss_dict.update({"epoch": 1 + i_epoch})
+                all_epochs_test_loss_dict.append(test_loss_dict)
+
+        train_loss_dict.update({"epoch": 1 + i_epoch})
+        all_epochs_train_loss_dict.append(train_loss_dict)
+
     writer.flush()
 
-    final_train_losses_list = train_losses
-    final_test_losses_list = test_losses
-    return model, final_train_losses_list, final_test_losses_list, cloud_info_list
+    return model, all_epochs_train_loss_dict, all_epochs_test_loss_dict, cloud_info_list

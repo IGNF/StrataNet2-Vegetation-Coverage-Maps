@@ -1,6 +1,7 @@
 import numpy as np
 from utils.useful_functions import print_stats
 import pandas as pd
+from functools import reduce
 
 # values should be in [0,1] since we deal with ratios of coverage
 bins_centers = np.round(np.array([0.0, 0.10, 0.25, 0.33, 0.50, 0.75, 0.90, 1.00]), 3)
@@ -136,378 +137,161 @@ def calculate_performance_indicators(df):
 
 
 # We compute all possible mean stats per loss for all folds
-def stats_for_all_folds(
-    all_folds_loss_train_lists, all_folds_loss_test_lists, stats_file, args
-):
-    (
-        loss_train_list,
-        loss_train_abs_list,
-        loss_train_log_list,
-        loss_train_adm_list,
-    ) = all_folds_loss_train_lists
-    (
-        loss_test_list,
-        loss_test_abs_list,
-        loss_test_log_list,
-        loss_test_abs_gl_list,
-        loss_test_abs_ml_list,
-        loss_test_abs_hl_list,
-        loss_test_adm_list,
-    ) = all_folds_loss_test_lists
+def stats_for_all_folds(all_folds_loss_train_lists, all_folds_loss_test_lists, args):
+    """
+    all_folds_loss_[train/test]_lists : lists of n_folds dictionnaries of losses (the results of full_train) where
+    an epoch key is present.
+    """
+    stats_file = args.stats_file
+    experiment = args.experiment
 
-    if args.adm:
-        mean_cross_fold_train = (
-            np.mean(loss_train_list),
-            np.mean(loss_train_abs_list),
-            np.mean(loss_train_log_list),
-            np.mean(loss_train_adm_list),
+    # TRAIN : average all by epoch and print last record stats
+    with experiment.context_manager(f"train_mean"):
+        df = pd.DataFrame(
+            data=reduce(lambda l1, l2: l1 + l2, all_folds_loss_train_lists)
         )
+        df = df.groupby("epoch").mean()
+        for epoch, metrics in df.to_dict("index").items():
+            experiment.log_metrics(
+                metrics, epoch=1 + epoch, step=epoch * (200 // args.batch_size)
+            )
+        last_mean = df[df.index == df.index.max()].to_dict("records")[0]
+        total_loss = last_mean["total_loss"]
+        MAE_loss = last_mean["MAE_loss"]
+        log_loss = last_mean["log_loss"]
+        adm_loss = last_mean["adm_loss"]
         print_stats(
             stats_file,
-            "Mean Train Loss "
-            + str(mean_cross_fold_train[0])
-            + " Loss abs (MAE) "
-            + str(mean_cross_fold_train[1])
-            + " Loss log "
-            + str(mean_cross_fold_train[2])
-            + " Loss admissibility "
-            + str(mean_cross_fold_train[3]),
+            "MEAN - Train Loss: %1.2f Train Loss Abs (MAE): %1.2f Train Loss Log: %1.2f Train Loss Adm: %1.2f"
+            % (
+                total_loss,
+                MAE_loss,
+                log_loss,
+                adm_loss if adm_loss is not np.nan else 0,
+            ),
+            print_to_console=True,
+        )
+    # TEST : average all by epoch and print last record stats
+    with experiment.context_manager(f"val_mean"):
+        df = pd.DataFrame(
+            data=reduce(lambda l1, l2: l1 + l2, all_folds_loss_test_lists)
+        )
+        df = df.groupby("epoch").mean()
+        for epoch, metrics in df.to_dict("index").items():
+            experiment.log_metrics(
+                metrics, epoch=1 + epoch, step=epoch * (200 // args.batch_size)
+            )
+        last_mean = df[df.index == df.index.max()].to_dict("records")[0]
+        total_loss = last_mean["total_loss"]
+        MAE_loss = last_mean["MAE_loss"]
+        log_loss = last_mean["log_loss"]
+        adm_loss = last_mean["adm_loss"]
+        print_stats(
+            stats_file,
+            "MEAN - Validation Loss: %1.2f Train Loss Abs (MAE): %1.2f Train Loss Log: %1.2f Train Loss Adm: %1.2f"
+            % (
+                total_loss,
+                MAE_loss,
+                log_loss,
+                adm_loss if adm_loss is not np.nan else 0,
+            ),
+            print_to_console=True,
+        )
+        MAE_veg_b = last_mean["MAE_veg_b"]
+        MAE_veg_moy = last_mean["MAE_veg_moy"]
+        MAE_veg_h = last_mean["MAE_veg_h"]
+        print_stats(
+            stats_file,
+            "MEAN - Validation MAE: Vb : %1.2f Vm : %1.2f Vh: %1.2f"
+            % (
+                MAE_veg_b,
+                MAE_veg_moy,
+                MAE_veg_h,
+            ),
             print_to_console=True,
         )
 
-        if args.nb_stratum == 2:
-            mean_cross_fold_test = (
-                np.mean(loss_test_list),
-                np.mean(loss_test_abs_list),
-                np.mean(loss_test_log_list),
-                np.mean(loss_test_abs_gl_list),
-                np.mean(loss_test_abs_ml_list),
-                np.mean(loss_test_adm_list),
-            )
-            mean_cross_fold_test = np.round(mean_cross_fold_test, 3)
 
-            print_stats(
-                stats_file,
-                "Mean Test Loss "
-                + str(mean_cross_fold_test[0])
-                + " Loss abs (MAE) "
-                + str(mean_cross_fold_test[1])
-                + " Loss log "
-                + str(mean_cross_fold_test[2])
-                + "\nLoss abs Vb "
-                + str(mean_cross_fold_test[3])
-                + " Loss abs Vm "
-                + str(mean_cross_fold_test[4])
-                + " Loss Admissibility "
-                + str(mean_cross_fold_test[5]),
-                print_to_console=True,
-            )
-
-        else:  # 3 stratum
-            mean_cross_fold_test = (
-                np.mean(loss_test_list),
-                np.mean(loss_test_abs_list),
-                np.mean(loss_test_log_list),
-                np.mean(loss_test_abs_gl_list),
-                np.mean(loss_test_abs_ml_list),
-                np.mean(loss_test_abs_hl_list),
-                np.mean(loss_test_adm_list),
-            )
-            mean_cross_fold_test = np.round(mean_cross_fold_test, 3)
-
-            print_stats(
-                stats_file,
-                "Mean Test Loss "
-                + str(mean_cross_fold_test[0])
-                + " Loss abs (MAE) "
-                + str(mean_cross_fold_test[1])
-                + " Loss log "
-                + str(mean_cross_fold_test[2])
-                + "\nLoss abs Vb "
-                + str(mean_cross_fold_test[3])
-                + " Loss abs Vm "
-                + str(mean_cross_fold_test[4])
-                + " Loss abs Vh "
-                + str(mean_cross_fold_test[5])
-                + " Loss admissibility "
-                + str(mean_cross_fold_test[6]),
-                print_to_console=True,
-            )
-
-    else:
-        mean_cross_fold_train = (
-            np.mean(loss_train_list),
-            np.mean(loss_train_abs_list),
-            np.mean(loss_train_log_list),
-        )
-        print_stats(
-            stats_file,
-            "Mean Train Loss "
-            + str(np.round(mean_cross_fold_train[0], 4))
-            + " Loss abs "
-            + str(np.round(mean_cross_fold_train[1], 4))
-            + " Loss log "
-            + str(np.round(mean_cross_fold_train[2], 4)),
-            print_to_console=True,
-        )
-
-        if args.nb_stratum == 2:
-            mean_cross_fold_test = (
-                np.mean(loss_test_list),
-                np.mean(loss_test_abs_list),
-                np.mean(loss_test_log_list),
-                np.mean(loss_test_abs_gl_list),
-                np.mean(loss_test_abs_ml_list),
-            )
-
-            print_stats(
-                stats_file,
-                "Mean Test Loss "
-                + str(mean_cross_fold_test[0])
-                + " Loss abs (MAE) "
-                + str(mean_cross_fold_test[1])
-                + " Loss log "
-                + str(mean_cross_fold_test[2])
-                + " Loss abs Vb "
-                + str(mean_cross_fold_test[3])
-                + " Loss abs Vm "
-                + str(mean_cross_fold_test[4]),
-                print_to_console=True,
-            )
-
-        else:  # 3 stratum
-            mean_cross_fold_test = (
-                np.round(np.mean(loss_test_list), 3),
-                np.round(np.mean(loss_test_abs_list), 3),
-                np.round(np.mean(loss_test_log_list), 3),
-                np.round(np.mean(loss_test_abs_gl_list), 3),
-                np.round(np.mean(loss_test_abs_ml_list), 3),
-                np.round(np.mean(loss_test_abs_hl_list), 3),
-            )
-
-            print_stats(
-                stats_file,
-                "Mean Test Loss "
-                + str(mean_cross_fold_test[0])
-                + " Loss abs (MAE) "
-                + str(mean_cross_fold_test[1])
-                + " Loss log "
-                + str(mean_cross_fold_test[2])
-                + "\nLoss abs Vb "
-                + str(mean_cross_fold_test[3])
-                + " Loss abs Vm "
-                + str(mean_cross_fold_test[4])
-                + " Loss abs Vh "
-                + str(mean_cross_fold_test[5]),
-                print_to_console=True,
-            )
-
-
-# We compute all possible loss stats per fold
-def stats_per_fold(
-    all_folds_loss_train_lists,
-    all_folds_loss_test_lists,
-    final_train_losses_list,
-    final_test_losses_list,
-    stats_file,
+# We log the loss stats per fold
+def log_last_stats_of_fold(
+    all_epochs_train_loss_dict,
+    all_epochs_test_loss_dict,
     fold_id,
     args,
 ):
-    if all_folds_loss_test_lists is None and all_folds_loss_test_lists is None:
-        # We keep track of stats per fold
-        loss_train_list = []
-        loss_train_abs_list = []
-        loss_train_log_list = []
-        loss_train_adm_list = []
-        loss_test_list = []
-        loss_test_abs_list = []
-        loss_test_log_list = []
-        loss_test_abs_gl_list = []
-        loss_test_abs_ml_list = []
-        loss_test_abs_hl_list = []
-        loss_test_adm_list = []
-    else:
-        (
-            loss_train_list,
-            loss_train_abs_list,
-            loss_train_log_list,
-            loss_train_adm_list,
-        ) = all_folds_loss_train_lists
-        (
-            loss_test_list,
-            loss_test_abs_list,
-            loss_test_log_list,
-            loss_test_abs_gl_list,
-            loss_test_abs_ml_list,
-            loss_test_abs_hl_list,
-            loss_test_adm_list,
-        ) = all_folds_loss_test_lists
-    final_train_losses_list = np.round(final_train_losses_list, 3)
-    loss_train, loss_train_abs, loss_train_log, loss_train_adm = final_train_losses_list
-    (
-        loss_test,
-        loss_test_abs,
-        loss_test_log,
-        loss_test_abs_gl,
-        loss_test_abs_ml,
-        loss_test_abs_hl,
-        loss_test_adm,
-    ) = np.round(final_test_losses_list, 3)
-
-    # Save all loss stats
+    last_dict_train = max(all_epochs_train_loss_dict, key=lambda x: x["epoch"])
+    total_loss = last_dict_train["total_loss"]
+    MAE_loss = last_dict_train["MAE_loss"]
+    log_loss = last_dict_train["log_loss"]
+    adm_loss = last_dict_train["adm_loss"]
     print_stats(
-        stats_file,
-        "Fold_"
-        + str(fold_id)
-        + " Train Loss "
-        + str(loss_train)
-        + " Loss abs "
-        + str(loss_train_abs)
-        + " Loss log "
-        + str(loss_train_log),
+        args.stats_file,
+        "Fold %3d Train Loss: %1.2f Train Loss Abs (MAE): %1.2f Train Loss Log: %1.2f Train Loss Adm: %1.2f"
+        % (
+            fold_id,
+            total_loss,
+            MAE_loss,
+            log_loss,
+            adm_loss if adm_loss is not np.nan else 0,
+        ),
         print_to_console=True,
     )
-    if args.adm:
-        print_stats(
-            stats_file,
-            "Fold_"
-            + str(fold_id)
-            + " Test Loss "
-            + str(loss_test)
-            + " Loss abs (MAE) "
-            + str(loss_test_abs)
-            + " Loss log "
-            + str(loss_test_log)
-            + " Loss abs adm "
-            + str(loss_test_adm),
-            print_to_console=True,
-        )
-    else:
-        print_stats(
-            stats_file,
-            "Fold_"
-            + str(fold_id)
-            + " Test Loss "
-            + str(loss_test)
-            + " Loss abs "
-            + str(loss_test_abs)
-            + " Loss log "
-            + str(loss_test_log),
-            print_to_console=True,
-        )
 
-    if args.nb_stratum == 2:
-        print_stats(
-            stats_file,
-            "Fold_"
-            + str(fold_id)
-            + " Test Loss abs GL "
-            + str(loss_test_abs_gl)
-            + " Test Loss abs ML "
-            + str(loss_test_abs_ml),
-            print_to_console=True,
-        )
-    else:
-        print_stats(
-            stats_file,
-            "Fold_"
-            + str(fold_id)
-            + " Test Loss abs GL "
-            + str(loss_test_abs_gl)
-            + " Test Loss abs ML "
-            + str(loss_test_abs_ml)
-            + " Test Loss abs HL "
-            + str(loss_test_abs_hl),
-            print_to_console=True,
-        )
+    last_dict_test = max(all_epochs_test_loss_dict, key=lambda x: x["epoch"])
 
-    loss_train_list.append(loss_train)
-    loss_train_abs_list.append(loss_train_abs)
-    loss_train_log_list.append(loss_train_log)
-    loss_train_adm_list.append(loss_train_adm)
+    total_loss = last_dict_test["total_loss"]
+    MAE_loss = last_dict_test["MAE_loss"]
+    log_loss = last_dict_test["log_loss"]
+    adm_loss = last_dict_test["adm_loss"]
+    print_stats(
+        args.stats_file,
+        "Fold %3d Test Loss: %1.2f Test Loss Abs (MAE): %1.2f Test Loss Log: %1.2f Test Loss Adm: %1.2f"
+        % (
+            fold_id,
+            total_loss,
+            MAE_loss,
+            log_loss,
+            adm_loss if adm_loss is not np.nan else 0,
+        ),
+        print_to_console=True,
+    )
 
-    loss_test_list.append(loss_test)
-    loss_test_abs_list.append(loss_test_abs)
-    loss_test_log_list.append(loss_test_log)
-    loss_test_abs_gl_list.append(loss_test_abs_gl)
-    loss_test_abs_ml_list.append(loss_test_abs_ml)
-    loss_test_abs_hl_list.append(loss_test_abs_hl)
-    loss_test_adm_list.append(loss_test_adm)
-
-    all_folds_loss_train_lists = [
-        loss_train_list,
-        loss_train_abs_list,
-        loss_train_log_list,
-        loss_train_adm_list,
-    ]
-    all_folds_loss_test_lists = [
-        loss_test_list,
-        loss_test_abs_list,
-        loss_test_log_list,
-        loss_test_abs_gl_list,
-        loss_test_abs_ml_list,
-        loss_test_abs_hl_list,
-        loss_test_adm_list,
-    ]
-    return all_folds_loss_train_lists, all_folds_loss_test_lists
+    return last_dict_train, last_dict_test
 
 
 # We perform tensorboard visualisation by writing the stats to the writer
-def write_to_writer(writer, args, i_epoch, list_with_losses, train):
-    TESTCOLOR = "\033[104m"
-    TRAINCOLOR = "\033[100m"
+# TODO: get rid of this as we use comet_ml
+def write_to_writer(writer, args, i_epoch, epoch_loss_dict, train):
     NORMALCOLOR = "\033[0m"
-
-    # round losses
-    list_with_losses = np.round(list_with_losses, 3)
-
     if train:
-        loss_train, loss_train_abs, loss_train_log, loss_train_adm = list_with_losses
-        if args.adm:
-            print(
-                TRAINCOLOR
-                + "Epoch %3d -> Train Loss: %1.4f Train Loss Abs (MAE): %1.4f Train Loss Log: %1.4f Train Loss Adm: %1.4f"
-                % (i_epoch, loss_train, loss_train_abs, loss_train_log, loss_train_adm)
-                + NORMALCOLOR
-            )
-            writer.add_scalar("Loss/train/abs_adm", loss_train_adm, i_epoch + 1)
-        else:
-            print(
-                TRAINCOLOR
-                + "Epoch %3d -> Train Loss: %1.4f Train Loss Abs (MAE): %1.4f Train Loss Log: %1.4f"
-                % (i_epoch, loss_train, loss_train_abs, loss_train_log)
-                + NORMALCOLOR
-            )
-        writer.add_scalar("Loss/train_total", loss_train, i_epoch + 1)
-        writer.add_scalar("Coverage_MAE/train", loss_train_abs, i_epoch + 1)
-        writer.add_scalar("Loss/train_log", loss_train_log, i_epoch + 1)
-
+        COLOR = "\033[100m"
+        task = "train"
     else:
-        (
-            loss_test,
-            loss_test_abs,
-            loss_test_log,
-            _,
-            _,
-            _,
-            loss_test_adm,
-        ) = list_with_losses
-        if args.adm:
-            print(
-                TESTCOLOR
-                + "Test Loss: %1.4f Test Loss Abs (MAE): %1.4f Test Loss Log: %1.4f Test Loss Adm: %1.4f"
-                % (loss_test, loss_test_abs, loss_test_log, loss_test_adm)
-                + NORMALCOLOR
-            )
-            writer.add_scalar("Loss/test/abs_adm", loss_test_adm, i_epoch + 1)
-        else:
-            print(
-                TESTCOLOR
-                + "Test Loss: %1.4f Test Loss Abs (MAE): %1.4f Test Loss Log: %1.4f"
-                % (loss_test, loss_test_abs, loss_test_log)
-                + NORMALCOLOR
-            )
-        writer.add_scalar("Loss/test/total", loss_test, i_epoch + 1)
-        writer.add_scalar("Coverage_MAE/test", loss_test_abs, i_epoch + 1)
-        writer.add_scalar("Loss/test/log", loss_test_log, i_epoch + 1)
+        COLOR = "\033[104m"
+        task = "test"
+
+    total_loss = epoch_loss_dict["total_loss"]
+    MAE_loss = epoch_loss_dict["MAE_loss"]
+    log_loss = epoch_loss_dict["log_loss"]
+    adm_loss = epoch_loss_dict["adm_loss"]
+    print(
+        COLOR
+        + "Epoch %3d -> %s Loss: %1.2f Train Loss Abs (MAE): %1.2f Train Loss Log: %1.2f Train Loss Adm: %1.2f"
+        % (
+            i_epoch,
+            task,
+            total_loss,
+            MAE_loss,
+            log_loss,
+            adm_loss if adm_loss is not None else 0,
+        )
+        + NORMALCOLOR
+    )
+    writer.add_scalar(f"Loss/{task}/abs_adm", adm_loss, i_epoch + 1)
+    writer.add_scalar(f"Loss/{task}_total", total_loss, i_epoch + 1)
+    writer.add_scalar(f"Coverage_MAE/{task}", MAE_loss, i_epoch + 1)
+    writer.add_scalar(f"Loss/{task}_log", log_loss, i_epoch + 1)
+    if not train:
+        loss_vb = epoch_loss_dict["MAE_veg_b"]
+
     return writer

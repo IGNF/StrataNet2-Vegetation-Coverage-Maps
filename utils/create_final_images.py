@@ -28,6 +28,7 @@ def visualize_article(
     nir_r_g_indexes = [6, 3, 4]
     c = cloud[nir_r_g_indexes].numpy().transpose()
 
+    # TODO: clean here
     # # NDVI calculation
     # r_infra = cloud[[3, 6]].numpy().transpose()
     # r = r_infra[:, 0]
@@ -280,9 +281,11 @@ def visualize(
 
     if text_pred_vs_gt is not None:
         fig.text(0.5, 0.05, text_pred_vs_gt, ha="center")
-    plt.savefig(stats_path + pl_id + ".png", format="png", bbox_inches="tight", dpi=150)
+    save_path = stats_path + pl_id + ".png"
+    plt.savefig(save_path, format="png", bbox_inches="tight", dpi=150)
     plt.clf()
     plt.close("all")
+    return save_path
 
 
 def create_final_images(
@@ -341,7 +344,7 @@ def create_final_images(
         )
         # We create an image with 5 or 6 subplots:
         # 1. original point cloud, 2. LV image, 3. pointwise prediction point cloud, 4. MV image, 5.Stratum probabilities point cloud, 6.(optional) HV image
-        visualize(
+        png_path = visualize(
             image_low_veg,
             image_med_veg,
             current_cloud,
@@ -355,6 +358,7 @@ def create_final_images(
             predictions=preds_nparray,
             gt=gt_nparray,
         )
+        args.experiment.log_image(png_path, overwrite=True)
 
         if not plot_only_png:
 

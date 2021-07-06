@@ -12,6 +12,7 @@ import os
 np.random.seed(42)
 
 
+@torch.no_grad()
 def evaluate(
     model,
     PCC,
@@ -24,7 +25,7 @@ def evaluate(
     stats_file,
     last_epoch=False,
     plot_only_png=True,
-    full_run_situation=False,
+    situation="crossval",
 ):
     """Eval on test set and inference if this is the last epoch
     Outputs are: average losses (printed), infered values (csv) , k trained models, stats, and images.
@@ -51,15 +52,10 @@ def evaluate(
         if PCC.is_cuda:
             gt = gt.cuda()
 
-        pred_pointwise, pred_pointwise_b = PCC.run(
-            model, cloud
-        )  # compute the prediction
-        # end_encoding_time = time.time()
-
+        pred_pointwise, pred_pointwise_b = PCC.run(model, cloud)
         pred_pl, pred_adm, pred_pixels = project_to_2d(
             pred_pointwise, cloud, pred_pointwise_b, PCC, args
-        )  # compute plot prediction
-
+        )
         # we compute two losses (negative loglikelihood and the absolute error loss for 2 stratum)
         loss_abs = loss_absolute(pred_pl, gt, args)  # absolut loss
         loss_log, likelihood = loss_loglikelihood(
@@ -106,56 +102,53 @@ def evaluate(
                 loss_meter_abs_hl.add(loss_abs_hl.item())
         loss_meter_abs_gl.add(loss_abs_gl.item())
         loss_meter_abs_ml.add(loss_abs_ml.item())
-        if last_epoch:
-            # create final plot to visualize results
-            if full_run_situation:
-                plot_path = os.path.join(stats_path, "img/placettes/full/")
-            else:
-                plot_path = os.path.join(stats_path, "img/placettes/crossval/")
-            create_dir(plot_path)
-            create_final_images(
-                pred_pl,
-                gt,
-                pred_pointwise_b,
-                cloud,
-                likelihood,
-                pl_id,
-                xy_centers_dict,
-                plot_path,
-                stats_file,
-                args,
-                adm=pred_adm,
-                plot_only_png=plot_only_png,
-            )  # create final images with stratum values
+        # if last_epoch:
+        # create final plot to visualize results
+        plot_path = os.path.join(stats_path, f"img/placettes/{situation}/")
+        create_dir(plot_path)
+        create_final_images(
+            pred_pl,
+            gt,
+            pred_pointwise_b,
+            cloud,
+            likelihood,
+            pl_id,
+            xy_centers_dict,
+            plot_path,
+            stats_file,
+            args,
+            adm=pred_adm,
+            plot_only_png=plot_only_png,
+        )  # create final images with stratum values
 
-            # Keep and format prediction from pred_pl
-            with torch.no_grad():
-                pred_pl_cpu = pred_pl.cpu().numpy()[0]
-                gt_cpu = gt.cpu().numpy()[0]
-            cloud_info = {
-                "pl_id": pl_id,
-                "pl_N_points": pred_pointwise.shape[0],
-                "pred_veg_b": pred_pl_cpu[0],
-                "pred_sol_nu": pred_pl_cpu[1],
-                "pred_veg_moy": pred_pl_cpu[2],
-                "pred_veg_h": pred_pl_cpu[3],
-                "vt_veg_b": gt_cpu[0],
-                "vt_sol_nu": gt_cpu[1],
-                "vt_veg_moy": gt_cpu[2],
-                "vt_veg_h": gt_cpu[3],
-            }
+        # Keep and format prediction from pred_pl
+        with torch.no_grad():
+            pred_pl_cpu = pred_pl.cpu().numpy()[0]
+            gt_cpu = gt.cpu().numpy()[0]
+        cloud_info = {
+            "pl_id": pl_id,
+            "pl_N_points": pred_pointwise.shape[0],
+            "pred_veg_b": pred_pl_cpu[0],
+            "pred_sol_nu": pred_pl_cpu[1],
+            "pred_veg_moy": pred_pl_cpu[2],
+            "pred_veg_h": pred_pl_cpu[3],
+            "vt_veg_b": gt_cpu[0],
+            "vt_sol_nu": gt_cpu[1],
+            "vt_veg_moy": gt_cpu[2],
+            "vt_veg_h": gt_cpu[3],
+        }
 
-            cloud_info_list.append(cloud_info)
+        cloud_info_list.append(cloud_info)
 
     return (
-        [
-            loss_meter.value()[0],
-            loss_meter_abs.value()[0],
-            loss_meter_log.value()[0],
-            loss_meter_abs_gl.value()[0],
-            loss_meter_abs_ml.value()[0],
-            loss_meter_abs_hl.value()[0],
-            loss_meter_abs_adm.value()[0],
-        ],
+        {
+            "total_loss": loss_meter.value()[0],
+            "MAE_loss": loss_meter_abs.value()[0],
+            "log_loss": loss_meter_log.value()[0],
+            "MAE_veg_b": loss_meter_abs_gl.value()[0],
+            "MAE_veg_moy": loss_meter_abs_ml.value()[0],
+            "MAE_veg_h": loss_meter_abs_hl.value()[0],
+            "adm_loss": loss_meter_abs_adm.value()[0],
+        },
         cloud_info_list,
     )
