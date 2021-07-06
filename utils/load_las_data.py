@@ -1,5 +1,6 @@
 import math
 import os
+import sys
 from utils.useful_functions import (
     get_filename_no_extension,
     get_files_of_type_in_folder,
@@ -12,8 +13,10 @@ import warnings
 import random
 
 random.seed(0)
+import numpy_indexed as npi
 from random import random, shuffle
 
+np.random.seed(0)
 
 warnings.simplefilter(action="ignore")
 
@@ -48,7 +51,7 @@ def load_all_las_from_folder(args):
         all_points_nparray = np.append(all_points_nparray, points_nparray, axis=0)
         plot_name = get_filename_no_extension(las_filename)
         nparray_clouds_dict[plot_name] = points_nparray
-        xy_centers_dict[plot_name] = xy_centers
+        xy_centers_dict[plot_name] = xy_center
 
     return all_points_nparray, nparray_clouds_dict, xy_centers_dict
 
@@ -115,10 +118,6 @@ def transform_features_of_plot_cloud(points_nparray, args):
     2) Substract z_min at local level using KNN
     """
 
-    # From "z" to "z_flat"
-    points_nparray = normalize_z_with_minz_in_a_radius(
-        points_nparray, args.znorm_radius_in_meters
-    )
     # add "z_original"
     idx = args.input_feats.index("z_flat")
     zmin_plot = np.min(points_nparray[:, idx])
@@ -126,12 +125,17 @@ def transform_features_of_plot_cloud(points_nparray, args):
         points_nparray, points_nparray[:, idx : (idx + 1)] - zmin_plot, axis=1
     )
 
+    # normalize "z"
+    points_nparray = normalize_z_with_minz_in_a_radius(
+        points_nparray, args.znorm_radius_in_meters
+    )
+
     return points_nparray
 
 
-def normalize_z_with_minz_in_a_radius(points_placette, znorm_radius_in_meters):
+def normalize_z_with_minz_in_a_radius(cloud, znorm_radius_in_meters):
     # # We directly substract z_min at local level
-    xyz = points_placette[:, :3]
+    xyz = cloud[:, :3]
     knn = NearestNeighbors(500, algorithm="kd_tree").fit(xyz[:, :2])
     _, neigh = knn.radius_neighbors(xyz[:, :2], znorm_radius_in_meters)
     z = xyz[:, 2]
@@ -140,12 +144,8 @@ def normalize_z_with_minz_in_a_radius(points_placette, znorm_radius_in_meters):
         len(z)
     ):  # challenging to make it work without a loop as neigh has different length for each point
         zmin_neigh.append(np.min(z[neigh[n]]))
-    points_placette[:, 2] = points_placette[:, 2] - zmin_neigh
-    return points_placette
-
-
-def normalize_z_with_approximate_DTM(points_placette, args):
-    pass
+    cloud[:, 2] = cloud[:, 2] - zmin_neigh
+    return cloud
 
 
 def scaled_scan_angle_to_degree(scan_angle, DIVISION_RATIO=10000):

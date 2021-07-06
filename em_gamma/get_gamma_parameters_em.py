@@ -104,6 +104,7 @@ def get_gamma_parameters(all_z, args):
         "a_v": shape[1],
         "loc_g": 0,
         "loc_v": 0,
+        "phi_2": pi[1],
         "scale_g": scale[0],
         "scale_v": scale[1],
     }

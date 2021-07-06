@@ -1,13 +1,12 @@
 # global imports
-import glob
-import os
 import warnings
 import numpy as np
 import pandas as pd
-import rasterio
 import torch
 from tqdm import tqdm
 import shapefile
+from shapely.geometry import shape
+
 from codetiming import Timer
 
 warnings.simplefilter(action="ignore")
@@ -21,7 +20,6 @@ from utils.useful_functions import (
     get_args_from_prev_config,
     get_filename_no_extension,
     print_stats,
-    get_files_of_type_in_folder,
     get_trained_model_path_from_experiment,
 )
 from model.point_cloud_classifier import PointCloudClassifier
@@ -55,8 +53,8 @@ def main():
     )
 
     # Get the shapefile records and las filenames
-    sf = shapefile.Reader(args.parcel_shapefile_path)
-    shp_records = {rec.ID: rec for rec in sf.records()}
+    shp = shapefile.Reader(args.parcel_shapefile_path)
+    shp_records = {rec.ID: rec for rec in shp.records()}
     las_filenames = get_list_las_files_not_infered_yet(
         args.stats_path, args.las_parcelles_folder_path
     )
@@ -64,7 +62,7 @@ def main():
 
     for las_filename in las_filenames:
 
-        plot_name = get_filename_no_extension(las_filename)
+        parcel_ID = get_filename_no_extension(las_filename)
 
         # DEBUG : remove this debug condition
         # if args.mode == "DEV":
@@ -79,11 +77,15 @@ def main():
         t = Timer(name="duration_divide_seconds")
         t.start()
         try:
+            # TODO: extract as a method
+            parcel_shape = shape(
+                shp.shape(shp_records[parcel_ID].oid).__geo_interface__
+            )
             (
                 grid_pixel_xy_centers,
                 parcel_points_nparray,
             ) = divide_parcel_las_and_get_disk_centers(
-                args, las_filename, save_fig_of_division=True
+                args, las_filename, parcel_shape, save_fig_of_division=True
             )
         except ValueError:
             print_stats(args.stats_file, f"Problem when loading file {las_filename}")
@@ -97,33 +99,36 @@ def main():
         # TODO: parallelize this loop - everything is independant except the loader model which could be multiplied ?
         for plot_center in tqdm(
             grid_pixel_xy_centers,
-            desc=f"Centers for parcel in {plot_name}",
+            desc=f"Centers for parcel in {parcel_ID}",
             leave=True,
         ):
             plot_points_tensor = get_and_prepare_cloud_around_center(
                 parcel_points_nparray, plot_center, args
             )
-            if plot_points_tensor is not None and plot_points_tensor.shape[-1] > 50:
-                pred_pointwise, _ = PCC.run(model, plot_points_tensor)
-                create_geotiff_raster(
-                    args,
-                    pred_pointwise.permute(
-                        1, 0
-                    ),  # pred_pointwise was permuted from (N_scores, N_points) to (N_points, N_scores) at the end of PCC.run
-                    plot_points_tensor[0, :, :],  # (N_feats, N_points) cloud 2D tensor
-                    plot_center,
-                    plot_name,
-                )
+            if plot_points_tensor is not None and plot_points_tensor.shape[-1] > 500:
+                with torch.no_grad():
+                    pred_pointwise, _ = PCC.run(model, plot_points_tensor)
+                    create_geotiff_raster(
+                        args,
+                        pred_pointwise.permute(
+                            1, 0
+                        ),  # pred_pointwise was permuted from (N_scores, N_points) to (N_points, N_scores) at the end of PCC.run
+                        plot_points_tensor[
+                            0, :, :
+                        ],  # (N_feats, N_points) cloud 2D tensor
+                        plot_center,
+                        parcel_ID,
+                    )
         t.stop()
 
         t.name = "duration_merge_seconds"
         t.start()
-        merge_geotiff_rasters(args, plot_name)
+        merge_geotiff_rasters(args, parcel_ID)
         t.stop()
 
         # Append to infer_times.csv
         with open(args.times_file, encoding="utf-8", mode="a") as f:
-            log_inference_times(plot_name, t, shp_records, f)
+            log_inference_times(parcel_ID, t, shp_records, f)
 
     # Compute coverage values from ALL predicted rasters and merge with additional metadata from shapefile
     df_inference, csv_path = make_parcel_predictions_csv(
