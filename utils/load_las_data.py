@@ -98,15 +98,15 @@ def transform_features_of_plot_cloud(points_nparray, xy_center, args):
     1) Add a feature:min-normalized using min-z of the plot
     2) Substract z_min at local level using KNN
     """
-    # normalize "z"
-    points_nparray = normalize_z_with_minz_in_a_radius(
-        points_nparray, args.znorm_radius_in_meters
-    )
-
     # add "z_original"
     zmin_plot = np.min(points_nparray[:, 2])
     points_nparray = np.append(
         points_nparray, points_nparray[:, 2:3] - zmin_plot, axis=1
+    )
+
+    # normalize "z"
+    points_nparray = normalize_z_with_minz_in_a_radius(
+        points_nparray, args.znorm_radius_in_meters
     )
 
     return points_nparray
