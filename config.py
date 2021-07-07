@@ -5,7 +5,7 @@ from utils.useful_functions import get_args_from_prev_config
 # This script defines all parameters for data loading, model definition, sand I/O operations.
 
 # Set to DEV for faster iterations (1 fold, 4 epochs), in order to e.g. test saving results.
-MODE = "DEV"  # DEV or PROD
+MODE = "PROD"  # DEV or PROD
 
 # FEATURE NAMES used to get the right index. Do not permutate features x, y, z, red, green, blue, nir and intensity.
 FEATURE_NAMES = [
@@ -105,10 +105,10 @@ parser.add_argument('--wd', default=0.001, type=float, help="Weight decay for th
 parser.add_argument('--lr', default=1e-3, type=float, help="Learning rate")
 parser.add_argument('--step_size', default=50, type=int,
                     help="After this number of steps we decrease learning rate. (Period of learning rate decay)")
-parser.add_argument('--lr_decay', default=0.1, type=float,
+parser.add_argument('--lr_decay', default=1, type=float,
                     help="We multiply learning rate by this value after certain number of steps (see --step_size). (Multiplicative factor of learning rate decay)")
-parser.add_argument('--n_epoch', default=100 if MODE=="PROD" else 5, type=int, help="Number of training epochs")
-parser.add_argument('--n_epoch_test', default=2 if MODE=="PROD" else 1, type=int, help="We evaluate every -th epoch")
+parser.add_argument('--n_epoch', default=100 if not MODE=="DEV" else 10, type=int, help="Number of training epochs")
+parser.add_argument('--n_epoch_test', default=2 if not MODE=="DEV" else 1, type=int, help="We evaluate every -th epoch")
 parser.add_argument('--batch_size', default=20, type=int, help="Size of the training batch")
 
 # fmt: on
@@ -120,7 +120,7 @@ if args.use_prev_config is not None:
 
 assert args.nb_stratum in [2, 3], "Number of stratum should be 2 or 3!"
 assert (
-    args.lr_decay < 1
+    args.lr_decay <= 1
 ), "Learning rate decrease should be smaller than 1, as learning rate should decrease"
 
 print(f"Arguments were imported in {MODE} mode")

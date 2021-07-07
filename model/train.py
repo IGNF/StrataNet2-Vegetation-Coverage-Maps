@@ -131,6 +131,7 @@ def train_full(args, fold_id, train_set, test_set, test_list, xy_centers_dict, p
     for i_epoch in range(args.n_epoch):
         experiment.set_epoch(1 + i_epoch)
         scheduler.step()
+        experiment.log_metric("learning_rate", scheduler.get_last_lr())
 
         # train one epoch
         with experiment.context_manager(f"train"):

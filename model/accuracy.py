@@ -188,7 +188,7 @@ def stats_for_all_folds(all_folds_loss_train_lists, all_folds_loss_test_lists, a
         adm_loss = last_mean["adm_loss"]
         print_stats(
             stats_file,
-            "MEAN - Validation Loss: %1.2f Train Loss Abs (MAE): %1.2f Train Loss Log: %1.2f Train Loss Adm: %1.2f"
+            "MEAN - Validation Loss: %1.2f Loss Abs (MAE): %1.2f Loss Log: %1.2f Loss Adm: %1.2f"
             % (
                 total_loss,
                 MAE_loss,

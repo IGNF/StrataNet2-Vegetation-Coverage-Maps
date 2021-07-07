@@ -50,9 +50,7 @@ torch.cuda.empty_cache()
 def main():
 
     # Create the experiment and its local folder
-    experiment = Experiment(
-        project_name="lidar_pac",
-    )
+    experiment = Experiment(project_name="lidar_pac")
     create_new_experiment_folder(args)  # Define output paths
     experiment.log_parameters(vars(args))
     experiment.add_tag(args.mode)
@@ -191,7 +189,7 @@ def main():
         args.stats_file, f"Saved infered, cross-validated results to {inference_path}"
     )
 
-    if args.mode == "PROD":
+    if not args.mode == "DEV":
         # TRAIN full model
         print_stats(args.stats_file, "Training on all data.")
 
