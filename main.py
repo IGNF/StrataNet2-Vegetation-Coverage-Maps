@@ -60,6 +60,9 @@ def main():
         experiment = Experiment(project_name="lidar_pac")
     experiment.log_parameters(vars(args))
     experiment.add_tag(args.mode)
+    if args.comet_tag:
+        experiment.add_tag(args.comet_tag.replace(" ", "_"))
+
     args.experiment = experiment  # be sure that this is not saved in text somewhere...
 
     # Load Las files for placettes
