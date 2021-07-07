@@ -356,7 +356,8 @@ def create_final_images(
         predictions=preds_nparray,
         gt=gt_nparray,
     )
-    args.experiment.log_image(png_path, overwrite=True)
+    if args.current_fold_id >= 0:
+        args.experiment.log_image(png_path, overwrite=True)
 
     if not plot_only_png:
 

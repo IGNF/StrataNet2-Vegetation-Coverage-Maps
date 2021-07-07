@@ -1,4 +1,4 @@
-from comet_ml import Experiment
+from comet_ml import Experiment, OfflineExperiment
 
 import warnings
 
@@ -50,8 +50,14 @@ torch.cuda.empty_cache()
 def main():
 
     # Create the experiment and its local folder
-    experiment = Experiment(project_name="lidar_pac")
     create_new_experiment_folder(args)  # Define output paths
+    if args.offline_experiment:
+        experiment = OfflineExperiment(
+            project_name="lidar_pac",
+            offline_directory=os.path.join(args.path, "experiments/"),
+        )
+    else:
+        experiment = Experiment(project_name="lidar_pac")
     experiment.log_parameters(vars(args))
     experiment.add_tag(args.mode)
     args.experiment = experiment  # be sure that this is not saved in text somewhere...
@@ -166,7 +172,7 @@ def main():
         )
         fold_id += 1
         experiment.set_step(0)
-        if args.mode == "DEV" and fold_id >= 3:
+        if args.mode == "DEV" and fold_id >= 2:
             break
 
     # create inference results csv
@@ -247,10 +253,6 @@ def main():
         + str(time.strftime("%H:%M:%S", time.gmtime(time.time() - start_time))),
         print_to_console=True,
     )
-
-
-# TODO
-# Formate the stats.txt fil into a human- & computer-readable csv
 
 
 if __name__ == "__main__":

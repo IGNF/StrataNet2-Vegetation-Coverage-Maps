@@ -1,5 +1,7 @@
 # We import from other files
 import imp
+
+from comet_ml import Experiment
 from utils.create_final_images import *
 from data_loader.loader import *
 from model.reproject_to_2d_and_predict_plot_coverage import *
@@ -126,10 +128,6 @@ def evaluate(
             )  # create final images with stratum values
 
         if last_epoch:
-            # log the embeddings for this plot
-            last_G_tensor_list.append(
-                [model.last_G_tensor.cpu().numpy(), plot_name, png_path]
-            )
             # Keep and format prediction from pred_pl
             pred_pl_cpu = pred_pl.cpu().numpy()[0]
             gt_cpu = gt.cpu().numpy()[0]
@@ -145,11 +143,15 @@ def evaluate(
                 "vt_veg_moy": gt_cpu[2],
                 "vt_veg_h": gt_cpu[3],
             }
-
             cloud_info_list.append(cloud_info)
+            if isinstance(args.experiment, Experiment):
+                # log the embeddings for this plot
+                last_G_tensor_list.append(
+                    [model.last_G_tensor.cpu().numpy(), plot_name, png_path]
+                )
 
     # Here we log histograms of the absolute errors
-    if last_epoch:
+    if last_epoch and isinstance(args.experiment, Experiment):
         args.experiment.log_histogram_3d(
             [abs(info["pred_veg_b"] - info["vt_veg_b"]) for info in cloud_info_list],
             name="val_MAE_veg_b",

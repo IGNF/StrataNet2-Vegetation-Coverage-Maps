@@ -49,7 +49,7 @@ PLOT_NAME_TO_VISUALIZE_DURING_TRAINING = {"Releve_Lidar_F68", # Vm = 100% -> Vm 
                                             "POINT_OBS106", # Vb = 50%, Vh=90% -> Vb under vegetation
                                             }
 parser.add_argument('--plot_name_to_visualize_during_training', default=PLOT_NAME_TO_VISUALIZE_DURING_TRAINING,  help="A few plot name to track during learning")
-
+parser.add_argument('--offline_experiment', default=False, type=bool, help="")
 parser.add_argument('--results_path', default=None, help="(Created on the fly) Path to all related experiments")
 parser.add_argument('--stats_path', default=None, help="(Created on the fly) Path to stats folder of current run")
 parser.add_argument('--stats_file', default=None, help="(Created on the fly) Path to stats file including losses")
@@ -105,10 +105,10 @@ parser.add_argument('--wd', default=0.001, type=float, help="Weight decay for th
 parser.add_argument('--lr', default=1e-3, type=float, help="Learning rate")
 parser.add_argument('--step_size', default=50, type=int,
                     help="After this number of steps we decrease learning rate. (Period of learning rate decay)")
-parser.add_argument('--lr_decay', default=1, type=float,
+parser.add_argument('--lr_decay', default=0.1, type=float,
                     help="We multiply learning rate by this value after certain number of steps (see --step_size). (Multiplicative factor of learning rate decay)")
-parser.add_argument('--n_epoch', default=100 if not MODE=="DEV" else 10, type=int, help="Number of training epochs")
-parser.add_argument('--n_epoch_test', default=2 if not MODE=="DEV" else 1, type=int, help="We evaluate every -th epoch")
+parser.add_argument('--n_epoch', default=100 if not MODE=="DEV" else 2, type=int, help="Number of training epochs")
+parser.add_argument('--n_epoch_test', default=1 if not MODE=="DEV" else 1, type=int, help="We evaluate every -th epoch")
 parser.add_argument('--batch_size', default=20, type=int, help="Size of the training batch")
 
 # fmt: on

@@ -39,7 +39,7 @@ def load_all_las_from_folder(args):
             for l in las_filenames
             if any(n in l for n in args.plot_name_to_visualize_during_training)
         ]
-        n_by_fold = 5
+        n_by_fold = 6
         shuffle(las_filenames)
         las_filenames = (
             selection + las_filenames[: (args.folds * n_by_fold - len(selection))]
