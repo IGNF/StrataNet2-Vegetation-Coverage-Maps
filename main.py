@@ -168,7 +168,7 @@ def main():
         )
         fold_id += 1
         experiment.set_step(0)
-        if args.mode == "DEV" and fold_id >= 1:
+        if args.mode == "DEV" and fold_id >= 3:
             break
 
     # create inference results csv
@@ -243,12 +243,12 @@ def main():
         )
         torch.save(trained_model, PATH)
 
-        print_stats(
-            args.stats_file,
-            "Total training time: "
-            + str(time.strftime("%H:%M:%S", time.gmtime(time.time() - start_time))),
-            print_to_console=True,
-        )
+    print_stats(
+        args.stats_file,
+        "Total run time: "
+        + str(time.strftime("%H:%M:%S", time.gmtime(time.time() - start_time))),
+        print_to_console=True,
+    )
 
 
 # TODO

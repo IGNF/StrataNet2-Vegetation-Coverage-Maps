@@ -34,14 +34,16 @@ def load_all_las_from_folder(args):
 
     # DEBUG
     if args.mode == "DEV":
+        selection = [
+            l
+            for l in las_filenames
+            if any(n in l for n in args.plot_name_to_visualize_during_training)
+        ]
+        n_by_fold = 5
         shuffle(las_filenames)
-        las_filenames = las_filenames[: (5 * 5)]  # nb plot by fold
-
-        # las_files = las_files[:10] + [
-        #     l
-        #     for l in las_files
-        #     if any(n in l for n in ["OBS15", "F68", "2021_POINT_OBS2"])
-        # ]
+        las_filenames = (
+            selection + las_filenames[: (args.folds * n_by_fold - len(selection))]
+        )
 
     all_points_nparray = np.empty((0, len(args.input_feats)))
     for las_filename in las_filenames:

@@ -5,7 +5,7 @@ from utils.useful_functions import get_args_from_prev_config
 # This script defines all parameters for data loading, model definition, sand I/O operations.
 
 # Set to DEV for faster iterations (1 fold, 4 epochs), in order to e.g. test saving results.
-MODE = "PROD"  # DEV or PROD
+MODE = "DEV"  # DEV or PROD
 
 # FEATURE NAMES used to get the right index. Do not permutate features x, y, z, red, green, blue, nir and intensity.
 FEATURE_NAMES = [
@@ -43,6 +43,12 @@ parser.add_argument('--gt_file_path', default=os.path.join(data_path, "placettes
 parser.add_argument('--cuda', default=0, type=int, help="Whether we use cuda (1) or not (0)")
 parser.add_argument('--coln_mapper_dict', default={"nom":"Name"}, type=str, help="Dict to rename columns of gt ")
 parser.add_argument('--plot_only_png', default=True, type=bool, help="Set to False to output SVG article format and GeoTIFF at last epoch.")
+PLOT_NAME_TO_VISUALIZE_DURING_TRAINING = {"Releve_Lidar_F68", # Vm = 100% -> Vm vs Vb distinction
+                                            "2021_POINT_OBS66", # Vb = 50%, well separated -> use of NIR?
+                                            "2021_POINT_OBS7",  #Vm = 25%, Vh = 25% -> Vm vs. Vh point localization along z
+                                            "POINT_OBS106", # Vb = 50%, Vh=90% -> Vb under vegetation
+                                            }
+parser.add_argument('--plot_name_to_visualize_during_training', default=PLOT_NAME_TO_VISUALIZE_DURING_TRAINING,  help="A few plot name to track during learning")
 
 parser.add_argument('--results_path', default=None, help="(Created on the fly) Path to all related experiments")
 parser.add_argument('--stats_path', default=None, help="(Created on the fly) Path to stats folder of current run")

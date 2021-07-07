@@ -288,6 +288,7 @@ def visualize(
     return save_path
 
 
+@torch.no_grad()
 def create_final_images(
     pred_pl,
     gt,

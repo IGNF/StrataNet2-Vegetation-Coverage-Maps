@@ -107,6 +107,7 @@ def train_full(args, fold_id, train_set, test_set, test_list, xy_centers_dict, p
     If fold_id = -1, this is the full training and we make inferences at last epoch for this test=train set.
     """
     experiment = args.experiment
+    args.current_fold_id = fold_id
 
     # initialize the model and define the classifier
     model = PointNet(args.MLP_1, args.MLP_2, args.MLP_3, args)

@@ -106,74 +106,85 @@ def evaluate(
         loss_meter_abs_gl.add(loss_abs_gl.item())
         loss_meter_abs_ml.add(loss_abs_ml.item())
 
-        # create final plot to visualize results and track progress
-        plot_path = os.path.join(stats_path, f"img/placettes/{situation}/")
-        create_dir(plot_path)
-        png_path = create_final_images(
-            pred_pl,
-            gt,
-            pred_pointwise_b,
-            cloud,
-            likelihood,
-            plot_name,
-            xy_centers_dict,
-            plot_path,
-            stats_file,
-            args,
-            adm=pred_adm,
-            plot_only_png=plot_only_png,
-        )  # create final images with stratum values
+        # Save visualizatins to visualize final results OR track progress for a selection of plots
+        if last_epoch or plot_name in args.plot_name_to_visualize_during_training:
+            plot_path = os.path.join(stats_path, f"img/placettes/{situation}/")
+            create_dir(plot_path)
+            png_path = create_final_images(
+                pred_pl,
+                gt,
+                pred_pointwise_b,
+                cloud,
+                likelihood,
+                plot_name,
+                xy_centers_dict,
+                plot_path,
+                stats_file,
+                args,
+                adm=pred_adm,
+                plot_only_png=plot_only_png,
+            )  # create final images with stratum values
 
-        # Keep and format prediction from pred_pl
-        with torch.no_grad():
+        if last_epoch:
+            # log the embeddings for this plot
+            last_G_tensor_list.append(
+                [model.last_G_tensor.cpu().numpy(), plot_name, png_path]
+            )
+            # Keep and format prediction from pred_pl
             pred_pl_cpu = pred_pl.cpu().numpy()[0]
             gt_cpu = gt.cpu().numpy()[0]
-        cloud_info = {
-            "pl_id": plot_name,
-            "pl_N_points": pred_pointwise.shape[0],
-            "pred_veg_b": pred_pl_cpu[0],
-            "pred_sol_nu": pred_pl_cpu[1],
-            "pred_veg_moy": pred_pl_cpu[2],
-            "pred_veg_h": pred_pl_cpu[3],
-            "vt_veg_b": gt_cpu[0],
-            "vt_sol_nu": gt_cpu[1],
-            "vt_veg_moy": gt_cpu[2],
-            "vt_veg_h": gt_cpu[3],
-        }
+            cloud_info = {
+                "pl_id": plot_name,
+                "pl_N_points": pred_pointwise.shape[0],
+                "pred_veg_b": pred_pl_cpu[0],
+                "pred_sol_nu": pred_pl_cpu[1],
+                "pred_veg_moy": pred_pl_cpu[2],
+                "pred_veg_h": pred_pl_cpu[3],
+                "vt_veg_b": gt_cpu[0],
+                "vt_sol_nu": gt_cpu[1],
+                "vt_veg_moy": gt_cpu[2],
+                "vt_veg_h": gt_cpu[3],
+            }
 
-        # log the embeddings for this plot
-        last_G_tensor_list.append(
-            [model.last_G_tensor.cpu().numpy(), plot_name, png_path]
-        )
-
-        cloud_info_list.append(cloud_info)
+            cloud_info_list.append(cloud_info)
 
     # Here we log histograms of the absolute errors
-    args.experiment.log_histogram_3d(
-        [abs(info["pred_veg_b"] - info["vt_veg_b"]) for info in cloud_info_list],
-        name="val_MAE_veg_b",
-    )
-    args.experiment.log_histogram_3d(
-        [abs(info["pred_veg_moy"] - info["vt_veg_moy"]) for info in cloud_info_list],
-        name="val_MAE_veg_moy",
-    )
-    args.experiment.log_histogram_3d(
-        [abs(info["pred_veg_h"] - info["vt_veg_h"]) for info in cloud_info_list],
-        name="val_MAE_veg_h",
-    )
+    if last_epoch:
+        args.experiment.log_histogram_3d(
+            [abs(info["pred_veg_b"] - info["vt_veg_b"]) for info in cloud_info_list],
+            name="val_MAE_veg_b",
+            step=args.current_fold_id,
+            epoch=args.current_fold_id,
+        )
+        args.experiment.log_histogram_3d(
+            [
+                abs(info["pred_veg_moy"] - info["vt_veg_moy"])
+                for info in cloud_info_list
+            ],
+            name="val_MAE_veg_moy",
+            step=args.current_fold_id,
+            epoch=args.current_fold_id,
+        )
+        args.experiment.log_histogram_3d(
+            [abs(info["pred_veg_h"] - info["vt_veg_h"]) for info in cloud_info_list],
+            name="val_MAE_veg_h",
+            step=args.current_fold_id,
+            epoch=args.current_fold_id,
+        )
 
-    # Here we log embeddings of test plot for this fold
-    image_data = [
-        Image.open(a[2]).convert("RGB").resize((500, 720)) for a in last_G_tensor_list
-    ]
-    args.experiment.log_embedding(
-        [a[0] for a in last_G_tensor_list],
-        [a[1] for a in last_G_tensor_list],
-        image_data=image_data,
-        image_transparent_color=(0, 0, 0),
-        image_size=image_data[0].size,
-        title="G_tensor",
-    )
+        # Here we log embeddings of test plot for this fold
+        image_data = [
+            Image.open(a[2]).convert("RGB").resize((500, 720))
+            for a in last_G_tensor_list
+        ]
+        args.experiment.log_embedding(
+            [a[0] for a in last_G_tensor_list],
+            [a[1] for a in last_G_tensor_list],
+            image_data=image_data,
+            image_transparent_color=(0, 0, 0),
+            image_size=image_data[0].size,
+            title="G_tensor",
+        )
 
     return (
         {
