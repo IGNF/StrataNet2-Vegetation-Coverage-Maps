@@ -144,7 +144,6 @@ def stats_for_all_folds(all_folds_loss_train_lists, all_folds_loss_test_lists, a
     all_folds_loss_[train/test]_lists : lists of n_folds dictionnaries of losses (the results of full_train) where
     an epoch key is present.
     """
-    stats_file = args.stats_file
     experiment = args.experiment
 
     # TRAIN : average all by epoch and print last record stats
@@ -152,11 +151,9 @@ def stats_for_all_folds(all_folds_loss_train_lists, all_folds_loss_test_lists, a
         df = pd.DataFrame(
             data=reduce(lambda l1, l2: l1 + l2, all_folds_loss_train_lists)
         )
-        df = df.groupby("epoch").mean()
-        for epoch, metrics in df.to_dict("index").items():
-            experiment.log_metrics(
-                metrics, epoch=1 + epoch, step=epoch * (200 // args.batch_size)
-            )
+        df = df.groupby("step").mean()
+        for step, metrics in df.to_dict("index").items():
+            experiment.log_metrics(metrics, epoch=metrics["epoch"], step=step)
         last_mean = df[df.index == df.index.max()].to_dict("records")[0]
         total_loss = last_mean["total_loss"]
         MAE_loss = last_mean["MAE_loss"]
@@ -176,11 +173,9 @@ def stats_for_all_folds(all_folds_loss_train_lists, all_folds_loss_test_lists, a
         df = pd.DataFrame(
             data=reduce(lambda l1, l2: l1 + l2, all_folds_loss_test_lists)
         )
-        df = df.groupby("epoch").mean()
-        for epoch, metrics in df.to_dict("index").items():
-            experiment.log_metrics(
-                metrics, epoch=1 + epoch, step=epoch * (200 // args.batch_size)
-            )
+        df = df.groupby("step").mean()
+        for step, metrics in df.to_dict("index").items():
+            experiment.log_metrics(metrics, epoch=metrics["epoch"], step=step)
         last_mean = df[df.index == df.index.max()].to_dict("records")[0]
         total_loss = last_mean["total_loss"]
         MAE_loss = last_mean["MAE_loss"]

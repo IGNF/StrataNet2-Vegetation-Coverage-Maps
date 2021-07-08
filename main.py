@@ -173,7 +173,7 @@ def main():
             + str(time.strftime("%H:%M:%S", time.gmtime(time.time() - start_time))),
         )
         fold_id += 1
-        experiment.set_step(0)
+
         if args.mode == "DEV" and fold_id >= 2:
             break
 
