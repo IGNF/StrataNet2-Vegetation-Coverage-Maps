@@ -107,7 +107,7 @@ parser.add_argument('--wd', default=0.001, type=float, help="Weight decay for th
 parser.add_argument('--lr', default=1e-3, type=float, help="Learning rate")
 parser.add_argument('--step_size', default=50, type=int,
                     help="After this number of steps we decrease learning rate. (Period of learning rate decay)")
-parser.add_argument('--lr_decay', default=1, type=float,
+parser.add_argument('--lr_decay', default=0.1, type=float,
                     help="We multiply learning rate by this value after certain number of steps (see --step_size). (Multiplicative factor of learning rate decay)")
 parser.add_argument('--n_epoch', default=100 if not MODE=="DEV" else 2, type=int, help="Number of training epochs")
 parser.add_argument('--n_epoch_test', default=1 if not MODE=="DEV" else 1, type=int, help="We evaluate every -th epoch")
