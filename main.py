@@ -1,8 +1,10 @@
+import sys
 from comet_ml import Experiment, OfflineExperiment
-
+import logging
 import warnings
 
 warnings.simplefilter(action="ignore")
+
 
 import functools
 import numpy as np
@@ -23,9 +25,8 @@ for i in range(2):
     try:
         matplotlib.use("TkAgg")  # rerun this cell if an error occurs.
     except:
-        print("!")
+        pass
 
-print(torch.cuda.is_available())
 np.random.seed(42)
 torch.cuda.empty_cache()
 
@@ -39,15 +40,13 @@ from model.accuracy import *
 from em_gamma.get_gamma_parameters_em import *
 from model.train import train_full
 
-print("Everything is imported")
 
-
-print(torch.cuda.is_available())
 np.random.seed(42)
 torch.cuda.empty_cache()
 
 
 def main():
+    ##### SETUP THE EXPERIMENT
 
     # Create the experiment and its local folder
     create_new_experiment_folder(args)  # Define output paths
@@ -55,30 +54,32 @@ def main():
         experiment = OfflineExperiment(
             project_name="lidar_pac",
             offline_directory=os.path.join(args.path, "experiments/"),
+            auto_log_co2=False,
         )
     else:
-        experiment = Experiment(project_name="lidar_pac")
+        experiment = Experiment(project_name="lidar_pac", auto_log_co2=False)
     experiment.log_parameters(vars(args))
     experiment.add_tag(args.mode)
     if args.comet_tag:
         experiment.add_tag(args.comet_tag.replace(" ", "_"))
-
     args.experiment = experiment  # be sure that this is not saved in text somewhere...
 
+    logger = create_a_logger(args)
+
+    ##### RUN THE EXPERIMENT
     # Load Las files for placettes
     (
         all_points_nparray,
         nparray_clouds_dict,
         xy_centers_dict,
     ) = load_all_las_from_folder(args)
-    print("Our dataset contains " + str(len(nparray_clouds_dict)) + " plots.")
+    logger.info("Dataset contains " + str(len(nparray_clouds_dict)) + " plots.")
 
     # Load ground truth csv file
     # Name, 'COUV_BASSE', 'COUV_SOL', 'COUV_INTER', 'COUV_HAUTE', 'ADM'
     df_gt, placettes_names = open_metadata_dataframe(
         args, pl_id_to_keep=nparray_clouds_dict.keys()
     )
-    print(df_gt.head())
 
     # Fit a mixture of 2 gamma distribution if not already done
     z_all = all_points_nparray[:, 2]
@@ -86,11 +87,9 @@ def main():
         z_all
     )  # maximum z value for data normalization, obtained from the normalized dataset analysis
     args.n_input_feats = len(args.input_feats)  # number of input features
-    print_stats(
-        args.stats_file, str(args), print_to_console=True
-    )  # save all the args parameters
+    logger.info(str(args))  # save all the args parameters
     params = run_or_load_em_analysis(z_all, args)
-    print_stats(args.stats_file, str(params), print_to_console=True)
+    logger.info(str(params))
 
     # We use several folds for cross validation (set the number in args)
     kf = KFold(n_splits=args.folds, random_state=42, shuffle=True)
@@ -103,9 +102,9 @@ def main():
     start_time = time.time()
     fold_id = 1
     cloud_info_list_by_fold = {}
-    print_stats(args.stats_file, "Starting cross-validation")
+    logger.info("Starting cross-validation")
     for train_ind, test_ind in kf.split(placettes_names):
-        print_stats(args.stats_file, "Cross-validation FOLD = %d" % (fold_id))
+        logger.info("Cross-validation FOLD = %d" % (fold_id))
         train_list = placettes_names[train_ind]
         test_list = placettes_names[test_ind]
 
@@ -167,11 +166,9 @@ def main():
         all_folds_loss_train_dicts.append(all_epochs_train_loss_dict)
         all_folds_loss_test_dicts.append(all_epochs_test_loss_dict)
 
-        print_stats(
-            args.stats_file,
+        logger.info(
             "training time "
             + str(time.strftime("%H:%M:%S", time.gmtime(time.time() - start_time))),
-            print_to_console=True,
         )
         fold_id += 1
         experiment.set_step(0)
@@ -194,13 +191,11 @@ def main():
         m = df_inference.mean().to_dict()
         experiment.log_metrics(m)
         experiment.log_table(inference_path)
-    print_stats(
-        args.stats_file, f"Saved infered, cross-validated results to {inference_path}"
-    )
+    logger.info(f"Saved infered, cross-validated results to {inference_path}")
 
     if not args.mode == "DEV":
         # TRAIN full model
-        print_stats(args.stats_file, "Training on all data.")
+        logger.info("Training on all data.")
 
         full_train_set = tnt.dataset.ListDataset(
             placettes_names,
@@ -250,11 +245,9 @@ def main():
         )
         torch.save(trained_model, PATH)
 
-    print_stats(
-        args.stats_file,
+    logger.info(
         "Total run time: "
         + str(time.strftime("%H:%M:%S", time.gmtime(time.time() - start_time))),
-        print_to_console=True,
     )
 
 

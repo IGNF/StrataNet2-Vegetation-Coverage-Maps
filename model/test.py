@@ -121,7 +121,6 @@ def evaluate(
                 plot_name,
                 xy_centers_dict,
                 plot_path,
-                stats_file,
                 args,
                 adm=pred_adm,
                 plot_only_png=plot_only_png,
