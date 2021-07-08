@@ -198,7 +198,7 @@ def main():
         args.stats_file, f"Saved infered, cross-validated results to {inference_path}"
     )
 
-    if not args.mode == "DEV":
+    if not args.mode == "DEV" and args.full_model_training:
         # TRAIN full model
         print_stats(args.stats_file, "Training on all data.")
 

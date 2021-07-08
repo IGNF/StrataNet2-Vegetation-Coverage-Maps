@@ -5,7 +5,7 @@ from utils.useful_functions import get_args_from_prev_config
 # This script defines all parameters for data loading, model definition, sand I/O operations.
 
 # Set to DEV for faster iterations (1 fold, 4 epochs), in order to e.g. test saving results.
-MODE = "DEV"  # DEV or PROD
+MODE = "PROD"  # DEV or PROD
 
 # FEATURE NAMES used to get the right index. Do not permutate features x, y, z, red, green, blue, nir and intensity.
 FEATURE_NAMES = [
@@ -43,19 +43,20 @@ parser.add_argument('--gt_file_path', default=os.path.join(data_path, "placettes
 parser.add_argument('--cuda', default=0, type=int, help="Whether we use cuda (1) or not (0)")
 parser.add_argument('--coln_mapper_dict', default={"nom":"Name"}, type=str, help="Dict to rename columns of gt ")
 parser.add_argument('--plot_only_png', default=True, type=bool, help="Set to False to output SVG article format and GeoTIFF at last epoch.")
-PLOT_NAME_TO_VISUALIZE_DURING_TRAINING = {"Releve_Lidar_F68", # Vm = 100% -> Vm vs Vb distinction
-                                            "2021_POINT_OBS66", # Vb = 50%, well separated -> use of NIR?
-                                            "2021_POINT_OBS7",  #Vm = 25%, Vh = 25% -> Vm vs. Vh point localization along z
-                                            "POINT_OBS106", # Vb = 50%, Vh=90% -> Vb under vegetation
-                                            }
 parser.add_argument('--results_path', default=None, help="(Created on the fly) Path to all related experiments")
 parser.add_argument('--stats_path', default=None, help="(Created on the fly) Path to stats folder of current run")
 parser.add_argument('--stats_file', default=None, help="(Created on the fly) Path to stats file including losses")
 
 # Experiment parameters
+PLOT_NAME_TO_VISUALIZE_DURING_TRAINING = {"Releve_Lidar_F68", # Vm = 100% -> Vm vs Vb distinction
+                                            "2021_POINT_OBS66", # Vb = 50%, well separated -> use of NIR?
+                                            "2021_POINT_OBS7",  #Vm = 25%, Vh = 25% -> Vm vs. Vh point localization along z
+                                            "POINT_OBS106", # Vb = 50%, Vh=90% -> Vb under vegetation
+                                        }
 parser.add_argument('--plot_name_to_visualize_during_training', default=PLOT_NAME_TO_VISUALIZE_DURING_TRAINING,  help="A few plot name to track during learning")
-parser.add_argument('--offline_experiment', default=False, type=bool, help="")
+parser.add_argument('--offline_experiment', default=False, type=bool, help="Perform offline comet experiment in case of unstable internet connection.")
 parser.add_argument("--comet_tag", default="", type=str, help="Add this tag to the XP, to indicate its goal")
+parser.add_argument('--full_model_training', default=False, type=bool, help="Do a full model training ?")
 
 parser.add_argument('--resume_last_job', default=0, type=bool, help="Use (1) or do not use (0) the folder of the last experiment.")
 parser.add_argument("--use_prev_config", default=None, type=str, help="Identifier of a previous run from which to copy parameters from (e.g. yyyy-mm-dd_XhXmXs).")
@@ -110,7 +111,7 @@ parser.add_argument('--step_size', default=50, type=int,
 parser.add_argument('--lr_decay', default=1, type=float,
                     help="We multiply learning rate by this value after certain number of steps (see --step_size). (Multiplicative factor of learning rate decay)")
 parser.add_argument('--n_epoch', default=100 if not MODE=="DEV" else 2, type=int, help="Number of training epochs")
-parser.add_argument('--n_epoch_test', default=1 if not MODE=="DEV" else 1, type=int, help="We evaluate every -th epoch")
+parser.add_argument('--n_epoch_test', default=5 if not MODE=="DEV" else 1, type=int, help="We evaluate every -th epoch")
 parser.add_argument('--batch_size', default=20, type=int, help="Size of the training batch")
 
 # fmt: on

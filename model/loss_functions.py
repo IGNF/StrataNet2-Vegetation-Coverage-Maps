@@ -47,7 +47,8 @@ def loss_loglikelihood(pred_pointwise, cloud, params, PCC, args):
         (pdf_ground.reshape(-1, 1), pdf_nonground.reshape(-1, 1)), 1
     )
     p_all_pdf = torch.tensor(p_all_pdf)
-    p_ground, p_nonground = pred_pointwise[:, :2].sum(1), pred_pointwise[:, 2:].sum(1)
+    # TODO: HERE WE CHANGED THE DEFINITION OF GAMMA ! Rupture point at 1m60 !
+    p_ground, p_nonground = pred_pointwise[:, :3].sum(1), pred_pointwise[:, 3:].sum(1)
 
     if PCC.is_cuda:
         p_all_pdf = p_all_pdf.cuda()
