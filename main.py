@@ -107,6 +107,7 @@ def main():
     logger.info("Starting cross-validation")
     for train_ind, test_ind in kf.split(placettes_names):
         logger.info("Cross-validation FOLD = %d" % (fold_id))
+        experiment.log_metric("Fold_ID", fold_id)
         train_list = placettes_names[train_ind]
         test_list = placettes_names[test_ind]
 
