@@ -55,7 +55,7 @@ parser.add_argument('--stats_file', default=None, help="(Created on the fly) Pat
 # Experiment parameters
 parser.add_argument('--plot_name_to_visualize_during_training', default=PLOT_NAME_TO_VISUALIZE_DURING_TRAINING,  help="A few plot name to track during learning")
 parser.add_argument('--offline_experiment', default=False, type=bool, help="")
-parser.add_argument("--comet_tag", default="", type=str, help="Add this tag to the XP, to indicate its goal")
+parser.add_argument("--comet_name", default="", type=str, help="Add this tag to the XP, to indicate its goal")
 
 parser.add_argument('--resume_last_job', default=0, type=bool, help="Use (1) or do not use (0) the folder of the last experiment.")
 parser.add_argument("--use_prev_config", default=None, type=str, help="Identifier of a previous run from which to copy parameters from (e.g. yyyy-mm-dd_XhXmXs).")

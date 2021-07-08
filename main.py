@@ -59,9 +59,11 @@ def main():
     else:
         experiment = Experiment(project_name="lidar_pac", auto_log_co2=False)
     experiment.log_parameters(vars(args))
-    experiment.add_tag(args.mode)
-    if args.comet_tag:
-        experiment.add_tag(args.comet_tag.replace(" ", "_"))
+    if args.comet_name:
+        experiment.add_tags([args.mode, args.comet_name])  # does not work...
+        experiment.set_name(args.comet_name)
+    else:
+        experiment.add_tag(args.mode)
     args.experiment = experiment  # be sure that this is not saved in text somewhere...
 
     logger = create_a_logger(args)
