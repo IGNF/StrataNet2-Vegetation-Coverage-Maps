@@ -91,10 +91,10 @@ def augment(cloud_data):
     cloud_data[:2] = np.dot(cloud_data[:2].T, M).T  # perform the rotation efficiently
 
     # # Random flipping along x and/or y axis
-    # if np.random.random() > 0.5:
-    #     cloud_data[0] = -cloud_data[0]
-    # if np.random.random() > 0.5:
-    #     cloud_data[1] = -cloud_data[1]
+    if np.random.random() > 0.5:
+        cloud_data[0] = -cloud_data[0]
+    if np.random.random() > 0.5:
+        cloud_data[1] = -cloud_data[1]
 
     # random gaussian noise everywhere except z and return number
     sigma, clip = 0.01, 0.03
