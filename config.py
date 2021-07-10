@@ -109,7 +109,7 @@ parser.add_argument('--step_size', default=50, type=int,
                     help="After this number of steps we decrease learning rate. (Period of learning rate decay)")
 parser.add_argument('--lr_decay', default=0.1, type=float,
                     help="We multiply learning rate by this value after certain number of steps (see --step_size). (Multiplicative factor of learning rate decay)")
-parser.add_argument('--n_epoch', default=100 if not MODE=="DEV" else 20, type=int, help="Number of training epochs")
+parser.add_argument('--n_epoch', default=100 if not MODE=="DEV" else 100, type=int, help="Number of training epochs")
 parser.add_argument('--n_epoch_test', default=5 if not MODE=="DEV" else 4, type=int, help="We evaluate every -th epoch")
 parser.add_argument('--batch_size', default=20, type=int, help="Size of the training batch")
 

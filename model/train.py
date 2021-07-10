@@ -35,7 +35,7 @@ def train(model, PCC, train_set, params, optimizer, args):
     # the loader function will take care of the batching
     loader = torch.utils.data.DataLoader(
         train_set,
-        collate_fn=cloud_collate,
+        # collate_fn=cloud_collate,
         batch_size=args.batch_size,
         shuffle=True,
         drop_last=True,

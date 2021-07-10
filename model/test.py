@@ -39,7 +39,10 @@ def evaluate(
     model.eval()
 
     loader = torch.utils.data.DataLoader(
-        test_set, collate_fn=cloud_collate, batch_size=1, shuffle=False
+        test_set,
+        # collate_fn=cloud_collate,
+        batch_size=1,
+        shuffle=False,
     )
     loss_meter_abs = tnt.meter.AverageValueMeter()
     loss_meter_log = tnt.meter.AverageValueMeter()
