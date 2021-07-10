@@ -52,7 +52,7 @@ def train(model, PCC, train_set, params, optimizer, args):
         if PCC.is_cuda:
             gt = gt.cuda()
 
-        optimizer.zero_grad()  # put gradient to zero
+        optimizer.zero_grad(set_to_none=True)  # put gradient to zero
         pred_pointwise, pred_pointwise_b = PCC.run(
             model, cloud
         )  # compute the pointwise prediction
