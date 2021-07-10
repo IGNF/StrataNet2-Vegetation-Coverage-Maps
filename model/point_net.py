@@ -2,6 +2,8 @@
 import torch
 import torch.nn as nn
 
+# /!\ Bias=False if followed by BatchNorm !
+
 
 class PointNet(nn.Module):
     """
@@ -43,6 +45,7 @@ class PointNet(nn.Module):
                     in_channels=MLP_1[i - 1] if i > 0 else self.input_feat,
                     out_channels=MLP_1[i],
                     kernel_size=1,
+                    bias=False,
                 )
             )
             modules.append(nn.BatchNorm1d(MLP_1[i]))
@@ -58,6 +61,7 @@ class PointNet(nn.Module):
                     in_channels=MLP_2[i - 1] if i > 0 else m1,
                     out_channels=MLP_2[i],
                     kernel_size=1,
+                    bias=False,
                 )
             )
             modules.append(nn.BatchNorm1d(MLP_2[i]))
@@ -72,6 +76,7 @@ class PointNet(nn.Module):
                     in_channels=MLP_3[i - 1] if i > 0 else (m1 + m2),
                     out_channels=MLP_3[i],
                     kernel_size=1,
+                    bias=False,
                 )
             )
             modules.append(nn.BatchNorm1d(MLP_3[i]))
