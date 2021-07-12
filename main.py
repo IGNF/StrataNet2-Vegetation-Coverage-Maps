@@ -175,7 +175,7 @@ def main():
         )
         fold_id += 1
 
-        if args.mode == "DEV" and fold_id >= 1:
+        if args.mode == "DEV" and fold_id >= 2:
             break
 
     # create inference results csv
