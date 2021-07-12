@@ -1,7 +1,9 @@
 import numpy as np
-from utils.useful_functions import print_stats
 import pandas as pd
 from functools import reduce
+import logging
+
+logger = logging.getLogger(__name__)
 
 # values should be in [0,1] since we deal with ratios of coverage
 bins_centers = np.round(np.array([0.0, 0.10, 0.25, 0.33, 0.50, 0.75, 0.90, 1.00]), 3)
@@ -142,7 +144,6 @@ def stats_for_all_folds(all_folds_loss_train_lists, all_folds_loss_test_lists, a
     all_folds_loss_[train/test]_lists : lists of n_folds dictionnaries of losses (the results of full_train) where
     an epoch key is present.
     """
-    stats_file = args.stats_file
     experiment = args.experiment
 
     # TRAIN : average all by epoch and print last record stats
@@ -150,18 +151,15 @@ def stats_for_all_folds(all_folds_loss_train_lists, all_folds_loss_test_lists, a
         df = pd.DataFrame(
             data=reduce(lambda l1, l2: l1 + l2, all_folds_loss_train_lists)
         )
-        df = df.groupby("epoch").mean()
-        for epoch, metrics in df.to_dict("index").items():
-            experiment.log_metrics(
-                metrics, epoch=1 + epoch, step=epoch * (200 // args.batch_size)
-            )
+        df = df.groupby("step").mean()
+        for step, metrics in df.to_dict("index").items():
+            experiment.log_metrics(metrics, epoch=metrics["epoch"], step=step)
         last_mean = df[df.index == df.index.max()].to_dict("records")[0]
         total_loss = last_mean["total_loss"]
         MAE_loss = last_mean["MAE_loss"]
         log_loss = last_mean["log_loss"]
         adm_loss = last_mean["adm_loss"]
-        print_stats(
-            stats_file,
+        logging.info(
             "MEAN - Train Loss: %1.2f Train Loss Abs (MAE): %1.2f Train Loss Log: %1.2f Train Loss Adm: %1.2f"
             % (
                 total_loss,
@@ -169,25 +167,21 @@ def stats_for_all_folds(all_folds_loss_train_lists, all_folds_loss_test_lists, a
                 log_loss,
                 adm_loss if adm_loss is not np.nan else 0,
             ),
-            print_to_console=True,
         )
     # TEST : average all by epoch and print last record stats
     with experiment.context_manager(f"val_mean"):
         df = pd.DataFrame(
             data=reduce(lambda l1, l2: l1 + l2, all_folds_loss_test_lists)
         )
-        df = df.groupby("epoch").mean()
-        for epoch, metrics in df.to_dict("index").items():
-            experiment.log_metrics(
-                metrics, epoch=1 + epoch, step=epoch * (200 // args.batch_size)
-            )
+        df = df.groupby("step").mean()
+        for step, metrics in df.to_dict("index").items():
+            experiment.log_metrics(metrics, epoch=metrics["epoch"], step=step)
         last_mean = df[df.index == df.index.max()].to_dict("records")[0]
         total_loss = last_mean["total_loss"]
         MAE_loss = last_mean["MAE_loss"]
         log_loss = last_mean["log_loss"]
         adm_loss = last_mean["adm_loss"]
-        print_stats(
-            stats_file,
+        logging.info(
             "MEAN - Validation Loss: %1.2f Loss Abs (MAE): %1.2f Loss Log: %1.2f Loss Adm: %1.2f"
             % (
                 total_loss,
@@ -195,20 +189,17 @@ def stats_for_all_folds(all_folds_loss_train_lists, all_folds_loss_test_lists, a
                 log_loss,
                 adm_loss if adm_loss is not np.nan else 0,
             ),
-            print_to_console=True,
         )
         MAE_veg_b = last_mean["MAE_veg_b"]
         MAE_veg_moy = last_mean["MAE_veg_moy"]
         MAE_veg_h = last_mean["MAE_veg_h"]
-        print_stats(
-            stats_file,
+        logging.info(
             "MEAN - Validation MAE: Vb : %1.2f Vm : %1.2f Vh: %1.2f"
             % (
                 MAE_veg_b,
                 MAE_veg_moy,
                 MAE_veg_h,
             ),
-            print_to_console=True,
         )
 
 
@@ -224,8 +215,7 @@ def log_last_stats_of_fold(
     MAE_loss = last_dict_train["MAE_loss"]
     log_loss = last_dict_train["log_loss"]
     adm_loss = last_dict_train["adm_loss"]
-    print_stats(
-        args.stats_file,
+    logging.info(
         "Fold %3d Train Loss: %1.2f Train Loss Abs (MAE): %1.2f Train Loss Log: %1.2f Train Loss Adm: %1.2f"
         % (
             fold_id,
@@ -234,7 +224,6 @@ def log_last_stats_of_fold(
             log_loss,
             adm_loss if adm_loss is not np.nan else 0,
         ),
-        print_to_console=True,
     )
 
     last_dict_test = max(all_epochs_test_loss_dict, key=lambda x: x["epoch"])
@@ -243,8 +232,7 @@ def log_last_stats_of_fold(
     MAE_loss = last_dict_test["MAE_loss"]
     log_loss = last_dict_test["log_loss"]
     adm_loss = last_dict_test["adm_loss"]
-    print_stats(
-        args.stats_file,
+    logging.info(
         "Fold %3d Test Loss: %1.2f Test Loss Abs (MAE): %1.2f Test Loss Log: %1.2f Test Loss Adm: %1.2f"
         % (
             fold_id,
@@ -253,7 +241,6 @@ def log_last_stats_of_fold(
             log_loss,
             adm_loss if adm_loss is not np.nan else 0,
         ),
-        print_to_console=True,
     )
 
     return last_dict_train, last_dict_test
@@ -274,7 +261,7 @@ def write_to_writer(writer, args, i_epoch, epoch_loss_dict, train):
     MAE_loss = epoch_loss_dict["MAE_loss"]
     log_loss = epoch_loss_dict["log_loss"]
     adm_loss = epoch_loss_dict["adm_loss"]
-    print(
+    logging.info(
         COLOR
         + "Epoch %3d -> %s Loss: %1.2f Train Loss Abs (MAE): %1.2f Train Loss Log: %1.2f Train Loss Adm: %1.2f"
         % (
@@ -291,7 +278,5 @@ def write_to_writer(writer, args, i_epoch, epoch_loss_dict, train):
     writer.add_scalar(f"Loss/{task}_total", total_loss, i_epoch + 1)
     writer.add_scalar(f"Coverage_MAE/{task}", MAE_loss, i_epoch + 1)
     writer.add_scalar(f"Loss/{task}_log", log_loss, i_epoch + 1)
-    if not train:
-        loss_vb = epoch_loss_dict["MAE_veg_b"]
 
     return writer

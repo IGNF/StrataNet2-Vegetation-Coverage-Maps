@@ -31,8 +31,11 @@ from utils.load_las_data import (
 )
 
 sns.set()
-
 np.random.seed(42)
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def get_list_las_files_not_infered_yet(stats_path, las_parcelles_folder_path):
@@ -73,7 +76,7 @@ def divide_parcel_las_and_get_disk_centers(
 
     points_nparray, xy_centers = load_and_clean_single_las(las_filename)
     size_MB = getsizeof(round(getsizeof(points_nparray) / 1024 / 1024, 2))
-    print(f"Size of LAS file is {size_MB}MB")
+    logger.info(f"Size of LAS file is {size_MB}MB")
 
     x_las, y_las = points_nparray[:, 0], points_nparray[:, 1]
 
@@ -102,7 +105,7 @@ def divide_parcel_las_and_get_disk_centers(
     )  # 0.625 by default
     movement_in_meters = within_circle_square_width_meters - square_xy_overlap
 
-    print(
+    logger.info(
         f"Square dimensions are {within_circle_square_width_meters:.2f}m*{within_circle_square_width_meters:.2f}m"
         + f"but we move {movement_in_meters:.2f}m at a time to have {square_xy_overlap:.2f}m of overlap"
     )
@@ -493,9 +496,9 @@ def merge_geotiff_rasters(args, plot_name):
             dest.write(mosaic)
             for idx in range(len(descriptions)):
                 dest.set_band_description(1 + idx, descriptions[idx])
-        print(f"Saved merged raster prediction to {out_fp}")
+        logger.info(f"Saved merged raster prediction to {out_fp}")
     else:
-        print(f"No predictions for {plot_name}. Cannot merge.")
+        logger.info(f"No predictions for {plot_name}. Cannot merge.")
 
 
 def finalize_merged_raster(mosaic):

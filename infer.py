@@ -21,6 +21,7 @@ from utils.useful_functions import (
     get_filename_no_extension,
     print_stats,
     get_trained_model_path_from_experiment,
+    create_a_logger,
 )
 from model.point_cloud_classifier import PointCloudClassifier
 from model.infer_utils import (
@@ -51,6 +52,7 @@ def main():
         args.stats_file,
         f"Trained model loaded from {trained_model_path}",
     )
+    logger = create_a_logger(args)
 
     # Get the shapefile records and las filenames
     shp = shapefile.Reader(args.parcel_shapefile_path)
@@ -58,7 +60,7 @@ def main():
     las_filenames = get_list_las_files_not_infered_yet(
         args.stats_path, args.las_parcelles_folder_path
     )
-    print_stats(args.stats_file, f"N={len(las_filenames)} parcels to infer on.")
+    logger.info(f"N={len(las_filenames)} parcels to infer on.")
 
     for las_filename in las_filenames:
 
@@ -69,8 +71,7 @@ def main():
         #     if not las_filename.endswith("004000715-5-18.las"):  # small
         #         continue
 
-        print_stats(
-            args.stats_file,
+        logger.info(
             f"Inference on parcel file {las_filename}",
         )
 
@@ -129,12 +130,11 @@ def main():
         # Append to infer_times.csv
         with open(args.times_file, encoding="utf-8", mode="a") as f:
             log_inference_times(parcel_ID, t, shp_records, f)
-DEV
     # Compute coverage values from ALL predicted rasters and merge with additional metadata from shapefile
     df_inference, csv_path = make_parcel_predictions_csv(
         args.parcel_shapefile_path, args.stats_path
     )
-    print_stats(args.stats_file, f"Saved inference results to {csv_path}")
+    logger.info(f"Saved inference results to {csv_path}")
 
 
 if __name__ == "__main__":

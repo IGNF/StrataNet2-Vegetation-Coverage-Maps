@@ -120,13 +120,6 @@ def transform_features_of_plot_cloud(points_nparray, args):
     2) Substract z_min at local level using KNN
     """
 
-    # # add "z_original"
-    # idx = args.input_feats.index("z_flat")
-    # zmin_plot = np.min(points_nparray[:, idx])
-    # points_nparray = np.append(
-    #     points_nparray, points_nparray[:, idx : (idx + 1)] - zmin_plot, axis=1
-    # )
-
     # normalize "z"
     points_nparray = normalize_z_with_minz_in_a_radius(
         points_nparray, args.znorm_radius_in_meters

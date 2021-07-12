@@ -1,15 +1,14 @@
-import matplotlib
-from matplotlib.cm import ScalarMappable
 import matplotlib.pyplot as plt
-from matplotlib import cm
 from matplotlib import colors
 import matplotlib.gridspec as gridspec
 
 import numpy as np
 import torch
 from osgeo import gdal, osr
-from utils.useful_functions import print_stats
 import torch.nn as nn
+import logging
+
+logger = logging.getLogger(__name__)
 
 plt.rcParams["font.size"] = 25
 
@@ -298,7 +297,6 @@ def create_final_images(
     plot_name,
     xy_centers_dict,
     plot_path,
-    stats_file,
     args,
     plot_only_png=True,
     adm=None,
@@ -339,7 +337,7 @@ def create_final_images(
         )
 
     text_pred_vs_gt = "LOW, soil, MID, HIGH \n" + text_pred_vs_gt
-    print_stats(stats_file, plot_name + " " + text_pred_vs_gt, print_to_console=True)
+    logger.info("\n" + plot_name + " " + text_pred_vs_gt)
     # We create an image with 5 or 6 subplots:
     # 1. original point cloud, 2. LV image, 3. pointwise prediction point cloud, 4. MV image, 5.Stratum probabilities point cloud, 6.(optional) HV image
     png_path = visualize(

@@ -2,6 +2,7 @@
 import imp
 
 from comet_ml import Experiment
+from torch.optim import optimizer
 from utils.create_final_images import *
 from data_loader.loader import *
 from model.reproject_to_2d_and_predict_plot_coverage import *
@@ -121,7 +122,6 @@ def evaluate(
                 plot_name,
                 xy_centers_dict,
                 plot_path,
-                stats_file,
                 args,
                 adm=pred_adm,
                 plot_only_png=plot_only_png,
@@ -197,6 +197,7 @@ def evaluate(
             "MAE_veg_moy": loss_meter_abs_ml.value()[0],
             "MAE_veg_h": loss_meter_abs_hl.value()[0],
             "adm_loss": loss_meter_abs_adm.value()[0],
+            "step": args.current_step_in_fold,
         },
         cloud_info_list,
     )

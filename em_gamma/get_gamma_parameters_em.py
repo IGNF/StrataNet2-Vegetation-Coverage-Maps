@@ -5,7 +5,9 @@ from scipy.special import digamma, polygamma
 import matplotlib
 import matplotlib.pyplot as plt
 import pickle
+import logging
 
+logger = logging.getLogger(__name__)
 matplotlib.use("TkAgg")
 
 
@@ -61,9 +63,9 @@ def get_gamma_parameters(all_z, args):
             return (expected_values * (-polygamma(1, x)[:, None])).mean(1)
 
         for sub_ite in range(args.NR_ite_max):
-            print("    NR it %d - obj = %3.3f %3.3f" % (sub_ite, *obj(x)))
+            logger.info("    NR it %d - obj = %3.3f %3.3f" % (sub_ite, *obj(x)))
             if (np.abs(obj(x)) < 1e-3).all():
-                print("Newton Rachson terminated")
+                logger.info("Newton Rachson terminated")
                 break
             x = x - obj(x) / derivative(x)  # one NR iteration
         return x
@@ -91,12 +93,12 @@ def get_gamma_parameters(all_z, args):
         return -np.log(expected_values.sum(0)).mean()
 
     # ---main loop---
-    print("Likelihood at init: %2.3f" % (log_likelihood()))
+    logger.info("Likelihood at init: %2.3f" % (log_likelihood()))
     for ite in range(args.ECM_ite_max):
         expected_values = E_step()
         pi, scale = CM1(expected_values)
         shape = CM2(expected_values)
-        print("Likelihood at ite %d: %2.3f" % (ite, log_likelihood()))
+        logger.info("Likelihood at ite %d: %2.3f" % (ite, log_likelihood()))
 
     params = {
         "phi": pi[0],
@@ -114,12 +116,12 @@ def get_gamma_parameters(all_z, args):
 def run_or_load_em_analysis(z_all, args):
     gamma_file = os.path.join(args.stats_path, "gamma.pkl")
     if not os.path.isfile(gamma_file):
-        print("Computing gamma mixture (should only happen once)")
+        logger.info("Computing gamma mixture (should only happen once)")
         params = get_gamma_parameters(z_all, args)
         with open(gamma_file, "wb") as f:
             pickle.dump(params, f)
     else:
-        print("Found precomputed Gamma parameters")
+        logger.info("Found precomputed Gamma parameters")
         with open(gamma_file, "rb") as f:
             params = pickle.load(f)
     return params

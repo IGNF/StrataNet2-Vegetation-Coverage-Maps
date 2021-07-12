@@ -1,6 +1,23 @@
 import os
+import sys
 import time
 from argparse import Namespace
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def create_a_logger(args):
+    file_handler = logging.FileHandler(args.stats_file)
+    stream_handler = logging.StreamHandler(sys.stdout)
+    logging.basicConfig(
+        handlers=[file_handler, stream_handler],
+        format="%(asctime)s:%(levelname)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        level=logging.INFO,
+    )
+    logger = logging.getLogger()
+    return logger
 
 
 def get_args_from_prev_config(args, experiment_id):
@@ -94,13 +111,15 @@ def create_new_experiment_folder(args, infer_mode=False, resume_last_job=False):
     else:
         # Define a new job by date and time
         start_time = time.time()
-        print(time.strftime("%H:%M:%S", time.gmtime(start_time)))
+        logger.info(time.strftime("%H:%M:%S", time.gmtime(start_time)))
         run_name = str(time.strftime("%Y-%m-%d_%Hh%Mm%Ss"))
 
     stats_path = os.path.join(results_path, run_name) + "/"
     create_dir(stats_path)
     args.stats_path = stats_path
-    print(f"Results folder: {stats_path} (with resume_last_job = {resume_last_job})")
+    logger.info(
+        f"Results folder: {stats_path} (with resume_last_job = {resume_last_job})"
+    )
 
     stats_file = os.path.join(stats_path, "stats.txt")
     args.stats_file = stats_file
