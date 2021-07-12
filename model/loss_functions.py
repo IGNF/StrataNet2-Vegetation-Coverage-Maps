@@ -7,17 +7,7 @@ EPS = 0.0001
 
 
 # Negative loglikelihood loss
-def loss_loglikelihood(pred_pointwise, cloud, params, PCC, args):
-    fit_alpha_g, fit_loc_g, fit_beta_g = (
-        params["a_g"],
-        params["loc_g"],
-        params["scale_g"],
-    )
-    fit_alpha_v, fit_loc_v, fit_beta_v = (
-        params["a_v"],
-        params["loc_v"],
-        params["scale_v"],
-    )
+def loss_loglikelihood(pred_pointwise, cloud, kde_mixture, PCC, args):
 
     # We extract heights of every point
     z_all = np.empty((0))
@@ -27,52 +17,27 @@ def loss_loglikelihood(pred_pointwise, cloud, params, PCC, args):
 
     z_all = np.asarray(z_all).reshape(-1)
 
-    # we compute the z-likelihood for each point of the cloud that the point belongs to strate1 (ground) or strate2 (medium and high vegetation)
-    if fit_loc_g == 0:
-        pdf_ground = gamma.pdf(
-            z_all + 1e-2, a=fit_alpha_g, loc=fit_loc_g, scale=fit_beta_g
-        )  # probability for ground points
-        pdf_nonground = gamma.pdf(
-            z_all + 1e-2, a=fit_alpha_v, loc=fit_loc_v, scale=fit_beta_v
-        )  # probability for medium and high vegetation points
-    else:
-        pdf_ground = gamma.pdf(
-            z_all, a=fit_alpha_g, loc=fit_loc_g, scale=fit_beta_g
-        )  # probability for ground points
-        pdf_nonground = gamma.pdf(
-            z_all, a=fit_alpha_v, loc=fit_loc_v, scale=fit_beta_v
-        )  # probability for medium and high vegetation points
+    pdf_ground, pdf_m, pdf_h = kde_mixture.predict(z_all)
 
-    p_all_pdf = np.concatenate(
-        (pdf_ground.reshape(-1, 1), pdf_nonground.reshape(-1, 1)), 1
+    pdf_all = np.concatenate(
+        (pdf_ground.reshape(-1, 1), pdf_m.reshape(-1, 1), pdf_h.reshape(-1, 1)), 1
     )
-    p_all_pdf = torch.tensor(p_all_pdf)
-    # TODO: HERE WE CHANGED THE DEFINITION OF GAMMA ! Rupture point at 1m60 !
-    p_ground, p_nonground = pred_pointwise[:, :3].sum(1), pred_pointwise[:, 3:].sum(1)
+    pdf_all = torch.tensor(pdf_all)
+
+    p_ground = pred_pointwise[:, :2].sum(1)
+    p_m = pred_pointwise[:, 2:3].sum(1)
+    p_h = pred_pointwise[:, 3:4].sum(1)
 
     if PCC.is_cuda:
-        p_all_pdf = p_all_pdf.cuda()
+        pdf_all = pdf_all.cuda()
         p_ground = p_ground.cuda()
-        p_nonground = p_nonground.cuda()
+        p_m = p_m.cuda()
+        p_h = p_h.cuda()
 
-    p_ground_nonground = torch.cat((p_ground.view(-1, 1), p_nonground.view(-1, 1)), 1)
-    likelihood = torch.mul(p_ground_nonground, p_all_pdf)
-    return -torch.log(likelihood.sum(1)).mean(), likelihood
+    p_all = torch.cat((p_ground.view(-1, 1), p_m.view(-1, 1), p_h.view(-1, 1)), 1)
+    likelihood = torch.mul(p_all, pdf_all)
 
-
-#
-# # Absolut loss for two stratum values
-# def loss_abs_gl_ml(pred_pl, gt, gl_mv_loss=False):
-#     if gl_mv_loss:  #if we want to get separate losses for ground level and medium level
-#         return ((pred_pl[:, [0, 2]] - gt[:, [0, 2]]).pow(2) + 0.0001).pow(0.5).mean(0)
-#     return((pred_pl[:, [0, 2]] - gt[:, [0, 2]]).pow(2) + 0.0001).pow(0.5).mean()
-#
-#
-# # Absolut loss for three stratum values
-# def loss_abs_gl_ml_hl(pred_pl, gt):
-#     gt_has_values = ~torch.isnan(gt)
-#     gt_has_values = gt_has_values[:, [0, 2, 3]]
-#     return ((pred_pl[:, [0, 2, 3]][gt_has_values] - gt[:, [0, 2, 3]][gt_has_values]).pow(2) + 0.0001).pow(0.5).mean()
+    return -torch.log(likelihood.sum(1)).mean(), likelihood, (p_all, pdf_all)
 
 
 # Admissibility loss
@@ -119,6 +84,6 @@ def loss_entropy(pred_pixels):
     """Loss entropy on coverage raster (probabilities) to favor coverage values close to 0 or 1 for medium and high vegetation.
     This should avoid low pixel values where there are typically no non-ground vegetation."""
     return -(
-        pred_pixels * torch.log(pred_pixels + EPS)
-        + (1 - pred_pixels) * torch.log(1 - pred_pixels + EPS)
+        pred_pixels[:, 1:] * torch.log(pred_pixels[:, 1:] + EPS)
+        + (1 - pred_pixels[:, 1:]) * torch.log(1 - pred_pixels[:, 1:] + EPS)
     ).mean()

@@ -28,7 +28,7 @@ from model.test import evaluate
 np.random.seed(42)
 
 
-def train(model, PCC, train_set, params, optimizer, args):
+def train(model, PCC, train_set, kde_mixture, optimizer, args):
     """train for one epoch"""
     model.train()
 
@@ -62,8 +62,8 @@ def train(model, PCC, train_set, params, optimizer, args):
 
         # we compute two losses (negative loglikelihood and the absolute error loss for 2 or 3 stratum)
         loss_abs = loss_absolute(pred_pl, gt, args)
-        loss_log, likelihood = loss_loglikelihood(
-            pred_pointwise, cloud, params, PCC, args
+        loss_log, _, _ = loss_loglikelihood(
+            pred_pointwise, cloud, kde_mixture, PCC, args
         )  # negative loglikelihood loss + likelihood value (not-used)
 
         if args.ent:
@@ -103,7 +103,9 @@ def train(model, PCC, train_set, params, optimizer, args):
     return train_losses_dict
 
 
-def train_full(args, fold_id, train_set, test_set, test_list, xy_centers_dict, params):
+def train_full(
+    args, fold_id, train_set, test_set, test_list, xy_centers_dict, kde_mixture
+):
     """The full training loop.
     If fold_id = -1, this is the full training and we make inferences at last epoch for this test=train set.
     """
@@ -137,7 +139,7 @@ def train_full(args, fold_id, train_set, test_set, test_list, xy_centers_dict, p
 
         # train one epoch
         with experiment.context_manager(f"fold_{args.current_fold_id}_train"):
-            train_loss_dict = train(model, PCC, train_set, params, optimizer, args)
+            train_loss_dict = train(model, PCC, train_set, kde_mixture, optimizer, args)
             writer = write_to_writer(writer, args, i_epoch, train_loss_dict, train=True)
 
             experiment.log_metrics(
@@ -154,7 +156,7 @@ def train_full(args, fold_id, train_set, test_set, test_list, xy_centers_dict, p
                     model,
                     PCC,
                     test_set,
-                    params,
+                    kde_mixture,
                     args,
                     test_list,
                     xy_centers_dict,
@@ -174,7 +176,7 @@ def train_full(args, fold_id, train_set, test_set, test_list, xy_centers_dict, p
                     model,
                     PCC,
                     test_set,
-                    params,
+                    kde_mixture,
                     args,
                     test_list,
                     xy_centers_dict,

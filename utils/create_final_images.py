@@ -129,7 +129,7 @@ def visualize(
     stats_path,
     args,
     text_pred_vs_gt=None,
-    scores=None,
+    p_all_pdf_all=None,
     image_high_veg=None,
     predictions=["Vb", "soil", "Vm", "Vh", "Adm"],
     gt=["Vb", "soil", "Vm", "Vh", "Adm"],
@@ -140,12 +140,8 @@ def visualize(
         image_med_veg = image_med_veg[:, :, 0]
 
     # We set figure size depending on the number of subplots
-    if scores is None and image_high_veg is None:
-        row, col = 2, 2
-        fig = plt.figure(figsize=(20, 15))
-    else:
-        row, col = 3, 2
-        fig = plt.figure(figsize=(20, 25))
+    row, col = 3, 2
+    fig = plt.figure(figsize=(20, 25))
 
     # Original point data
     ax1 = fig.add_subplot(row, col, 1, projection="3d")
@@ -234,28 +230,27 @@ def visualize(
     plt.colorbar(PCM, ax=ax4)
 
     # Plot stratum scores
-    if scores is not None:
-        ax5 = fig.add_subplot(row, col, 5, projection="3d")
-        ax5.auto_scale_xyz
-        sc_sum = scores.sum(1)
-        scores[:, 0] = scores[:, 0] / sc_sum
-        scores[:, 1] = scores[:, 1] / sc_sum
-        scores = scores / (scores.max())
-        colors_pred = (
-            scores.transpose(1, 0)[[0, 0, 1], :].cpu().detach().numpy().transpose()
-        )
-        ax5.scatter(
-            cloud[0],
-            cloud[1],
-            cloud[2] * args.z_max,
-            c=colors_pred,
-            s=10,
-            vmin=0,
-            vmax=1,
-        )
-        ax5.set_title("Ground vs. non-ground")
-        ax5.set_yticklabels([])
-        ax5.set_xticklabels([])
+    ax5 = fig.add_subplot(row, col, 5, projection="3d")
+    ax5.auto_scale_xyz
+    # colors_pred = likelihood_norm[:, [0, 0, 0]].cpu().detach().numpy()
+    p_all, pdf_all = p_all_pdf_all
+    p_all = p_all.cpu().detach().numpy()
+    pdf_all = pdf_all.cpu().detach().numpy()
+    colors_pred = p_all[pdf_all.argmax(axis=1)[:, None] == range(pdf_all.shape[1])]
+    colors_pred = colors_pred / (colors_pred.max() + 0.00001)
+    ax5.scatter(
+        cloud[0],
+        cloud[1],
+        cloud[2] * args.z_max,
+        c=colors_pred,
+        s=10,
+        vmin=0,
+        vmax=1,
+        cmap=plt.get_cmap("copper"),
+    )
+    ax5.set_title("Score for most-likely strata")
+    ax5.set_yticklabels([])
+    ax5.set_xticklabels([])
 
     # Plot high vegetation stratum
     if image_high_veg is not None:
@@ -293,7 +288,7 @@ def create_final_images(
     gt,
     pred_pointwise_b,
     cloud,
-    likelihood,
+    likelihood_norm,
     plot_name,
     xy_centers_dict,
     plot_path,
@@ -349,7 +344,7 @@ def create_final_images(
         plot_path,
         args,
         text_pred_vs_gt=text_pred_vs_gt,
-        scores=likelihood,
+        p_all_pdf_all=likelihood_norm,
         image_high_veg=image_high_veg,
         predictions=preds_nparray,
         gt=gt_nparray,

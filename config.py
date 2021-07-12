@@ -75,7 +75,7 @@ parser.add_argument('--subsample_size', default=10000, type=int, help="Subsample
 parser.add_argument('--diam_meters', default=20, type=int, help="Diameters of the plots.")
 parser.add_argument('--diam_pix', default=20, type=int, 
                     help="Size of the output stratum raster (its diameter in pixels)")
-parser.add_argument('--m', default=1., type=float,
+parser.add_argument('--m', default=0.25, type=float,
                     help="Loss regularization. The weight of the negative loglikelihood loss in the total loss")
 parser.add_argument('--norm_ground', default=False, type=bool,
                     help="Whether we normalize low vegetation and bare soil values, so LV+BS=1 (True) or we keep unmodified LV value (False) (recommended)")
@@ -105,9 +105,9 @@ parser.add_argument('--soft', default=True, type=bool,
 parser.add_argument('--folds', default=5, type=int, help="Number of folds for cross validation model training")
 parser.add_argument('--wd', default=0.001, type=float, help="Weight decay for the optimizer")
 parser.add_argument('--lr', default=1e-3, type=float, help="Learning rate")
-parser.add_argument('--step_size', default=1, type=int,
+parser.add_argument('--step_size', default=50, type=int,
                     help="After this number of steps we decrease learning rate. (Period of learning rate decay)")
-parser.add_argument('--lr_decay', default=0.985, type=float,
+parser.add_argument('--lr_decay', default=0.1, type=float,
                     help="We multiply learning rate by this value after certain number of steps (see --step_size). (Multiplicative factor of learning rate decay)")
 parser.add_argument('--n_epoch', default=100 if not MODE=="DEV" else 2, type=int, help="Number of training epochs")
 parser.add_argument('--n_epoch_test', default=5 if not MODE=="DEV" else 1, type=int, help="We evaluate every -th epoch")

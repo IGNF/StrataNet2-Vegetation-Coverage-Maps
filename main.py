@@ -1,3 +1,4 @@
+from model.kde_mixture import KdeMixture
 import sys
 from comet_ml import Experiment, OfflineExperiment
 import logging
@@ -83,15 +84,14 @@ def main():
         args, pl_id_to_keep=nparray_clouds_dict.keys()
     )
 
-    # Fit a mixture of 2 gamma distribution if not already done
+    # Fit a mixture of thre KDE
     z_all = all_points_nparray[:, 2]
     args.z_max = np.max(
         z_all
     )  # maximum z value for data normalization, obtained from the normalized dataset analysis
     args.n_input_feats = len(args.input_feats)  # number of input features
-    logger.info(str(args))  # save all the args parameters
-    params = run_or_load_em_analysis(z_all, args)
-    logger.info(str(params))
+    logger.info("args: \n" + str(args))  # save all the args parameters
+    kde_mixture = KdeMixture(z_all, args)
 
     # We use several folds for cross validation (set the number in args)
     kf = KFold(n_splits=args.folds, random_state=42, shuffle=True)
@@ -141,7 +141,7 @@ def main():
             all_epochs_test_loss_dict,
             cloud_info_list,
         ) = train_full(
-            args, fold_id, train_set, test_set, test_list, xy_centers_dict, params
+            args, fold_id, train_set, test_set, test_list, xy_centers_dict, kde_mixture
         )
 
         cloud_info_list_by_fold[fold_id] = cloud_info_list
@@ -234,7 +234,7 @@ def main():
             full_test_set,
             placettes_names,
             xy_centers_dict,
-            params,
+            kde_mixture,
         )
 
         # save the trained model
