@@ -24,7 +24,7 @@ class PointNet(nn.Module):
         super(
             PointNet, self
         ).__init__()  # necessary for all classes extending the module class
-        self.is_cuda = args.cuda
+        self.cuda_device = args.cuda
         self.subsample_size = args.subsample_size
         self.n_class = args.n_class
         self.drop = args.drop
@@ -92,8 +92,8 @@ class PointNet(nn.Module):
 
         self.last_G_tensor = None
 
-        if self.is_cuda:
-            self = self.cuda()
+        if self.cuda_device is not None:
+            self = self.cuda(self.cuda_device)
 
     def forward(self, input):
         """
@@ -102,8 +102,8 @@ class PointNet(nn.Module):
         output = [n_batch,n_class, subsample_size] float array: point class logits
         """
         # print(input.size())
-        if self.is_cuda:
-            input = input.cuda()
+        if self.cuda_device is not None:
+            input = input.cuda(self.cuda_device)
         f1 = self.MLP_1(input)
         f2 = self.MLP_2(f1)
         G = self.maxpool(f2)

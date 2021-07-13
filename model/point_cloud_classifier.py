@@ -18,7 +18,7 @@ class PointCloudClassifier:
         )  # number of points to subsample each point cloud in the batches
         self.n_input_feats = len(args.input_feats)
         self.n_class = args.n_class  # number of classes in the output
-        self.is_cuda = args.cuda  # wether to use GPU acceleration
+        self.cuda_device = args.cuda  # wether to use GPU acceleration
 
     def run(self, model, clouds):
         """
@@ -39,9 +39,9 @@ class PointCloudClassifier:
         sampled_clouds = torch.Tensor(
             batch_size, self.n_input_feats, self.subsample_size
         )
-        if self.is_cuda:
-            sampled_clouds = sampled_clouds.cuda()
-            prediction_batch = prediction_batch.cuda()
+        if self.cuda_device is not None:
+            sampled_clouds = sampled_clouds.cuda(self.cuda_device)
+            prediction_batch = prediction_batch.cuda(self.cuda_device)
 
         # build batches of the same size
         for i_batch in range(batch_size):

@@ -30,18 +30,18 @@ def project_to_2d(pred_pointwise, cloud, pred_pointwise_b, PCC, args):
         index_b = torch.full(
             torch.unique(index).size(), b
         )  # b is index of cloud in the batch
-        if PCC.is_cuda:
-            index = index.cuda()
-            index_b = index_b.cuda()
+        if PCC.cuda_device is not None:
+            index = index.cuda(PCC.cuda_device)
+            index_b = index_b.cuda(PCC.cuda_device)
         index = index + np.asarray(batches_len).sum()
         index_batches.append(index.type(torch.LongTensor))
         index_group.append(index_b.type(torch.LongTensor))
         batches_len.append(torch.unique(index).size(0))
     index_batches = torch.cat(index_batches)
     index_group = torch.cat(index_group)
-    if PCC.is_cuda:
-        index_batches = index_batches.cuda()
-        index_group = index_group.cuda()
+    if PCC.cuda_device is not None:
+        index_batches = index_batches.cuda(PCC.cuda_device)
+        index_group = index_group.cuda(PCC.cuda_device)
     pixel_max = scatter_max(pred_pointwise.T, index_batches)[0]
     pixel_sum = scatter_sum(pred_pointwise.T, index_batches)
 

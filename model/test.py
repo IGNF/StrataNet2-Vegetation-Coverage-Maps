@@ -54,8 +54,8 @@ def evaluate(
     for index_cloud, (cloud, gt) in enumerate(loader):
         plot_name = test_list[index_cloud]
 
-        if PCC.is_cuda:
-            gt = gt.cuda()
+        if PCC.cuda_device is not None:
+            gt = gt.cuda(PCC.cuda_device)
 
         pred_pointwise, pred_pointwise_b = PCC.run(model, cloud)
         pred_pl, pred_adm, pred_pixels = project_to_2d(

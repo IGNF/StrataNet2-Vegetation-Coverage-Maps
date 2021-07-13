@@ -49,10 +49,10 @@ def loss_loglikelihood(pred_pointwise, cloud, params, PCC, args):
     p_all_pdf = torch.tensor(p_all_pdf)
     p_ground, p_nonground = pred_pointwise[:, :2].sum(1), pred_pointwise[:, 2:].sum(1)
 
-    if PCC.is_cuda:
-        p_all_pdf = p_all_pdf.cuda()
-        p_ground = p_ground.cuda()
-        p_nonground = p_nonground.cuda()
+    if PCC.cuda_device is not None:
+        p_all_pdf = p_all_pdf.cuda(PCC.cuda_device)
+        p_ground = p_ground.cuda(PCC.cuda_device)
+        p_nonground = p_nonground.cuda(PCC.cuda_device)
 
     p_ground_nonground = torch.cat((p_ground.view(-1, 1), p_nonground.view(-1, 1)), 1)
     likelihood = torch.mul(p_ground_nonground, p_all_pdf)

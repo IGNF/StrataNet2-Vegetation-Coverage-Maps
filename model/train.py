@@ -49,8 +49,8 @@ def train(model, PCC, train_set, params, optimizer, args):
 
     for index_batch, (cloud, gt) in enumerate(loader):
 
-        if PCC.is_cuda:
-            gt = gt.cuda()
+        if PCC.cuda_device is not None:
+            gt = gt.cuda(PCC.cuda_device)
 
         optimizer.zero_grad(set_to_none=True)  # put gradient to zero
         pred_pointwise, pred_pointwise_b = PCC.run(
