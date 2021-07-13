@@ -8,11 +8,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 # Weird behavior: loading twice in cell appears to remove an elsewise occuring error.
-for i in range(2):
-    try:
-        matplotlib.use("TkAgg")  # rerun this cell if an error occurs.
-    except:
-        pass
+#for i in range(2):
+#    try:
+#        matplotlib.use("TkAgg")  # rerun this cell if an error occurs.
+#    except:
+#        pass
 import matplotlib.pyplot as plt
 
 

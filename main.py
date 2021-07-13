@@ -21,11 +21,11 @@ import torch.nn as nn
 import matplotlib
 
 # Weird behavior: loading twice in cell appears to remove an elsewise occuring error.
-for i in range(2):
-    try:
-        matplotlib.use("TkAgg")  # rerun this cell if an error occurs.
-    except:
-        pass
+#for i in range(2):
+#    try:
+#        matplotlib.use("TkAgg")  # rerun this cell if an error occurs.
+#    except:
+#        pass
 
 np.random.seed(42)
 torch.cuda.empty_cache()
