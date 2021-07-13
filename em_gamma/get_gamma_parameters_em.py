@@ -3,12 +3,17 @@ import numpy as np
 from scipy.stats import gamma
 from scipy.special import digamma, polygamma
 import matplotlib
-import matplotlib.pyplot as plt
 import pickle
 import logging
 
 logger = logging.getLogger(__name__)
-matplotlib.use("TkAgg")
+# Weird behavior: loading twice in cell appears to remove an elsewise occuring error.
+for i in range(2):
+    try:
+        matplotlib.use("TkAgg")  # rerun this cell if an error occurs.
+    except:
+        pass
+import matplotlib.pyplot as plt
 
 
 def get_gamma_parameters(all_z, args):
