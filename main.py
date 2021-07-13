@@ -60,7 +60,7 @@ def main():
         experiment = Experiment(project_name="lidar_pac", auto_log_co2=False)
     experiment.log_parameters(vars(args))
     if args.comet_name:
-        experiment.add_tags([args.mode, args.comet_name])  # does not work...
+        experiment.add_tags([args.mode])
         experiment.set_name(args.comet_name)
     else:
         experiment.add_tag(args.mode)
