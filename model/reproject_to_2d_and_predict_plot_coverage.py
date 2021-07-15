@@ -42,8 +42,8 @@ def project_to_2d(pred_pointwise, cloud, pred_pointwise_b, PCC, args):
     if PCC.cuda_device is not None:
         index_batches = index_batches.cuda(PCC.cuda_device)
         index_group = index_group.cuda(PCC.cuda_device)
-    pixel_max = scatter_max(pred_pointwise.T, index_batches)[0]
-    pixel_sum = scatter_sum(pred_pointwise.T, index_batches)
+    pixel_max = scatter_max(pred_pointwise.permute(1, 0), index_batches)[0]
+    pixel_sum = scatter_sum(pred_pointwise.permute(1, 0), index_batches)
 
     # We compute prediction values per pixel
     if (
