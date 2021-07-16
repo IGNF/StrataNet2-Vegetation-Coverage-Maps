@@ -263,13 +263,16 @@ def write_to_writer(writer, args, i_epoch, epoch_loss_dict, train):
     adm_loss = epoch_loss_dict["adm_loss"]
     logging.info(
         COLOR
-        + "Epoch %3d -> %s Loss: %1.2f Train Loss Abs (MAE): %1.2f Train Loss Log: %1.2f Train Loss Adm: %1.2f"
+        + "Epoch %3d -> %s Loss: %1.2f %s Loss Abs (MAE): %1.2f %s Loss Log: %1.2f %s Loss Adm: %1.2f"
         % (
             i_epoch,
             task,
             total_loss,
+            task,
             MAE_loss,
+            task,
             log_loss,
+            task,
             adm_loss if adm_loss is not None else 0,
         )
         + NORMALCOLOR
