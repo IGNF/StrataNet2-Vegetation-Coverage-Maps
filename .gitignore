@@ -10,3 +10,5 @@ parcelles_splitting_dev_notebook.ipynb
 notebooks/*.tif
 notebooks/*.png
 notebooks/temp*
+nohup.out
+*pyc
