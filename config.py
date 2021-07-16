@@ -112,7 +112,10 @@ parser.add_argument('--lr_decay', default=0.985, type=float,
 parser.add_argument('--n_epoch', default=100 if not MODE=="DEV" else 2, type=int, help="Number of training epochs")
 parser.add_argument('--n_epoch_test', default=5 if not MODE=="DEV" else 1, type=int, help="We evaluate every -th epoch")
 parser.add_argument('--batch_size', default=20, type=int, help="Size of the training batch")
-parser.add_argument('--patience_in_epochs', default=15, type=int, help="Epoch to wait for improvement of MAE_loss before early stopping. Set to np.inf to disable ES.")
+parser.add_argument('--n_epoch', default=200 if not MODE=="DEV" else 20, type=int, help="Number of training epochs")
+parser.add_argument('--n_epoch_test', default=5 if not MODE=="DEV" else 2, type=int, help="We evaluate every -th epoch, and every epoch after epoch_to_start_early_stop")
+parser.add_argument('--epoch_to_start_early_stop', default=45 if not MODE=="DEV" else 4, type=int, help="Epoch from which to start early stopping process, after ups and down of training.")
+parser.add_argument('--patience_in_epochs', default=30 if not MODE=="DEV" else 4, type=int, help="Epoch to wait for improvement of MAE_loss before early stopping. Set to np.inf to disable ES.")
 
 # fmt: on
 args, _ = parser.parse_known_args()

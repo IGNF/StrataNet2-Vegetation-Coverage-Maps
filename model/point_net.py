@@ -34,8 +34,7 @@ class PointNet(nn.Module):
 
         self.stopped_early = False
         self.best_metric_value = 10 ** 6
-        self.best_metric_epoch = 0
-        self.patience_counter = 0
+        self.best_metric_epoch = 1
         self.patience_in_epochs = args.patience_in_epochs
 
         # since we don't know the number of layers in the MLPs, we need to use loops
@@ -129,11 +128,11 @@ class PointNet(nn.Module):
         if val_metric < self.best_metric_value:
             self.best_metric_value = val_metric
             self.best_metric_epoch = epoch
-            self.patience_counter = 0
             self.save_state(fold_id, args)
         else:
-            self.patience_counter = self.patience_counter + args.n_epoch_test
-            if self.patience_counter >= self.patience_in_epochs:
+            if epoch < args.epoch_to_start_early_stop:
+                return False
+            if epoch >= self.best_metric_epoch + self.patience_in_epochs:
                 self.stopped_early = True
                 return True
 

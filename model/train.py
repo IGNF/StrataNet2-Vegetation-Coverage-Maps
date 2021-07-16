@@ -129,10 +129,10 @@ def train_full(args, fold_id, train_set, test_set, test_list, xy_centers_dict, p
     all_epochs_test_loss_dict = []
     cloud_info_list = None
 
-    for i_epoch in range(args.n_epoch):
+    for i_epoch in range(1, args.n_epoch + 1):
         train_loss_dict = None
         test_loss_dict = None
-        experiment.set_epoch(1 + i_epoch)
+        experiment.set_epoch(i_epoch)
         experiment.log_metric("learning_rate", scheduler.get_last_lr())
 
         # train one epoch
@@ -141,22 +141,24 @@ def train_full(args, fold_id, train_set, test_set, test_list, xy_centers_dict, p
             writer = write_to_writer(writer, args, i_epoch, train_loss_dict, train=True)
 
             experiment.log_metrics(
-                train_loss_dict, epoch=1 + i_epoch, step=train_loss_dict["step"]
+                train_loss_dict, epoch=i_epoch, step=train_loss_dict["step"]
             )
-        train_loss_dict.update({"epoch": 1 + i_epoch})
+        train_loss_dict.update({"epoch": i_epoch})
         all_epochs_train_loss_dict.append(train_loss_dict)
 
-        # if last epoch, we create 2D images with points projections and infer values for all test plots
         with experiment.context_manager(f"fold_{args.current_fold_id}_val"):
 
-            if (i_epoch + 1) == args.n_epoch:
+            if (i_epoch) == args.n_epoch:
                 print(
                     f"Last epoch n={args.n_epoch} - load best model of epoch {model.best_metric_epoch}"
                 )
                 break
 
             # if not last epoch, we just evaluate performances on test plots, during cross-validation only.
-            if ((i_epoch + 1) % args.n_epoch_test == 0) and (fold_id > 0):
+            if (
+                (i_epoch % args.n_epoch_test == 0)
+                or (i_epoch > args.epoch_to_start_early_stop)
+            ) and (fold_id > 0):
                 test_loss_dict, _ = evaluate(
                     model,
                     PCC,
@@ -174,17 +176,17 @@ def train_full(args, fold_id, train_set, test_set, test_list, xy_centers_dict, p
                 )
                 if test_loss_dict is not None:
                     experiment.log_metrics(
-                        test_loss_dict, epoch=1 + i_epoch, step=test_loss_dict["step"]
+                        test_loss_dict, epoch=i_epoch, step=test_loss_dict["step"]
                     )
-                    test_loss_dict.update({"epoch": 1 + i_epoch})
+                    test_loss_dict.update({"epoch": i_epoch})
                     all_epochs_test_loss_dict.append(test_loss_dict)
 
                     # if we stop early, load model state and generate summary visualizations
                     if model.stop_early(
-                        test_loss_dict["MAE_loss"], i_epoch + 1, fold_id, args
+                        test_loss_dict["total_loss"], i_epoch, fold_id, args
                     ):
                         print(
-                            f"Early stopping at epoch {i_epoch+1} - load best model of epoch {model.best_metric_epoch}"
+                            f"Early stopping at epoch {i_epoch} - load best model of epoch {model.best_metric_epoch}"
                         )
                         break
 
