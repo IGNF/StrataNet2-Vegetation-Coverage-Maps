@@ -95,6 +95,7 @@ def calculate_performance_indicators(df):
     df["error_veg_moy"] = (df["pred_veg_moy"] - df["vt_veg_moy"]).abs()
     df["error_veg_h"] = (df["pred_veg_h"] - df["vt_veg_h"]).abs()
     df["error_veg_b_and_moy"] = df[["error_veg_b", "error_veg_moy"]].mean(axis=1)
+    df["error_all"] = df[["error_veg_b", "error_veg_moy", "error_veg_h"]].mean(axis=1)
 
     # Accuracy
     df["acc_veg_b"] = df.apply(
@@ -107,6 +108,7 @@ def calculate_performance_indicators(df):
         lambda x: compute_accuracy(x.pred_veg_h, x.vt_veg_h), axis=1
     )
     df["acc_veg_b_and_moy"] = df[["acc_veg_b", "acc_veg_moy"]].mean(axis=1)
+    df["acc_all"] = df[["acc_veg_b", "acc_veg_moy"]].mean(axis=1)
 
     # MAE2 errors
     df["error2_veg_b"] = df.apply(
@@ -119,6 +121,9 @@ def calculate_performance_indicators(df):
         lambda x: compute_mae2(x.pred_veg_h, x.vt_veg_h), axis=1
     )
     df["error2_veg_b_and_moy"] = df[["error2_veg_b", "error2_veg_moy"]].mean(axis=1)
+    df["error2_all"] = df[["error2_veg_b", "error2_veg_moy", "error2_veg_h"]].mean(
+        axis=1
+    )
 
     # Accuracy 2
     df["acc2_veg_b"] = df.apply(
@@ -134,6 +139,7 @@ def calculate_performance_indicators(df):
         axis=1,
     )
     df["acc2_veg_b_and_moy"] = df[["acc2_veg_b", "acc2_veg_moy"]].mean(axis=1)
+    df["acc2_all"] = df[["acc2_veg_b", "acc2_veg_moy", "acc2_veg_h"]].mean(axis=1)
 
     return df
 
@@ -263,13 +269,16 @@ def write_to_writer(writer, args, i_epoch, epoch_loss_dict, train):
     adm_loss = epoch_loss_dict["adm_loss"]
     logging.info(
         COLOR
-        + "Epoch %3d -> %s Loss: %1.2f Train Loss Abs (MAE): %1.2f Train Loss Log: %1.2f Train Loss Adm: %1.2f"
+        + "Epoch %3d -> %s Loss: %1.2f %s Loss Abs (MAE): %1.2f %s Loss Log: %1.2f %s Loss Adm: %1.2f"
         % (
             i_epoch,
             task,
             total_loss,
+            task,
             MAE_loss,
+            task,
             log_loss,
+            task,
             adm_loss if adm_loss is not None else 0,
         )
         + NORMALCOLOR

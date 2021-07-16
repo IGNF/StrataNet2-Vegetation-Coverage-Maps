@@ -5,7 +5,7 @@ from utils.useful_functions import get_args_from_prev_config
 # This script defines all parameters for data loading, model definition, sand I/O operations.
 
 # Set to DEV for faster iterations (1 fold, 4 epochs), in order to e.g. test saving results.
-MODE = "DEV"  # DEV or PROD
+MODE = "PROD"  # DEV or PROD
 
 # FEATURE NAMES used to get the right index. Do not permutate features x, y, z, red, green, blue, nir and intensity.
 FEATURE_NAMES = [
@@ -55,6 +55,7 @@ parser.add_argument('--stats_file', default=None, help="(Created on the fly) Pat
 parser.add_argument('--plot_name_to_visualize_during_training', default=PLOT_NAME_TO_VISUALIZE_DURING_TRAINING,  help="A few plot name to track during learning")
 parser.add_argument('--offline_experiment', default=False, type=bool, help="")
 parser.add_argument("--comet_name", default="", type=str, help="Add this tag to the XP, to indicate its goal")
+parser.add_argument('--disabled', default=False, type=bool, help="Wether we disable Comet for this run.")
 
 parser.add_argument('--resume_last_job', default=0, type=bool, help="Use (1) or do not use (0) the folder of the last experiment.")
 parser.add_argument("--use_prev_config", default=None, type=str, help="Identifier of a previous run from which to copy parameters from (e.g. yyyy-mm-dd_XhXmXs).")
@@ -108,9 +109,10 @@ parser.add_argument('--step_size', default=1, type=int,
                     help="After this number of steps we decrease learning rate. (Period of learning rate decay)")
 parser.add_argument('--lr_decay', default=0.985, type=float,
                     help="We multiply learning rate by this value after certain number of steps (see --step_size). (Multiplicative factor of learning rate decay)")
-parser.add_argument('--n_epoch', default=100 if not MODE=="DEV" else 3, type=int, help="Number of training epochs")
+parser.add_argument('--n_epoch', default=100 if not MODE=="DEV" else 2, type=int, help="Number of training epochs")
 parser.add_argument('--n_epoch_test', default=5 if not MODE=="DEV" else 1, type=int, help="We evaluate every -th epoch")
 parser.add_argument('--batch_size', default=20, type=int, help="Size of the training batch")
+parser.add_argument('--patience_in_epochs', default=15, type=int, help="Epoch to wait for improvement of MAE_loss before early stopping. Set to np.inf to disable ES.")
 
 # fmt: on
 args, _ = parser.parse_known_args()
