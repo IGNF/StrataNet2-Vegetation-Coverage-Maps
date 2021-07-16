@@ -1,6 +1,7 @@
 # %%
 import torch
 import torch.nn as nn
+import os
 
 # /!\ Bias=False if followed by BatchNorm !
 
@@ -30,6 +31,12 @@ class PointNet(nn.Module):
         self.drop = args.drop
         self.soft = args.soft
         self.input_feat = args.n_input_feats
+
+        self.stopped_early = False
+        self.best_metric_value = 10 ** 6
+        self.best_metric_epoch = 0
+        self.patience_counter = 0
+        self.patience_in_epochs = args.patience_in_epochs
 
         # since we don't know the number of layers in the MLPs, we need to use loops
         # to create the correct number of layers
@@ -115,3 +122,43 @@ class PointNet(nn.Module):
         else:
             out_pointwise = self.sigmoid(out_pointwise)
         return out_pointwise
+
+    def stop_early(self, val_metric, epoch, fold_id, args):
+        """Save best model state until now, based on a validation metric to minimize, if no improvement over n epochs."""
+
+        if val_metric < self.best_metric_value:
+            self.best_metric_value = val_metric
+            self.best_metric_epoch = epoch
+            self.patience_counter = 0
+            self.save_state(fold_id, args)
+        else:
+            self.patience_counter = self.patience_counter + args.n_epoch_test
+            if self.patience_counter >= self.patience_in_epochs:
+                self.stopped_early = True
+                return True
+
+        return False
+
+    def save_state(self, fold_id, args):
+        """Save model state in stats_path."""
+        checkpoint = {
+            "best_metric_epoch": self.best_metric_epoch,
+            "state_dict": self.state_dict(),
+            "best_metric_value": self.best_metric_value,
+        }
+        save_path = os.path.join(
+            args.stats_path,
+            f"PCC_model_{'fold_n='+str(fold_id) if fold_id>0 else 'full'}.pt",
+        )
+        torch.save(checkpoint, save_path)
+
+    def load_best_state(self, fold_id, args):
+        """Load model from early stopping checkpoint. Does not load the optimizer state."""
+        save_path = os.path.join(
+            args.stats_path,
+            f"PCC_model_{'fold_n='+str(fold_id) if fold_id>0 else 'full'}.pt",
+        )
+        checkpoint = torch.load(save_path)
+        self.load_state_dict(checkpoint["state_dict"])
+        self.best_metric_epoch = checkpoint["best_metric_epoch"]
+        self.best_metric_value = checkpoint["best_metric_value"]
