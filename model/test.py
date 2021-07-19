@@ -21,7 +21,7 @@ def evaluate(
     model,
     PCC,
     test_set,
-    params,
+    kde_mixture,
     args,
     test_list,
     xy_centers_dict,
@@ -68,7 +68,7 @@ def evaluate(
         # we compute two losses (negative loglikelihood and the absolute error loss for 2 stratum)
         loss_abs = loss_absolute(pred_pl, gt, args)  # absolut loss
         loss_log, likelihood, p_all_pdf_all = loss_loglikelihood(
-            pred_pointwise, clouds, params, PCC, args
+            pred_pointwise, clouds, kde_mixture, PCC, args
         )  # negative loglikelihood loss
 
         if args.ent:

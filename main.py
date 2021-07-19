@@ -38,7 +38,6 @@ from data_loader.loader import *
 from utils.load_las_data import load_all_las_from_folder, open_metadata_dataframe
 from model.loss_functions import *
 from model.accuracy import *
-from em_gamma.get_gamma_parameters_em import *
 from model.train import train_full
 
 
