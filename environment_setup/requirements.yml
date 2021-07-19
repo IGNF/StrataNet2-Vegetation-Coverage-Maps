@@ -3,8 +3,8 @@ channels:
   - conda-forge
   - defaults
   - anaconda
+  - dmentipl 
 dependencies:
-  - gdal
   - numpy
   - pandas
   - scipy
@@ -14,8 +14,12 @@ dependencies:
   - jupyter
   - pip
   - black
+  - tqdm
+  - rasterio
+  - numpy-indexed
+  - kdepy
   - pip:
-      - laspy
+      - gdal
+      - laspy=1.7.0
       - torchnet
-      - osgeo
       - codetiming

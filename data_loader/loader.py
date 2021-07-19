@@ -2,6 +2,38 @@ import numpy as np
 import torch
 from sklearn.neighbors import NearestNeighbors
 
+# TODO: reflect this ordser of OP in inference.
+def cloud_loader(plot_id, dataset, df_gt, train, args):
+    """
+    For DataLoader during training of model.
+    load a plot and returns points features (normalized xyz + features) and
+    ground truth
+    INPUT:
+    tile_name = string, name of the tile
+    train = int, train = 1 iff in the train set
+    OUTPUT
+    cloud_data, [n x 4] float Tensor containing points coordinates and intensity
+    labels, [n] long int Tensor, containing the points semantic labels
+    """
+    cloud_data = np.array(dataset[plot_id], dtype=np.float32).transpose()
+    gt = (
+        df_gt[df_gt["Name"] == plot_id][
+            ["COUV_BASSE", "COUV_SOL", "COUV_INTER", "COUV_HAUTE", "ADM"]
+        ].values
+        / 100
+    )
+
+    cloud_data = rescale_cloud_data(cloud_data, None, args)
+
+    if train:
+        cloud_data = augment(cloud_data)
+
+    cloud_data = sample_cloud(cloud_data, args.subsample_size)
+
+    cloud_data = torch.from_numpy(cloud_data)
+    gt = torch.from_numpy(gt).float().squeeze()
+    return cloud_data, gt
+
 
 def rescale_cloud_data(cloud_data, cloud_center, args):
     """
@@ -46,34 +78,20 @@ def rescale_cloud_data(cloud_data, cloud_center, args):
     return cloud_data
 
 
-def cloud_loader(plot_id, dataset, df_gt, train, args):
-    """
-    For DataLoader during training of model.
-    load a plot and returns points features (normalized xyz + features) and
-    ground truth
-    INPUT:
-    tile_name = string, name of the tile
-    train = int, train = 1 iff in the train set
-    OUTPUT
-    cloud_data, [n x 4] float Tensor containing points coordinates and intensity
-    labels, [n] long int Tensor, containing the points semantic labels
-    """
-    cloud_data = np.array(dataset[plot_id]).transpose()
-    gt = (
-        df_gt[df_gt["Name"] == plot_id][
-            ["COUV_BASSE", "COUV_SOL", "COUV_INTER", "COUV_HAUTE", "ADM"]
-        ].values
-        / 100
-    )
-
-    cloud_data = rescale_cloud_data(cloud_data, None, args)
-
-    if train:
-        cloud_data = augment(cloud_data)
-
-    cloud_data = torch.from_numpy(cloud_data)
-    gt = torch.from_numpy(gt).float()
-    return cloud_data, gt
+def sample_cloud(cloud, subsample_size):
+    """Select subsample_size points out of cloud, with replacement only if necessary."""
+    n_points = cloud.shape[1]
+    if n_points > subsample_size:
+        selected_points = np.random.choice(n_points, subsample_size, replace=False)
+    else:
+        selected_points = np.concatenate(
+            [
+                np.arange(n_points),
+                np.random.choice(n_points, subsample_size - n_points, replace=True),
+            ]
+        )
+    cloud = cloud[:, selected_points].copy()
+    return cloud
 
 
 def augment(cloud_data):
@@ -103,6 +121,7 @@ def augment(cloud_data):
             a_max=clip,
         ).astype(np.float32)
     )
+
     cloud_data[3:8] = (
         cloud_data[3:8]
         + np.clip(
@@ -115,14 +134,14 @@ def augment(cloud_data):
     return cloud_data
 
 
-def cloud_collate(batch):
-    """Collates a list of dataset samples into a batch list for clouds
-    and a single array for labels
-    This function is necessary to implement because the clouds have different sizes (unlike for images)
-    """
-    clouds, labels = list(zip(*batch))
-    labels = torch.cat(labels, 0)
-    return clouds, labels
+# def cloud_collate(batch):
+#     """Collates a list of dataset samples into a batch list for clouds
+#     and a single array for labels
+#     This function is necessary to implement because the clouds have different sizes (unlike for images)
+#     """
+#     clouds, labels = list(zip(*batch))
+#     labels = torch.cat(labels, 0)
+#     return clouds, labels
 
 
 def cloud_loader_from_parcel(parcel_points_nparray, disk_center):

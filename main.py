@@ -22,11 +22,11 @@ import torch.nn as nn
 import matplotlib
 
 # Weird behavior: loading twice in cell appears to remove an elsewise occuring error.
-for i in range(2):
-    try:
-        matplotlib.use("TkAgg")  # rerun this cell if an error occurs.
-    except:
-        pass
+# for i in range(2):
+#    try:
+#        matplotlib.use("TkAgg")  # rerun this cell if an error occurs.
+#    except:
+#        pass
 
 np.random.seed(42)
 torch.cuda.empty_cache()
@@ -58,10 +58,14 @@ def main():
             auto_log_co2=False,
         )
     else:
-        experiment = Experiment(project_name="lidar_pac", auto_log_co2=False)
+        experiment = Experiment(
+            project_name="lidar_pac",
+            auto_log_co2=False,
+            disabled=args.disabled,
+        )
     experiment.log_parameters(vars(args))
     if args.comet_name:
-        experiment.add_tags([args.mode, args.comet_name])  # does not work...
+        experiment.add_tags([args.mode])
         experiment.set_name(args.comet_name)
     else:
         experiment.add_tag(args.mode)
@@ -146,20 +150,7 @@ def main():
 
         cloud_info_list_by_fold[fold_id] = cloud_info_list
 
-        # save the trained model
-        PATH = os.path.join(
-            args.stats_path,
-            "model_ss_"
-            + str(args.subsample_size)
-            + "_dp_"
-            + str(args.diam_pix)
-            + "_fold_"
-            + str(fold_id)
-            + ".pt",
-        )
-        torch.save(trained_model, PATH)
-
-        # We compute stats per fold
+        # Print the fold results
         log_last_stats_of_fold(
             all_epochs_train_loss_dict,
             all_epochs_test_loss_dict,
@@ -175,7 +166,7 @@ def main():
         )
         fold_id += 1
 
-        if args.mode == "DEV" and fold_id >= 2:
+        if args.mode == "DEV" and fold_id >= 1:
             break
 
     # create inference results csv

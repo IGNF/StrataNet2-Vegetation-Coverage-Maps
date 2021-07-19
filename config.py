@@ -39,7 +39,7 @@ parser.add_argument('--parcel_shapefile_path', default=os.path.join(data_path, "
 
 
 parser.add_argument('--gt_file_path', default=os.path.join(data_path, "placettes_dataset/placettes_metadata.csv"), type=str, help="Path to ground truth file. Put in dataset folder.")
-parser.add_argument('--cuda', default=0, type=int, help="Whether we use cuda (1) or not (0)")
+parser.add_argument('--cuda', default=None, type=int, help="Whether we use cuda (0 or 1 to specify device) or not (None)")
 parser.add_argument('--coln_mapper_dict', default={"nom":"Name"}, type=str, help="Dict to rename columns of gt ")
 parser.add_argument('--plot_only_png', default=True, type=bool, help="Set to False to output SVG article format and GeoTIFF at last epoch.")
 parser.add_argument('--results_path', default=None, help="(Created on the fly) Path to all related experiments")
@@ -56,6 +56,7 @@ parser.add_argument('--plot_name_to_visualize_during_training', default=PLOT_NAM
 parser.add_argument('--offline_experiment', default=False, type=bool, help="")
 parser.add_argument("--comet_name", default="", type=str, help="Add this tag to the XP, to indicate its goal")
 parser.add_argument("--full_model_training", default=False, type=str, help="False to avoid a full training after cross-validation")
+parser.add_argument('--disabled', default=False, type=bool, help="Wether we disable Comet for this run.")
 
 parser.add_argument('--resume_last_job', default=0, type=bool, help="Use (1) or do not use (0) the folder of the last experiment.")
 parser.add_argument("--use_prev_config", default=None, type=str, help="Identifier of a previous run from which to copy parameters from (e.g. yyyy-mm-dd_XhXmXs).")
@@ -105,13 +106,16 @@ parser.add_argument('--soft', default=True, type=bool,
 parser.add_argument('--folds', default=5, type=int, help="Number of folds for cross validation model training")
 parser.add_argument('--wd', default=0.001, type=float, help="Weight decay for the optimizer")
 parser.add_argument('--lr', default=1e-3, type=float, help="Learning rate")
-parser.add_argument('--step_size', default=50, type=int,
+parser.add_argument('--step_size', default=1, type=int,
                     help="After this number of steps we decrease learning rate. (Period of learning rate decay)")
-parser.add_argument('--lr_decay', default=0.1, type=float,
+parser.add_argument('--lr_decay', default=0.985, type=float,
                     help="We multiply learning rate by this value after certain number of steps (see --step_size). (Multiplicative factor of learning rate decay)")
-parser.add_argument('--n_epoch', default=100 if not MODE=="DEV" else 2, type=int, help="Number of training epochs")
-parser.add_argument('--n_epoch_test', default=5 if not MODE=="DEV" else 1, type=int, help="We evaluate every -th epoch")
+
 parser.add_argument('--batch_size', default=20, type=int, help="Size of the training batch")
+parser.add_argument('--n_epoch', default=200 if not MODE=="DEV" else 20, type=int, help="Number of training epochs")
+parser.add_argument('--n_epoch_test', default=5 if not MODE=="DEV" else 2, type=int, help="We evaluate every -th epoch, and every epoch after epoch_to_start_early_stop")
+parser.add_argument('--epoch_to_start_early_stop', default=45 if not MODE=="DEV" else 4, type=int, help="Epoch from which to start early stopping process, after ups and down of training.")
+parser.add_argument('--patience_in_epochs', default=30 if not MODE=="DEV" else 4, type=int, help="Epoch to wait for improvement of MAE_loss before early stopping. Set to np.inf to disable ES.")
 
 # fmt: on
 args, _ = parser.parse_known_args()

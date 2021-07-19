@@ -28,11 +28,11 @@ def loss_loglikelihood(pred_pointwise, cloud, kde_mixture, PCC, args):
     p_m = pred_pointwise[:, 2:3].sum(1)
     p_h = pred_pointwise[:, 3:4].sum(1)
 
-    if PCC.is_cuda:
-        pdf_all = pdf_all.cuda()
-        p_ground = p_ground.cuda()
-        p_m = p_m.cuda()
-        p_h = p_h.cuda()
+    if PCC.cuda_device is not None:
+        pdf_all = pdf_all.cuda(PCC.cuda_device)
+        p_ground = p_ground.cuda(PCC.cuda_device)
+        p_m = p_m.cuda(PCC.cuda_device)
+        p_h = p_h.cuda(PCC.cuda_device)
 
     p_all = torch.cat((p_ground.view(-1, 1), p_m.view(-1, 1), p_h.view(-1, 1)), 1)
     likelihood = torch.mul(p_all, pdf_all)

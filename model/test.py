@@ -39,7 +39,10 @@ def evaluate(
     model.eval()
 
     loader = torch.utils.data.DataLoader(
-        test_set, collate_fn=cloud_collate, batch_size=1, shuffle=False
+        test_set,
+        # collate_fn=cloud_collate,
+        batch_size=1,
+        shuffle=False,
     )
     loss_meter_abs = tnt.meter.AverageValueMeter()
     loss_meter_log = tnt.meter.AverageValueMeter()
@@ -54,8 +57,8 @@ def evaluate(
     for index_cloud, (clouds, gt) in enumerate(loader):
         plot_name = test_list[index_cloud]
 
-        if PCC.is_cuda:
-            gt = gt.cuda()
+        if PCC.cuda_device is not None:
+            gt = gt.cuda(PCC.cuda_device)
 
         pred_pointwise, pred_pointwise_b = PCC.run(model, clouds)
         pred_pl, pred_adm, pred_pixels = project_to_2d(
@@ -176,7 +179,7 @@ def evaluate(
 
         # Here we log embeddings of test plot for this fold
         image_data = [
-            Image.open(a[2]).convert("RGB").resize((500, 720))
+            Image.open(a[2]).convert("RGB").resize((100, 160))
             for a in last_G_tensor_list
         ]
         args.experiment.log_embedding(

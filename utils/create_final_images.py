@@ -114,7 +114,7 @@ def visualize_article(
     if txt is not None:
         fig.text(0.5, 0.05, txt, ha="center")
     plt.savefig(
-        stats_path + pl_id + "_article.svg", format="svg", bbox_inches="tight", dpi=300
+        stats_path + pl_id + "_article.svg", format="svg", bbox_inches="tight", dpi=50
     )
     plt.clf()
     plt.close("all")
@@ -276,7 +276,7 @@ def visualize(
     if text_pred_vs_gt is not None:
         fig.text(0.5, 0.05, text_pred_vs_gt, ha="center")
     save_path = stats_path + pl_id + ".png"
-    plt.savefig(save_path, format="png", bbox_inches="tight", dpi=150)
+    plt.savefig(save_path, format="png", bbox_inches="tight", dpi=50)
     plt.clf()
     plt.close("all")
     return save_path

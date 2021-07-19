@@ -35,7 +35,7 @@ def train(model, PCC, train_set, kde_mixture, optimizer, args):
     # the loader function will take care of the batching
     loader = torch.utils.data.DataLoader(
         train_set,
-        collate_fn=cloud_collate,
+        # collate_fn=cloud_collate,
         batch_size=args.batch_size,
         shuffle=True,
         drop_last=True,
@@ -49,8 +49,8 @@ def train(model, PCC, train_set, kde_mixture, optimizer, args):
 
     for index_batch, (cloud, gt) in enumerate(loader):
 
-        if PCC.is_cuda:
-            gt = gt.cuda()
+        if PCC.cuda_device is not None:
+            gt = gt.cuda(PCC.cuda_device)
 
         optimizer.zero_grad(set_to_none=True)  # put gradient to zero
         pred_pointwise, pred_pointwise_b = PCC.run(
@@ -131,10 +131,10 @@ def train_full(
     all_epochs_test_loss_dict = []
     cloud_info_list = None
 
-    for i_epoch in range(args.n_epoch):
+    for i_epoch in range(1, args.n_epoch + 1):
         train_loss_dict = None
         test_loss_dict = None
-        experiment.set_epoch(1 + i_epoch)
+        experiment.set_epoch(i_epoch)
         experiment.log_metric("learning_rate", scheduler.get_last_lr())
 
         # train one epoch
@@ -143,35 +143,24 @@ def train_full(
             writer = write_to_writer(writer, args, i_epoch, train_loss_dict, train=True)
 
             experiment.log_metrics(
-                train_loss_dict, epoch=1 + i_epoch, step=train_loss_dict["step"]
+                train_loss_dict, epoch=i_epoch, step=train_loss_dict["step"]
             )
-        train_loss_dict.update({"epoch": 1 + i_epoch})
+        train_loss_dict.update({"epoch": i_epoch})
         all_epochs_train_loss_dict.append(train_loss_dict)
 
-        # if last epoch, we create 2D images with points projections and infer values for all test plots
         with experiment.context_manager(f"fold_{args.current_fold_id}_val"):
-            if (i_epoch + 1) == args.n_epoch:
-                print("Last epoch")
-                test_loss_dict, cloud_info_list = evaluate(
-                    model,
-                    PCC,
-                    test_set,
-                    kde_mixture,
-                    args,
-                    test_list,
-                    xy_centers_dict,
-                    args.stats_path,
-                    args.stats_file,
-                    last_epoch=True,
-                    plot_only_png=args.plot_only_png,
-                    situation="crossval" if fold_id >= 0 else "full",
+
+            if (i_epoch) == args.n_epoch:
+                print(
+                    f"Last epoch n={args.n_epoch} - load best model of epoch {model.best_metric_epoch}"
                 )
-                gc.collect()
-                writer = write_to_writer(
-                    writer, args, i_epoch, test_loss_dict, train=False
-                )
+                break
+
             # if not last epoch, we just evaluate performances on test plots, during cross-validation only.
-            elif ((i_epoch + 1) % args.n_epoch_test == 0) and fold_id > 0:
+            if (
+                (i_epoch % args.n_epoch_test == 0)
+                or (i_epoch > args.epoch_to_start_early_stop)
+            ) and (fold_id > 0):
                 test_loss_dict, _ = evaluate(
                     model,
                     PCC,
@@ -187,15 +176,48 @@ def train_full(
                 writer = write_to_writer(
                     writer, args, i_epoch, test_loss_dict, train=False
                 )
-            if test_loss_dict is not None:
-                experiment.log_metrics(
-                    test_loss_dict, epoch=1 + i_epoch, step=test_loss_dict["step"]
-                )
-                test_loss_dict.update({"epoch": 1 + i_epoch})
-                all_epochs_test_loss_dict.append(test_loss_dict)
+                if test_loss_dict is not None:
+                    experiment.log_metrics(
+                        test_loss_dict, epoch=i_epoch, step=test_loss_dict["step"]
+                    )
+                    test_loss_dict.update({"epoch": i_epoch})
+                    all_epochs_test_loss_dict.append(test_loss_dict)
+
+                    # if we stop early, load model state and generate summary visualizations
+                    if model.stop_early(
+                        test_loss_dict["total_loss"], i_epoch, fold_id, args
+                    ):
+                        print(
+                            f"Early stopping at epoch {i_epoch} - load best model of epoch {model.best_metric_epoch}"
+                        )
+                        break
 
         scheduler.step()
-        # experiment.log_epoch_end(args.n_epoch)
+
+    with experiment.context_manager(f"fold_{args.current_fold_id}_val"):
+
+        model.load_best_state(fold_id, args)
+
+        _, cloud_info_list = evaluate(
+            model,
+            PCC,
+            test_set,
+            params,
+            args,
+            test_list,
+            xy_centers_dict,
+            args.stats_path,
+            args.stats_file,
+            last_epoch=True,
+            plot_only_png=args.plot_only_png,
+            situation="crossval" if fold_id >= 0 else "full",
+        )
+        gc.collect()
+        if model.stopped_early:
+            experiment.log_metric("early_stop_epoch", model.best_metric_epoch)
+        else:
+            writer = write_to_writer(writer, args, i_epoch, test_loss_dict, train=False)
+
     writer.flush()
 
     return model, all_epochs_train_loss_dict, all_epochs_test_loss_dict, cloud_info_list
