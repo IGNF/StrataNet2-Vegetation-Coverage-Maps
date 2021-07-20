@@ -24,11 +24,14 @@ from model.loss_functions import *
 from model.accuracy import *
 
 from model.test import evaluate
+import logging
+
+logger = logging.getLogger(__name__)
 
 np.random.seed(42)
 
 
-def train(model, PCC, train_set, params, optimizer, args):
+def train(model, PCC, train_set, kde_mixture, optimizer, args):
     """train for one epoch"""
     model.train()
 
@@ -62,8 +65,8 @@ def train(model, PCC, train_set, params, optimizer, args):
 
         # we compute two losses (negative loglikelihood and the absolute error loss for 2 or 3 stratum)
         loss_abs = loss_absolute(pred_pl, gt, args)
-        loss_log, likelihood = loss_loglikelihood(
-            pred_pointwise, cloud, params, PCC, args
+        loss_log, _, _ = loss_loglikelihood(
+            pred_pointwise, cloud, kde_mixture, PCC, args
         )  # negative loglikelihood loss + likelihood value (not-used)
 
         if args.ent:
@@ -103,7 +106,9 @@ def train(model, PCC, train_set, params, optimizer, args):
     return train_losses_dict
 
 
-def train_full(args, fold_id, train_set, test_set, test_list, xy_centers_dict, params):
+def train_full(
+    args, fold_id, train_set, test_set, test_list, xy_centers_dict, kde_mixture
+):
     """The full training loop.
     If fold_id = -1, this is the full training and we make inferences at last epoch for this test=train set.
     """
@@ -114,7 +119,7 @@ def train_full(args, fold_id, train_set, test_set, test_list, xy_centers_dict, p
     model = PointNet(args.MLP_1, args.MLP_2, args.MLP_3, args)
     PCC = PointCloudClassifier(args)
     writer = SummaryWriter(os.path.join(args.stats_path, f"runs/fold_{fold_id}/"))
-    print(
+    logger.info(
         "Total number of parameters: {}".format(
             sum([p.numel() for p in model.parameters()])
         )
@@ -137,7 +142,7 @@ def train_full(args, fold_id, train_set, test_set, test_list, xy_centers_dict, p
 
         # train one epoch
         with experiment.context_manager(f"fold_{args.current_fold_id}_train"):
-            train_loss_dict = train(model, PCC, train_set, params, optimizer, args)
+            train_loss_dict = train(model, PCC, train_set, kde_mixture, optimizer, args)
             writer = write_to_writer(writer, args, i_epoch, train_loss_dict, train=True)
 
             experiment.log_metrics(
@@ -148,12 +153,6 @@ def train_full(args, fold_id, train_set, test_set, test_list, xy_centers_dict, p
 
         with experiment.context_manager(f"fold_{args.current_fold_id}_val"):
 
-            if (i_epoch) == args.n_epoch:
-                print(
-                    f"Last epoch n={args.n_epoch} - load best model of epoch {model.best_metric_epoch}"
-                )
-                break
-
             # if not last epoch, we just evaluate performances on test plots, during cross-validation only.
             if (
                 (i_epoch % args.n_epoch_test == 0)
@@ -163,7 +162,7 @@ def train_full(args, fold_id, train_set, test_set, test_list, xy_centers_dict, p
                     model,
                     PCC,
                     test_set,
-                    params,
+                    kde_mixture,
                     args,
                     test_list,
                     xy_centers_dict,
@@ -174,33 +173,37 @@ def train_full(args, fold_id, train_set, test_set, test_list, xy_centers_dict, p
                 writer = write_to_writer(
                     writer, args, i_epoch, test_loss_dict, train=False
                 )
-                if test_loss_dict is not None:
-                    experiment.log_metrics(
-                        test_loss_dict, epoch=i_epoch, step=test_loss_dict["step"]
-                    )
-                    test_loss_dict.update({"epoch": i_epoch})
-                    all_epochs_test_loss_dict.append(test_loss_dict)
+                experiment.log_metrics(
+                    test_loss_dict, epoch=i_epoch, step=test_loss_dict["step"]
+                )
+                test_loss_dict.update({"epoch": i_epoch})
+                all_epochs_test_loss_dict.append(test_loss_dict)
 
-                    # if we stop early, load model state and generate summary visualizations
-                    if model.stop_early(
-                        test_loss_dict["total_loss"], i_epoch, fold_id, args
-                    ):
-                        print(
-                            f"Early stopping at epoch {i_epoch} - load best model of epoch {model.best_metric_epoch}"
-                        )
-                        break
+                # if we stop early, load model state and generate summary visualizations
+                if model.stop_early(
+                    test_loss_dict["total_loss"], i_epoch, fold_id, args
+                ):
+                    logger.info(f"Early stopping at epoch {i_epoch}")
+                    break
+
+        if (i_epoch) == args.n_epoch:
+            logger.info(f"Last epoch passed n={args.n_epoch}")
+            break
 
         scheduler.step()
 
     with experiment.context_manager(f"fold_{args.current_fold_id}_val"):
 
+        logger.info(
+            f"Load best model of epoch {model.best_metric_epoch} for final inference."
+        )
         model.load_best_state(fold_id, args)
 
-        _, cloud_info_list = evaluate(
+        test_loss_dict, cloud_info_list = evaluate(
             model,
             PCC,
             test_set,
-            params,
+            kde_mixture,
             args,
             test_list,
             xy_centers_dict,

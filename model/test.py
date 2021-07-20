@@ -21,7 +21,7 @@ def evaluate(
     model,
     PCC,
     test_set,
-    params,
+    kde_mixture,
     args,
     test_list,
     xy_centers_dict,
@@ -54,21 +54,21 @@ def evaluate(
 
     cloud_info_list = []
     last_G_tensor_list = []
-    for index_cloud, (cloud, gt) in enumerate(loader):
+    for index_cloud, (clouds, gt) in enumerate(loader):
         plot_name = test_list[index_cloud]
 
         if PCC.cuda_device is not None:
             gt = gt.cuda(PCC.cuda_device)
 
-        pred_pointwise, pred_pointwise_b = PCC.run(model, cloud)
+        pred_pointwise, pred_pointwise_b = PCC.run(model, clouds)
         pred_pl, pred_adm, pred_pixels = project_to_2d(
-            pred_pointwise, cloud, pred_pointwise_b, PCC, args
+            pred_pointwise, clouds, pred_pointwise_b, PCC, args
         )
 
         # we compute two losses (negative loglikelihood and the absolute error loss for 2 stratum)
         loss_abs = loss_absolute(pred_pl, gt, args)  # absolut loss
-        loss_log, likelihood = loss_loglikelihood(
-            pred_pointwise, cloud, params, PCC, args
+        loss_log, likelihood, p_all_pdf_all = loss_loglikelihood(
+            pred_pointwise, clouds, kde_mixture, PCC, args
         )  # negative loglikelihood loss
 
         if args.ent:
@@ -120,8 +120,8 @@ def evaluate(
                 pred_pl,
                 gt,
                 pred_pointwise_b,
-                cloud,
-                likelihood,
+                clouds,
+                p_all_pdf_all,
                 plot_name,
                 xy_centers_dict,
                 plot_path,

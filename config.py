@@ -55,9 +55,15 @@ PLOT_NAME_TO_VISUALIZE_DURING_TRAINING = {"Releve_Lidar_F68", # Vm = 100% -> Vm 
                                             }
 
 # Experiment parameters
+PLOT_NAME_TO_VISUALIZE_DURING_TRAINING = {"Releve_Lidar_F68", # Vm = 100% -> Vm vs Vb distinction
+                                            "2021_POINT_OBS66", # Vb = 50%, well separated -> use of NIR?
+                                            "2021_POINT_OBS7",  #Vm = 25%, Vh = 25% -> Vm vs. Vh point localization along z
+                                            "POINT_OBS106", # Vb = 50%, Vh=90% -> Vb under vegetation
+                                        }
 parser.add_argument('--plot_name_to_visualize_during_training', default=PLOT_NAME_TO_VISUALIZE_DURING_TRAINING,  help="A few plot name to track during learning")
 parser.add_argument('--offline_experiment', default=False, type=bool, help="")
 parser.add_argument("--comet_name", default="", type=str, help="Add this tag to the XP, to indicate its goal")
+parser.add_argument("--full_model_training", default=False, type=str, help="False to avoid a full training after cross-validation")
 parser.add_argument('--disabled', default=False, type=bool, help="Wether we disable Comet for this run.")
 
 parser.add_argument('--resume_last_job', default=0, type=bool, help="Use (1) or do not use (0) the folder of the last experiment.")
@@ -78,7 +84,7 @@ parser.add_argument('--subsample_size', default=10000, type=int, help="Subsample
 parser.add_argument('--diam_meters', default=20, type=int, help="Diameters of the plots.")
 parser.add_argument('--diam_pix', default=20, type=int, 
                     help="Size of the output stratum raster (its diameter in pixels)")
-parser.add_argument('--m', default=1., type=float,
+parser.add_argument('--m', default=0.25, type=float,
                     help="Loss regularization. The weight of the negative loglikelihood loss in the total loss")
 parser.add_argument('--norm_ground', default=False, type=bool,
                     help="Whether we normalize low vegetation and bare soil values, so LV+BS=1 (True) or we keep unmodified LV value (False) (recommended)")
@@ -112,11 +118,15 @@ parser.add_argument('--step_size', default=1, type=int,
                     help="After this number of steps we decrease learning rate. (Period of learning rate decay)")
 parser.add_argument('--lr_decay', default=0.985, type=float,
                     help="We multiply learning rate by this value after certain number of steps (see --step_size). (Multiplicative factor of learning rate decay)")
+<<<<<<< HEAD
+=======
+
+>>>>>>> main
 parser.add_argument('--batch_size', default=20, type=int, help="Size of the training batch")
-parser.add_argument('--n_epoch', default=200 if not MODE=="DEV" else 20, type=int, help="Number of training epochs")
-parser.add_argument('--n_epoch_test', default=5 if not MODE=="DEV" else 2, type=int, help="We evaluate every -th epoch, and every epoch after epoch_to_start_early_stop")
-parser.add_argument('--epoch_to_start_early_stop', default=45 if not MODE=="DEV" else 4, type=int, help="Epoch from which to start early stopping process, after ups and down of training.")
-parser.add_argument('--patience_in_epochs', default=30 if not MODE=="DEV" else 4, type=int, help="Epoch to wait for improvement of MAE_loss before early stopping. Set to np.inf to disable ES.")
+parser.add_argument('--n_epoch', default=200 if not MODE=="DEV" else 2, type=int, help="Number of training epochs")
+parser.add_argument('--n_epoch_test', default=5 if not MODE=="DEV" else 1, type=int, help="We evaluate every -th epoch, and every epoch after epoch_to_start_early_stop")
+parser.add_argument('--epoch_to_start_early_stop', default=65 if not MODE=="DEV" else 1, type=int, help="Epoch from which to start early stopping process, after ups and down of training.")
+parser.add_argument('--patience_in_epochs', default=30 if not MODE=="DEV" else 1, type=int, help="Epoch to wait for improvement of MAE_loss before early stopping. Set to np.inf to disable ES.")
 
 # fmt: on
 args, _ = parser.parse_known_args()
