@@ -1,10 +1,11 @@
 import math
 import os
 import sys
-from utils.useful_functions import (
+from utils.utils import (
     get_filename_no_extension,
     get_files_of_type_in_folder,
 )
+
 import numpy as np
 import pandas as pd
 from laspy.file import File
@@ -22,6 +23,7 @@ warnings.simplefilter(action="ignore")
 
 
 def load_all_las_from_folder(args):
+    """From a folder containing las files, load all cloud points into numpy array with normalized z."""
 
     # We open las files and create a training dataset
     nparray_clouds_dict = {}  # dict to store numpy array with each plot separately
@@ -93,7 +95,8 @@ def load_and_clean_single_las(las_filename):
             num_returns,
             # scan_angle,
             # scan_dir_flag,
-        ]
+        ],
+        dtype=np.float32,
     ).T
 
     # There is a file with 2 points 60m above others (maybe birds), we delete these points

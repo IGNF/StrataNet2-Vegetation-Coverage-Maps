@@ -3,11 +3,11 @@ import imp
 
 from comet_ml import Experiment
 from torch.optim import optimizer
-from utils.create_final_images import *
+from utils.visualize_predictions import *
 from data_loader.loader import *
 from model.reproject_to_2d_and_predict_plot_coverage import *
-from model.loss_functions import *
-from utils.useful_functions import create_dir
+from learning.loss_functions import *
+from utils.utils import create_dir
 import torchnet as tnt
 import gc
 import os

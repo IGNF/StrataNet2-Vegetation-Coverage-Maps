@@ -1,4 +1,4 @@
-from model.kde_mixture import KdeMixture
+from learning.kde_mixture import KdeMixture
 import sys
 from comet_ml import Experiment, OfflineExperiment
 import logging
@@ -33,12 +33,12 @@ torch.cuda.empty_cache()
 
 # We import from other files
 from config import args
-from utils.useful_functions import *
+from utils.utils import *
 from data_loader.loader import *
-from utils.load_las_data import load_all_las_from_folder, open_metadata_dataframe
-from model.loss_functions import *
-from model.accuracy import *
-from model.train import train_full
+from utils.load_data import load_all_las_from_folder, open_metadata_dataframe
+from learning.loss_functions import *
+from learning.accuracy import *
+from learning.train import train_full
 
 
 np.random.seed(42)

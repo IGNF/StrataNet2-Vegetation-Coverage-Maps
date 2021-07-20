@@ -1,5 +1,5 @@
 import pickle
-from utils.useful_functions import create_dir
+from utils.utils import create_dir
 import matplotlib.pyplot as plt
 import numpy as np
 import os

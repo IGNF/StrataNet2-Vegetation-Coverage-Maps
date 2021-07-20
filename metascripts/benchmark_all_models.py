@@ -7,8 +7,8 @@ import time
 import pandas as pd
 from argparse import ArgumentParser
 
-from model.accuracy import calculate_performance_indicators
-from utils.useful_functions import create_dir
+from learning.accuracy import calculate_performance_indicators
+from utils.utils import create_dir
 
 
 parser = ArgumentParser(description="describe_perf")

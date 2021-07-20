@@ -9,7 +9,7 @@ import shapefile
 import pandas as pd
 from tqdm import tqdm
 
-from utils.useful_functions import (
+from utils.utils import (
     get_filename_no_extension,
     get_files_of_type_in_folder,
 )

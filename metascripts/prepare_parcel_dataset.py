@@ -29,23 +29,26 @@ torch.cuda.empty_cache()
 from config import args
 from random import shuffle
 
-from utils.useful_functions import (
+from utils.utils import (
     get_filename_no_extension,
     create_dir,
     get_files_of_type_in_folder,
 )
 from model.point_cloud_classifier import PointCloudClassifier
-from model.infer_utils import (
+from inference.infer_utils import (
     divide_parcel_las_and_get_disk_centers,
     extract_points_within_disk,
 )
-from utils.load_las_data import transform_features_of_plot_cloud
+from utils.load_data import transform_features_of_plot_cloud
 
 
+# TODO: remove / collapse with other close function in infer_utils.py
 def get_transformed_cloud_data_from_center(
     parcel_points_nparray: np.ndarray, plot_center: list, args
 ):
-    """ """
+    """
+    Returns points around center. Dimensions are [N_points, N_features]
+    """
     plots_point_nparray = extract_points_within_disk(parcel_points_nparray, plot_center)
 
     if plots_point_nparray.shape[0] == 0:
@@ -60,8 +63,10 @@ def get_transformed_cloud_data_from_center(
 def main():
     # Setup: save everything to the dataset_folder
     global args
-    args.parcel_dataset_pkl_path = args.las_parcelles_folder_path[:-1] + "_pickled"
-    create_dir(args.parcel_dataset_pkl_path)
+    args.unlabeled_dataset_pkl_path = (
+        args.las_parcelles_folder_path[:-1] + "_pickled_unlabeled"
+    )
+    create_dir(args.unlabeled_dataset_pkl_path)
 
     # Get the shapefile records and las filenames
     shp = shapefile.Reader(args.parcel_shapefile_path)
@@ -70,8 +75,12 @@ def main():
     las_filenames = [
         l
         for l in las_filenames
-        if f"{get_filename_no_extension(l)}.pckl"
-        not in glob.glob(args.parcel_dataset_pkl_path, recursive=True)
+        if not any(
+            f"{get_filename_no_extension(l)}.pckl" in a
+            for a in glob.glob(
+                os.path.join(args.unlabeled_dataset_pkl_path, "*"), recursive=True
+            )
+        )
     ]
     shuffle(las_filenames)
 
@@ -102,7 +111,7 @@ def main():
             print(ValueError)
             continue
 
-        plots_data = []
+        plots_data = {}
         for plot_count, plot_center in enumerate(
             tqdm(
                 grid_pixel_xy_centers,
@@ -115,17 +124,16 @@ def main():
             )
             # TODO: to accept plots with low N, we have to account for np.nans in the rasters predictions. Unsure at this point.
             if plot_points_tensor is not None and plot_points_tensor.shape[0] > 3500:
-                data = {
+                plots_data[f"PP" + str(plot_count).zfill(6)] = {
                     "parcel_ID": parcel_ID,
-                    "pseudoplot_ID": f"PP" + str(plot_count).zfill(6),
                     "plot_points_arr": plot_points_tensor,
                     "plot_center": plot_center,
                 }
-                plots_data.append(data)
+
                 # if plot_count > 30 and args.mode == "DEV":
                 #     break
         with open(
-            os.path.join(args.parcel_dataset_pkl_path, f"{parcel_ID}.pckl"), "wb"
+            os.path.join(args.unlabeled_dataset_pkl_path, f"{parcel_ID}.pckl"), "wb"
         ) as f:
             pickle.dump(plots_data, f)
 

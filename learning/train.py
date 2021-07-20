@@ -11,7 +11,7 @@ import gc
 # We import from other files
 from data_loader.loader import *
 from model.reproject_to_2d_and_predict_plot_coverage import *
-from model.loss_functions import *
+from learning.loss_functions import *
 from model.point_net import PointNet
 from model.point_cloud_classifier import PointCloudClassifier
 from torch.utils.tensorboard import SummaryWriter
@@ -20,10 +20,10 @@ import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 import torchnet as tnt
-from model.loss_functions import *
-from model.accuracy import *
+from learning.loss_functions import *
+from learning.accuracy import *
 
-from model.test import evaluate
+from learning.test import evaluate
 import logging
 
 logger = logging.getLogger(__name__)

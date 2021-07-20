@@ -1,11 +1,11 @@
 from argparse import ArgumentParser
 import os
-from utils.useful_functions import get_args_from_prev_config
+from utils.utils import get_args_from_prev_config
 
 # This script defines all parameters for data loading, model definition, sand I/O operations.
 
 # Set to DEV for faster iterations (1 fold, 4 epochs), in order to e.g. test saving results.
-MODE = "PROD"  # DEV or PROD
+MODE = "DEV"  # DEV or PROD
 
 # FEATURE NAMES used to get the right index. Do not permutate features x, y, z, red, green, blue, nir and intensity.
 FEATURE_NAMES = [
@@ -37,7 +37,7 @@ parser.add_argument('--data_path', default=data_path, type=str, help="Path to /r
 
 parser.add_argument('--las_placettes_folder_path', default=os.path.join(data_path, "placettes_dataset/las_classes/"), type=str, help="Path to folder with plot las files.")
 parser.add_argument('--las_parcelles_folder_path', default=os.path.join(data_path, "SubsetParcelle_v0/"), type=str, help="Path to folder with parcels las files.")
-parser.add_argument('--parcel_shapefile_path', default=os.path.join(data_path, "parcelles_dataset/Parcellaire_2020_zone_expe_BOP_SPL_SPH_J6P_PPH_CAE_CEE_ADM.shp"), type=str, help="Path to shapefile of parcels.")
+parser.add_argument('--parcel_shapefile_path', default=os.path.join(data_path, "SubsetParcelle_v0/Parcelle_jeutest_v0.shp"), type=str, help="Path to shapefile of parcels.")
 parser.add_argument('--gt_file_path', default=os.path.join(data_path, "placettes_dataset/placettes_metadata.csv"), type=str, help="Path to ground truth file. Put in dataset folder.")
 
 # parser.add_argument('--results_path', default=None, help="(Created on the fly) Path to all related experiments")
@@ -70,7 +70,7 @@ parser.add_argument('--resume_last_job', default=0, type=bool, help="Use (1) or 
 parser.add_argument("--use_prev_config", default=None, type=str, help="Identifier of a previous run from which to copy parameters from (e.g. yyyy-mm-dd_XhXmXs).")
 
 # Inference parameters
-parser.add_argument('--inference_model_id', default="2021-07-01_17h57m35s", type=str, help="Identifier of experiment to load saved model with torch.load (e.g. yyyy-mm-dd_XhXmXs).")
+parser.add_argument('--inference_model_id', default="2021-07-16_14h13m48s", type=str, help="Identifier of experiment to load saved model with torch.load (e.g. yyyy-mm-dd_XhXmXs).")
 
 
 # Herafter are the args that are reused when use_prev_config is set to a previous experiment id.

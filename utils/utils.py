@@ -27,8 +27,13 @@ def get_args_from_prev_config(args, experiment_id):
     )  # is unique AND exists
     prev_config_path = os.path.join(prev_config_folder, "stats.txt")
     with open(prev_config_path) as f:
-        l = f.readline()
-        old_dict = vars(eval(l)).copy()
+        l = True
+        while l:
+            l = f.readline()
+            if l.startswith("Namespace"):
+                # TODO: correct by saving a dict directly without experiment and not a Namespace in stats.
+                old_dict = vars(eval(l)).copy()
+                break
     # Ignore System args
     args_to_copy = [
         "n_class",

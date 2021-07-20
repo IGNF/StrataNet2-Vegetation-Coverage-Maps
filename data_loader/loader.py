@@ -35,6 +35,24 @@ def cloud_loader(plot_id, dataset, df_gt, train, args):
     return cloud_data, gt
 
 
+def cloud_loader_for_prediction(pseudoplot_ID, dataset, args):
+    """
+    From a list of dict containing pseudoplots from parcels,
+    """
+    pickled_data = dataset[pseudoplot_ID]
+    cloud_data = pickled_data["plot_points_arr"]
+
+    plot_center = pickled_data["plot_center"]
+    plot_center = np.array(plot_center, dtype=np.float32)
+
+    cloud_data = cloud_data.astype(np.float32).transpose()
+    cloud_data = rescale_cloud_data(cloud_data, plot_center, args)
+    cloud_data = sample_cloud(cloud_data, args.subsample_size)
+
+    cloud_data = torch.from_numpy(cloud_data)
+    return cloud_data, plot_center, pseudoplot_ID
+
+
 def rescale_cloud_data(cloud_data, cloud_center, args):
     """
     Normalize data by reducing scale, to feed te neural net.

@@ -1,11 +1,13 @@
 # global imports
+import os
 import warnings
-import numpy as np
-import pandas as pd
-import torch
+import logging
 from tqdm import tqdm
-import shapefile
+import pandas as pd
 from shapely.geometry import shape
+import shapefile
+import numpy as np
+import torch
 
 from codetiming import Timer
 
@@ -15,7 +17,7 @@ torch.cuda.empty_cache()
 
 # Local imports
 from config import args
-from utils.useful_functions import (
+from utils.utils import (
     create_new_experiment_folder,
     get_args_from_prev_config,
     get_filename_no_extension,
@@ -24,26 +26,35 @@ from utils.useful_functions import (
     create_a_logger,
 )
 from model.point_cloud_classifier import PointCloudClassifier
-from model.infer_utils import (
+from inference.infer_utils import (
     divide_parcel_las_and_get_disk_centers,
-    create_geotiff_raster,
     get_list_las_files_not_infered_yet,
     log_inference_times,
     make_parcel_predictions_csv,
-    merge_geotiff_rasters,
     get_and_prepare_cloud_around_center,
+    extract_points_within_disk,
 )
+from utils.load_data import (
+    load_and_clean_single_las,
+    transform_features_of_plot_cloud,
+)
+from data_loader.loader import sample_cloud, rescale_cloud_data
+from inference.geotiff_raster import create_geotiff_raster, merge_geotiff_rasters
 
 
 def main():
     # Setup
     global args
-    args = get_args_from_prev_config(args, args.inference_model_id)
+    # TODO: correct to use previous conv
+    args.z_max = 24.24
+    # args = get_args_from_prev_config(args, args.inference_model_id)
     create_new_experiment_folder(
         args, task="inference", resume_last_job=args.resume_last_job
     )
+    args.times_file = os.path.join(args.stats_path, "infer_times.csv")
+
     trained_model_path = get_trained_model_path_from_experiment(
-        args.path, args.inference_model_id, use_full_model=True
+        args.path, args.inference_model_id, use_full_model=False
     )
     model = torch.load(trained_model_path)
     model.eval()
@@ -98,14 +109,30 @@ def main():
         t.start()
         # TODO: replace this loop by a cleaner ad-hoc DataLoader ?
         # TODO: parallelize this loop - everything is independant except the loader model which could be multiplied ?
-        for plot_center in tqdm(
-            grid_pixel_xy_centers,
-            desc=f"Centers for parcel in {parcel_ID}",
-            leave=True,
-        ):
-            plot_points_tensor = get_and_prepare_cloud_around_center(
-                parcel_points_nparray, plot_center, args
+        for i_plot, plot_center in enumerate(
+            tqdm(
+                grid_pixel_xy_centers,
+                desc=f"Centers for parcel in {parcel_ID}",
+                leave=True,
             )
+        ):
+            # plot_points_tensor = get_and_prepare_cloud_around_center(
+            #     parcel_points_nparray, plot_center, args
+            # )
+            # TODO: correct order of operations here.
+
+            plots_point_nparray = extract_points_within_disk(
+                parcel_points_nparray, plot_center
+            )
+            plots_point_nparray = transform_features_of_plot_cloud(
+                plots_point_nparray, args
+            )
+            plots_point_nparray = plots_point_nparray.transpose()
+            plots_point_nparray = rescale_cloud_data(plots_point_nparray, None, args)
+            plots_point_nparray = sample_cloud(plots_point_nparray, args.subsample_size)
+            # TODO: remove this useless batch dim (or use a DataLoader...)
+            plots_point_nparray = np.expand_dims(plots_point_nparray, axis=0)
+            plot_points_tensor = torch.from_numpy(plots_point_nparray)
             if plot_points_tensor is not None and plot_points_tensor.shape[-1] > 500:
                 with torch.no_grad():
                     pred_pointwise, _ = PCC.run(model, plot_points_tensor)
@@ -120,11 +147,14 @@ def main():
                         plot_center,
                         parcel_ID,
                     )
+            if i_plot > 50:
+                break
         t.stop()
 
         t.name = "duration_merge_seconds"
         t.start()
-        merge_geotiff_rasters(args, parcel_ID)
+        msg = merge_geotiff_rasters(args, parcel_ID)
+        logger.info(msg)
         t.stop()
 
         # Append to infer_times.csv
