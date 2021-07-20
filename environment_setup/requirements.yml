@@ -6,7 +6,7 @@ channels:
   - dmentipl 
 dependencies:
   - numpy
-  - pandas
+  - pandas==1.2.4
   - scipy
   - scikit-learn
   - matplotlib
