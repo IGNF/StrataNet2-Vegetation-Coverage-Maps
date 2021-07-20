@@ -123,11 +123,12 @@ def main():
                 parcel_points_nparray, plot_center, args
             )
             # TODO: to accept plots with low N, we have to account for np.nans in the rasters predictions. Unsure at this point.
-            if plot_points_tensor is not None and plot_points_tensor.shape[0] > 3500:
+            if plot_points_tensor is not None and plot_points_tensor.shape[0] > 50:
                 plots_data[f"PP" + str(plot_count).zfill(6)] = {
                     "parcel_ID": parcel_ID,
                     "plot_points_arr": plot_points_tensor,
                     "plot_center": plot_center,
+                    "N_points_in_cloud": plot_points_tensor.shape[0],
                 }
 
                 # if plot_count > 30 and args.mode == "DEV":

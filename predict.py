@@ -95,6 +95,12 @@ def main():
 
         with open(p, "rb") as pfile:
             p_data = pickle.load(pfile)
+            # for pseudolabeling, use only complete clouds
+            p_data = {
+                id: info
+                for id, info in p_data.items()
+                if info["N_points_in_cloud"] > 2000
+            }
 
         dataset = tnt.dataset.ListDataset(
             [pp_id for pp_id in p_data.keys()],
