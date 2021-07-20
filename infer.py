@@ -40,7 +40,7 @@ def main():
     global args
     args = get_args_from_prev_config(args, args.inference_model_id)
     create_new_experiment_folder(
-        args, infer_mode=True, resume_last_job=args.resume_last_job
+        args, task="inference", resume_last_job=args.resume_last_job
     )
     trained_model_path = get_trained_model_path_from_experiment(
         args.path, args.inference_model_id, use_full_model=True

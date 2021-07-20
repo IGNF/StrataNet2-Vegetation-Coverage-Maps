@@ -93,15 +93,12 @@ def create_dir(dir_name):
         os.makedirs(dir_name)
 
 
-def create_new_experiment_folder(args, infer_mode=False, resume_last_job=False):
+def create_new_experiment_folder(args, task="learning", resume_last_job=False):
 
     # We write results to different folders depending on the chosen parameters
     results_path = os.path.join(args.path, f"experiments/")
 
-    if infer_mode:
-        results_path = os.path.join(results_path, f"inference/{args.mode}")
-    else:
-        results_path = os.path.join(results_path, f"learning/{args.mode}")
+    results_path = os.path.join(results_path, f"{task}/{args.mode}")
     args.results_path = results_path
 
     if resume_last_job:
@@ -124,7 +121,7 @@ def create_new_experiment_folder(args, infer_mode=False, resume_last_job=False):
     stats_file = os.path.join(stats_path, "stats.txt")
     args.stats_file = stats_file
 
-    if infer_mode:
+    if task == "infer":
         times_file = os.path.join(stats_path, "infer_times.csv")
         args.times_file = times_file
 

@@ -31,15 +31,21 @@ repo_absolute_path = os.path.dirname(os.path.abspath(__file__))
 data_path = os.path.join(repo_absolute_path, "data/")
 
 parser.add_argument('--mode', default=MODE, type=str, help="DEV or PROD mode - DEV is a quick debug mode")
+parser.add_argument('--cuda', default=None, type=int, help="Whether we use cuda (0 or 1 to specify device) or not (None)")
 parser.add_argument('--path', default=repo_absolute_path, type=str, help="Repo absolute path directory")
 parser.add_argument('--data_path', default=data_path, type=str, help="Path to /repo_root/data/ folder.")
+
 parser.add_argument('--las_placettes_folder_path', default=os.path.join(data_path, "placettes_dataset/las_classes/"), type=str, help="Path to folder with plot las files.")
 parser.add_argument('--las_parcelles_folder_path', default=os.path.join(data_path, "SubsetParcelle_v0/"), type=str, help="Path to folder with parcels las files.")
 parser.add_argument('--parcel_shapefile_path', default=os.path.join(data_path, "parcelles_dataset/Parcellaire_2020_zone_expe_BOP_SPL_SPH_J6P_PPH_CAE_CEE_ADM.shp"), type=str, help="Path to shapefile of parcels.")
-
-
 parser.add_argument('--gt_file_path', default=os.path.join(data_path, "placettes_dataset/placettes_metadata.csv"), type=str, help="Path to ground truth file. Put in dataset folder.")
-parser.add_argument('--cuda', default=None, type=int, help="Whether we use cuda (0 or 1 to specify device) or not (None)")
+
+# parser.add_argument('--results_path', default=None, help="(Created on the fly) Path to all related experiments")
+# parser.add_argument('--stats_path', default=None, help="(Created on the fly) Path to stats folder of current run")
+# parser.add_argument('--stats_file', default=None, help="(Created on the fly) Path to stats file including losses")
+# parser.add_argument('--parcel_dataset_pkl_path', default=None, type=str, help="(Created on the fly) Path to /repo_root/data/{parcel_foldname}_pickles folder.")
+
+
 parser.add_argument('--coln_mapper_dict', default={"nom":"Name"}, type=str, help="Dict to rename columns of gt ")
 parser.add_argument('--plot_only_png', default=True, type=bool, help="Set to False to output SVG article format and GeoTIFF at last epoch.")
 PLOT_NAME_TO_VISUALIZE_DURING_TRAINING = {"Releve_Lidar_F68", # Vm = 100% -> Vm vs Vb distinction
@@ -47,9 +53,6 @@ PLOT_NAME_TO_VISUALIZE_DURING_TRAINING = {"Releve_Lidar_F68", # Vm = 100% -> Vm 
                                             "2021_POINT_OBS7",  #Vm = 25%, Vh = 25% -> Vm vs. Vh point localization along z
                                             "POINT_OBS106", # Vb = 50%, Vh=90% -> Vb under vegetation
                                             }
-parser.add_argument('--results_path', default=None, help="(Created on the fly) Path to all related experiments")
-parser.add_argument('--stats_path', default=None, help="(Created on the fly) Path to stats folder of current run")
-parser.add_argument('--stats_file', default=None, help="(Created on the fly) Path to stats file including losses")
 
 # Experiment parameters
 parser.add_argument('--plot_name_to_visualize_during_training', default=PLOT_NAME_TO_VISUALIZE_DURING_TRAINING,  help="A few plot name to track during learning")
@@ -109,8 +112,6 @@ parser.add_argument('--step_size', default=1, type=int,
                     help="After this number of steps we decrease learning rate. (Period of learning rate decay)")
 parser.add_argument('--lr_decay', default=0.985, type=float,
                     help="We multiply learning rate by this value after certain number of steps (see --step_size). (Multiplicative factor of learning rate decay)")
-parser.add_argument('--n_epoch', default=100 if not MODE=="DEV" else 2, type=int, help="Number of training epochs")
-parser.add_argument('--n_epoch_test', default=5 if not MODE=="DEV" else 1, type=int, help="We evaluate every -th epoch")
 parser.add_argument('--batch_size', default=20, type=int, help="Size of the training batch")
 parser.add_argument('--n_epoch', default=200 if not MODE=="DEV" else 20, type=int, help="Number of training epochs")
 parser.add_argument('--n_epoch_test', default=5 if not MODE=="DEV" else 2, type=int, help="We evaluate every -th epoch, and every epoch after epoch_to_start_early_stop")

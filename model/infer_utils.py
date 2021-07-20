@@ -284,6 +284,7 @@ def extract_points_within_disk(points_nparray, center, radius=10):
     return contained_points
 
 
+# TODO: correct order of operations here.
 def get_and_prepare_cloud_around_center(parcel_points_nparray, plot_center, args):
     plots_point_nparray = extract_points_within_disk(parcel_points_nparray, plot_center)
 
