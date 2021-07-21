@@ -87,11 +87,12 @@ def main():
     z_all = np.concatenate(z_all[: 5 * 10 ** 5])
     logger.info(f"Fitting Mixture KDE on N={len(z_all)} z values.")
     kde_mixture = KdeMixture(z_all, args)
+    del z_all
 
     # Cross-validation
     all_folds_loss_train_dicts = []
     all_folds_loss_test_dicts = []
-    fold_id = -1
+    fold_id = -2
     cloud_info_list_by_fold = {}
 
     p_data_all_keys = np.array(list(p_data_all.keys()))

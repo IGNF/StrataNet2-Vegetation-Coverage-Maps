@@ -118,6 +118,7 @@ def train_full(
 ):
     """The full training loop.
     If fold_id = -1, this is the full training and we make inferences at last epoch for this test=train set.
+    If fold_id = -2, this is pretraining.
     """
     experiment = args.experiment
     args.current_fold_id = fold_id
@@ -161,7 +162,7 @@ def train_full(
             if (
                 (i_epoch % args.n_epoch_test == 0)
                 or (i_epoch > args.epoch_to_start_early_stop)
-            ) and (fold_id > 0):
+            ) and (fold_id != -1):
                 test_loss_dict, _ = evaluate(
                     model,
                     PCC,
