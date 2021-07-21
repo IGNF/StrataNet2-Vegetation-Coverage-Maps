@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+from comet_ml import Experiment, OfflineExperiment
 from argparse import Namespace
 import logging
 
@@ -18,6 +19,30 @@ def create_a_logger(args):
     )
     logger = logging.getLogger()
     return logger
+
+
+def launch_comet_experiment(args):
+    """Launch a new named Comet.ml experiment, logging parameters along the way."""
+    if args.offline_experiment:
+        experiment = OfflineExperiment(
+            project_name="lidar_pac",
+            offline_directory=os.path.join(args.path, "experiments/"),
+            auto_log_co2=False,
+        )
+    else:
+        experiment = Experiment(
+            project_name="lidar_pac",
+            auto_log_co2=False,
+            disabled=args.disabled,
+        )
+    experiment.log_parameters(vars(args))
+    if args.comet_name:
+        experiment.add_tags([args.mode])
+        experiment.set_name(args.comet_name)
+    else:
+        experiment.add_tag(args.mode)
+    args.experiment = experiment
+    return experiment
 
 
 def get_args_from_prev_config(args, experiment_id):
@@ -72,6 +97,18 @@ def get_args_from_prev_config(args, experiment_id):
     args = Namespace(**new_dict)
 
     return args
+
+
+def update_namespace_with_another_namespace(args, args_local):
+    """Update first Namespace with args of second Namespace. This creates a novel object."""
+
+    args_dict = vars(args).copy()
+    args_local_dict = vars(args_local).copy()
+
+    args_dict.update(args_local_dict)
+    updated_args = Namespace(**args_dict)
+
+    return updated_args
 
 
 # Print stats to file

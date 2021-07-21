@@ -6,6 +6,7 @@ from comet_ml import Experiment, OfflineExperiment
 import logging
 import warnings
 import pickle
+from argparse import ArgumentParser
 
 warnings.simplefilter(action="ignore")
 
@@ -35,38 +36,32 @@ from learning.loss_functions import *
 from learning.kde_mixture import KdeMixture
 from learning.accuracy import *
 from learning.train import train_full
+from model.point_net import PointNet
+from model.point_cloud_classifier import PointCloudClassifier
 
 
 np.random.seed(42)
 torch.cuda.empty_cache()
+# fmt: off
+parser = ArgumentParser(description="Pre-Training")
+parser.add_argument("--n_epoch", default=200 if not args.mode == "DEV" else 2, type=int, help="Number of training epochs",)
+parser.add_argument("--n_epoch_test", default=1 if not args.mode == "DEV" else 1, type=int, help="We evaluate every -th epoch, and every epoch after epoch_to_start_early_stop",)
+parser.add_argument("--epoch_to_start_early_stop", default=1 if not args.mode == "DEV" else 1, type=int, help="Epoch from which to start early stopping process, after ups and down of training.",)
+parser.add_argument("--patience_in_epochs", default=10 if not args.mode == "DEV" else 1, type=int, help="Epoch to wait for improvement of MAE_loss before early stopping. Set to np.inf to disable ES.",)
+parser.add_argument("--lr", default=1e-3, type=float, help="Learning rate")
+parser.add_argument("--step_size", default=3, type=int, help="After this number of steps we decrease learning rate. (Period of learning rate decay)",)
+parser.add_argument("--lr_decay", default=0.75, type=float, help="We multiply learning rate by this value after certain number of steps (see --step_size). (Multiplicative factor of learning rate decay)",)
+# fmt: on
+
+args_local, _ = parser.parse_known_args()
+args = update_namespace_with_another_namespace(args, args_local)
 
 
 def main():
-    ##### SETUP THE EXPERIMENT
 
-    # Create the experiment and its local folder
-    create_new_experiment_folder(args)  # Define output paths
-    if args.offline_experiment:
-        experiment = OfflineExperiment(
-            project_name="lidar_pac",
-            offline_directory=os.path.join(args.path, "experiments/"),
-            auto_log_co2=False,
-        )
-    else:
-        experiment = Experiment(
-            project_name="lidar_pac",
-            auto_log_co2=False,
-            disabled=args.disabled,
-        )
-    experiment.log_parameters(vars(args))
-    if args.comet_name:
-        experiment.add_tags([args.mode])
-        experiment.set_name(args.comet_name)
-    else:
-        experiment.add_tag(args.mode)
-    args.experiment = experiment  # be sure that this is not saved in text somewhere...
-
+    create_new_experiment_folder(args)
     logger = create_a_logger(args)
+    experiment = launch_comet_experiment(args)
 
     # DATA
     args.labeled_dataset_pkl_path = (
@@ -81,25 +76,21 @@ def main():
         if args.mode == "DEV":
             if i == 1:
                 break
-
-    logger.info(f"Training on N={len(p_data_all)} pseudo-labeled plots.")
-
     xy_centers_dict = {k: data["plot_center"] for k, data in p_data_all.items()}
-    z_all = [c_data["plot_points_arr"][:, 2] for c_data in p_data_all.values()]
-    z_all = np.concatenate(z_all)
-    logger.info(f"Fitting Mixture KDE on N={len(z_all)} z values.")
+    logger.info(f"Training on N={len(p_data_all)} pseudo-labeled plots.")
     args.n_input_feats = len(args.input_feats)
     logger.info("args: \n" + str(args))
 
-    # Fit a mixture of thre KDE
+    # KDE Mixture
+    z_all = [c_data["plot_points_arr"][:, 2] for c_data in p_data_all.values()]
+    np.random.shuffle(z_all)
+    z_all = np.concatenate(z_all[: 5 * 10 ** 5])
+    logger.info(f"Fitting Mixture KDE on N={len(z_all)} z values.")
     kde_mixture = KdeMixture(z_all, args)
 
-    # None lists that will stock stats for each fold, so we can compute the mean at the end
+    # Cross-validation
     all_folds_loss_train_dicts = []
     all_folds_loss_test_dicts = []
-
-    # cross-validation
-    start_time = time.time()
     fold_id = -1
     cloud_info_list_by_fold = {}
 
@@ -128,13 +119,11 @@ def main():
         ),
     )
 
-    # TODO: Extract model declaration from full_train for this, to use the same model.
-    # ATTENTION: epochs will not be comparable. Attention to learning rate decay...
-
     # TRAINING on fold
     model = PointNet(args.MLP_1, args.MLP_2, args.MLP_3, args)
     PCC = PointCloudClassifier(args)
 
+    start_time = time.time()
     (
         trained_model,
         all_epochs_train_loss_dict,
@@ -151,6 +140,10 @@ def main():
         PCC,
         kde_mixture,
     )
+    logger.info(
+        "training time "
+        + str(time.strftime("%H:%M:%S", time.gmtime(time.time() - start_time))),
+    )
 
     cloud_info_list_by_fold[fold_id] = cloud_info_list
 
@@ -163,11 +156,6 @@ def main():
     )
     all_folds_loss_train_dicts.append(all_epochs_train_loss_dict)
     all_folds_loss_test_dicts.append(all_epochs_test_loss_dict)
-
-    logger.info(
-        "training time "
-        + str(time.strftime("%H:%M:%S", time.gmtime(time.time() - start_time))),
-    )
 
     # create inference results csv
     stats_for_all_folds(all_folds_loss_train_dicts, all_folds_loss_test_dicts, args)

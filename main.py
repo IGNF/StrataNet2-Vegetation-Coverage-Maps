@@ -37,68 +37,55 @@ from model.point_cloud_classifier import PointCloudClassifier
 
 np.random.seed(42)
 torch.cuda.empty_cache()
+# fmt: off
+parser = ArgumentParser(description="Training")
+parser.add_argument('--n_epoch', default=200 if not MODE=="DEV" else 2, type=int, help="Number of training epochs")
+parser.add_argument('--n_epoch_test', default=5 if not MODE=="DEV" else 1, type=int, help="We evaluate every -th epoch, and every epoch after epoch_to_start_early_stop")
+parser.add_argument('--epoch_to_start_early_stop', default=45 if not MODE=="DEV" else 1, type=int, help="Epoch from which to start early stopping process, after ups and down of training.")
+parser.add_argument('--patience_in_epochs', default=30 if not MODE=="DEV" else 1, type=int, help="Epoch to wait for improvement of MAE_loss before early stopping. Set to np.inf to disable ES.")
+parser.add_argument('--lr', default=1e-3, type=float, help="Learning rate")  # WARNING
+parser.add_argument('--step_size', default=1, type=int,
+                    help="After this number of steps we decrease learning rate. (Period of learning rate decay)")
+parser.add_argument('--lr_decay', default=0.985, type=float,
+                    help="We multiply learning rate by this value after certain number of steps (see --step_size). (Multiplicative factor of learning rate decay)")
+
+# fmt: on
+
+args_local, _ = parser.parse_known_args()
+args = update_namespace_with_another_namespace(args, args_local)
 
 
 def main():
-    ##### SETUP THE EXPERIMENT
 
-    # Create the experiment and its local folder
-    create_new_experiment_folder(args)  # Define output paths
-    if args.offline_experiment:
-        experiment = OfflineExperiment(
-            project_name="lidar_pac",
-            offline_directory=os.path.join(args.path, "experiments/"),
-            auto_log_co2=False,
-        )
-    else:
-        experiment = Experiment(
-            project_name="lidar_pac",
-            auto_log_co2=False,
-            disabled=args.disabled,
-        )
-    experiment.log_parameters(vars(args))
-    if args.comet_name:
-        experiment.add_tags([args.mode])
-        experiment.set_name(args.comet_name)
-    else:
-        experiment.add_tag(args.mode)
-    args.experiment = experiment  # be sure that this is not saved in text somewhere...
-
+    create_new_experiment_folder(args)
     logger = create_a_logger(args)
+    experiment = launch_comet_experiment(args)
 
-    ##### RUN THE EXPERIMENT
-    # Load Las files for placettes
+    # DATA
     (
         all_points_nparray,
         nparray_clouds_dict,
         xy_centers_dict,
     ) = load_all_las_from_folder(args)
-    logger.info("Dataset contains " + str(len(nparray_clouds_dict)) + " plots.")
-
-    # Load ground truth csv file
-    # Name, 'COUV_BASSE', 'COUV_SOL', 'COUV_INTER', 'COUV_HAUTE', 'ADM'
     df_gt, placettes_names = open_metadata_dataframe(
         args, pl_id_to_keep=nparray_clouds_dict.keys()
     )
+    logger.info("Dataset contains " + str(len(nparray_clouds_dict)) + " plots.")
 
-    # Fit a mixture of thre KDE
+    # KDE Mixture
     z_all = all_points_nparray[:, 2]
     args.n_input_feats = len(args.input_feats)  # number of input features
     logger.info("args: \n" + str(args))  # save all the args parameters
     kde_mixture = KdeMixture(z_all, args)
 
-    # We use several folds for cross validation (set the number in args)
-    kf = KFold(n_splits=args.folds, random_state=42, shuffle=True)
-
-    # None lists that will stock stats for each fold, so we can compute the mean at the end
+    # cross-validation
     all_folds_loss_train_dicts = []
     all_folds_loss_test_dicts = []
-
-    # cross-validation
+    cloud_info_list_by_fold = {}
+    kf = KFold(n_splits=args.folds, random_state=42, shuffle=True)
+    logger.info("Starting cross-validation")
     start_time = time.time()
     fold_id = 1
-    cloud_info_list_by_fold = {}
-    logger.info("Starting cross-validation")
     for train_ind, test_ind in kf.split(placettes_names):
         logger.info("Cross-validation FOLD = %d" % (fold_id))
         experiment.log_metric("Fold_ID", fold_id)
@@ -125,9 +112,10 @@ def main():
                 args=args,
             ),
         )
-        # TRAINING on fold
+
+        PCC = PointCloudClassifier(args)
         model = PointNet(args.MLP_1, args.MLP_2, args.MLP_3, args)
-        if args.use_SSL_model:
+        if args.use_PT_model:
             args.trained_model_path = get_trained_model_path_from_experiment(
                 args.path, args.SSL_model_id
             )
@@ -135,7 +123,6 @@ def main():
             model.set_patience_attributes(args)
             model.eval()
 
-        PCC = PointCloudClassifier(args)
         (
             trained_model,
             all_epochs_train_loss_dict,
@@ -152,10 +139,7 @@ def main():
             PCC,
             kde_mixture,
         )
-
         cloud_info_list_by_fold[fold_id] = cloud_info_list
-
-        # Print the fold results
         log_last_stats_of_fold(
             all_epochs_train_loss_dict,
             all_epochs_test_loss_dict,
@@ -174,7 +158,6 @@ def main():
         if args.mode == "DEV" and fold_id >= 1:
             break
 
-    # create inference results csv
     stats_for_all_folds(all_folds_loss_train_dicts, all_folds_loss_test_dicts, args)
     cloud_info_list_all_folds = [
         dict(p, **{"fold_id": fold_id})

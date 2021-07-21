@@ -5,7 +5,14 @@ from utils.utils import get_args_from_prev_config
 # This script defines all parameters for data loading, model definition, sand I/O operations.
 
 # Set to DEV for faster iterations (1 fold, 4 epochs), in order to e.g. test saving results.
-MODE = "PROD"  # DEV or PROD
+parser = ArgumentParser(description="mode")  # Byte-compiled / optimized / DLL files
+parser.add_argument(
+    "--mode",
+    default="PROD",
+    type=str,
+    help="DEV or PROD mode - DEV is a quick debug mode",
+)
+mode = parser.parse_known_args()[0].mode
 
 # FEATURE NAMES used to get the right index. Do not permutate features x, y, z, red, green, blue, nir and intensity.
 FEATURE_NAMES = [
@@ -30,7 +37,7 @@ parser = ArgumentParser(description="model")  # Byte-compiled / optimized / DLL 
 repo_absolute_path = os.path.dirname(os.path.abspath(__file__))
 data_path = os.path.join(repo_absolute_path, "data/")
 
-parser.add_argument('--mode', default=MODE, type=str, help="DEV or PROD mode - DEV is a quick debug mode")
+parser.add_argument('--mode', default=mode, type=str, help="DEV or PROD mode - DEV is a quick debug mode")
 parser.add_argument('--cuda', default=None, type=int, help="Whether we use cuda (0 or 1 to specify device) or not (None)")
 parser.add_argument('--path', default=repo_absolute_path, type=str, help="Repo absolute path directory")
 parser.add_argument('--data_path', default=data_path, type=str, help="Path to /repo_root/data/ folder.")
@@ -39,13 +46,6 @@ parser.add_argument('--las_placettes_folder_path', default=os.path.join(data_pat
 parser.add_argument('--las_parcelles_folder_path', default=os.path.join(data_path, "SubsetParcelle_v0/"), type=str, help="Path to folder with parcels las files.")
 parser.add_argument('--parcel_shapefile_path', default=os.path.join(data_path, "SubsetParcelle_v0/Parcelle_jeutest_v0.shp"), type=str, help="Path to shapefile of parcels.")
 parser.add_argument('--gt_file_path', default=os.path.join(data_path, "placettes_dataset/placettes_metadata.csv"), type=str, help="Path to ground truth file. Put in dataset folder.")
-
-# parser.add_argument('--results_path', default=None, help="(Created on the fly) Path to all related experiments")
-# parser.add_argument('--stats_path', default=None, help="(Created on the fly) Path to stats folder of current run")
-# parser.add_argument('--stats_file', default=None, help="(Created on the fly) Path to stats file including losses")
-# parser.add_argument('--parcel_dataset_pkl_path', default=None, type=str, help="(Created on the fly) Path to /repo_root/data/{parcel_foldname}_pickles folder.")
-
-
 parser.add_argument('--coln_mapper_dict', default={"nom":"Name"}, type=str, help="Dict to rename columns of gt ")
 parser.add_argument('--plot_only_png', default=True, type=bool, help="Set to False to output SVG article format and GeoTIFF at last epoch.")
 PLOT_NAME_TO_VISUALIZE_DURING_TRAINING = {"Releve_Lidar_F68", # Vm = 100% -> Vm vs Vb distinction
@@ -66,8 +66,9 @@ parser.add_argument("--comet_name", default="", type=str, help="Add this tag to 
 parser.add_argument("--full_model_training", default=False, type=str, help="False to avoid a full training after cross-validation")
 parser.add_argument('--disabled', default=False, type=bool, help="Wether we disable Comet for this run.")
 parser.add_argument('--resume_last_job', default=0, type=bool, help="Use (1) or do not use (0) the folder of the last experiment.")
+
 # SSL
-parser.add_argument("--use_SSL_model", default=False, type=bool,help="Set to True to load finetune model SSL_model_id in main.py.")
+parser.add_argument("--use_PT_model", default=False, type=bool,help="Set to True to load finetune model SSL_model_id in main.py.")
 parser.add_argument('--SSL_model_id', default="2021-07-21_13h23m57s", type=str, help="Identifier of experiment to load saved model traine on pseudo-labels (e.g. yyyy-mm-dd_XhXmXs).")
 
 # Inference parameters
@@ -76,7 +77,7 @@ parser.add_argument('--inference_model_id', default="2021-07-16_14h13m48s", type
 
 
 # Herafter are the args that are reused when use_prev_config is set to a previous experiment id.
-# Model Parameters  
+# Model Parameters 
 parser.add_argument('--n_class', default=4, type=int,
                     help="Size of the model output vector. In our case 4 - different vegetation coverage types")
 parser.add_argument('--input_feats',
@@ -115,25 +116,7 @@ parser.add_argument('--soft', default=True, type=bool,
 # Optimization Parameters
 parser.add_argument('--folds', default=5, type=int, help="Number of folds for cross validation model training")
 parser.add_argument('--wd', default=0.001, type=float, help="Weight decay for the optimizer")
-parser.add_argument('--lr', default=1e-3 / 2, type=float, help="Learning rate")
-# parser.add_argument('--lr', default=1e-3, type=float, help="Learning rate")  # WARNING
-parser.add_argument('--step_size', default=1, type=int,
-                    help="After this number of steps we decrease learning rate. (Period of learning rate decay)")
-parser.add_argument('--lr_decay', default=0.985, type=float,
-                    help="We multiply learning rate by this value after certain number of steps (see --step_size). (Multiplicative factor of learning rate decay)")
 parser.add_argument('--batch_size', default=20, type=int, help="Size of the training batch")
-
-# WARNING: Parameters set for SSL
-# parser.add_argument('--n_epoch', default=200 if not MODE=="DEV" else 2, type=int, help="Number of training epochs")
-# parser.add_argument('--n_epoch_test', default=1 if not MODE=="DEV" else 1, type=int, help="We evaluate every -th epoch, and every epoch after epoch_to_start_early_stop")
-# parser.add_argument('--epoch_to_start_early_stop', default=1 if not MODE=="DEV" else 1, type=int, help="Epoch from which to start early stopping process, after ups and down of training.")
-# parser.add_argument('--patience_in_epochs', default=5 if not MODE=="DEV" else 1, type=int, help="Epoch to wait for improvement of MAE_loss before early stopping. Set to np.inf to disable ES.")
-
-# WARNING: For classical training after SSL
-parser.add_argument('--n_epoch', default=200 if not MODE=="DEV" else 2, type=int, help="Number of training epochs")
-parser.add_argument('--n_epoch_test', default=5 if not MODE=="DEV" else 1, type=int, help="We evaluate every -th epoch, and every epoch after epoch_to_start_early_stop")
-parser.add_argument('--epoch_to_start_early_stop', default=1 if not MODE=="DEV" else 1, type=int, help="Epoch from which to start early stopping process, after ups and down of training.")
-parser.add_argument('--patience_in_epochs', default=15 if not MODE=="DEV" else 1, type=int, help="Epoch to wait for improvement of MAE_loss before early stopping. Set to np.inf to disable ES.")
 
 # fmt: on
 args, _ = parser.parse_known_args()
@@ -141,10 +124,4 @@ args, _ = parser.parse_known_args()
 if args.use_prev_config is not None:
     args = get_args_from_prev_config(args, args.use_prev_config)
 
-
-assert args.nb_stratum in [2, 3], "Number of stratum should be 2 or 3!"
-assert (
-    args.lr_decay <= 1
-), "Learning rate decrease should be smaller than 1, as learning rate should decrease"
-
-print(f"Arguments were imported in {MODE} mode")
+print(f"Arguments imported in {mode} mode.")

@@ -56,8 +56,6 @@ def main():
         args, task="inference", resume_last_job=args.resume_last_job
     )
     logger = create_a_logger(args)
-    # TODO: use previous args
-    args.z_max = 24.24
 
     # MODEL
     args.trained_model_path = get_trained_model_path_from_experiment(
