@@ -87,13 +87,6 @@ def main():
     for las_nb, las_filename in enumerate(las_filenames):
 
         parcel_ID = get_filename_no_extension(las_filename)
-
-        # DEBUG : remove this debug condition
-        # if args.mode == "DEV":
-        #     if not las_filename.endswith("004010272-16-2.las"):  # small
-        #         continue
-        #     else:
-        #         print("004010272-16-2.las")
         print(f"Storing data from parcel #{las_nb}/{len(las_filenames)}: {parcel_ID}")
 
         try:
@@ -124,19 +117,21 @@ def main():
             )
             # TODO: to accept plots with low N, we have to account for np.nans in the rasters predictions. Unsure at this point.
             if plot_points_tensor is not None and plot_points_tensor.shape[0] > 50:
-                plots_data[f"PP" + str(plot_count).zfill(6)] = {
+                plot_id = f"PP" + str(plot_count).zfill(6)
+                plots_data[plot_id] = {
                     "parcel_ID": parcel_ID,
                     "plot_points_arr": plot_points_tensor,
                     "plot_center": plot_center,
                     "N_points_in_cloud": plot_points_tensor.shape[0],
+                    "plot_ID": plot_id,
                 }
 
-                # if plot_count > 30 and args.mode == "DEV":
-                #     break
         with open(
             os.path.join(args.unlabeled_dataset_pkl_path, f"{parcel_ID}.pckl"), "wb"
         ) as f:
             pickle.dump(plots_data, f)
+        if las_nb > 15:
+            break
 
 
 if __name__ == "__main__":

@@ -35,9 +35,9 @@ def cloud_loader(plot_id, dataset, df_gt, train, args):
     return cloud_data, gt
 
 
-def cloud_loader_for_prediction(pseudoplot_ID, dataset, args):
+def cloud_loader_from_pickle(pseudoplot_ID, dataset, args, return_X_y_only=False):
     """
-    From a list of dict containing pseudoplots from parcels,
+    From a list of dict containing pseudoplots from parcels.
     """
     pickled_data = dataset[pseudoplot_ID]
     cloud_data = pickled_data["plot_points_arr"]
@@ -50,7 +50,16 @@ def cloud_loader_for_prediction(pseudoplot_ID, dataset, args):
     cloud_data = sample_cloud(cloud_data, args.subsample_size)
 
     cloud_data = torch.from_numpy(cloud_data)
-    return cloud_data, plot_center, pseudoplot_ID
+    try:
+        coverages = pickled_data["coverages"]
+    except KeyError:
+        coverages = np.empty(0)
+
+    if return_X_y_only:
+        return cloud_data, coverages
+    else:
+        # TODO: Coverages may not be needed here in predict mode.
+        return cloud_data, plot_center, pseudoplot_ID, coverages
 
 
 def rescale_cloud_data(cloud_data, cloud_center, args):

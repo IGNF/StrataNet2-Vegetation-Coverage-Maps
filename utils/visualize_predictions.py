@@ -10,8 +10,10 @@ import logging
 
 from inference.infer_utils import (
     stack_the_rasters_and_get_their_geotransformation,
-    save_rasters_to_geotiff_file,
+    infer_and_project_on_rasters,
 )
+
+from inference.geotiff_raster import save_rasters_to_geotiff_file
 
 logger = logging.getLogger(__name__)
 

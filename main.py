@@ -114,7 +114,6 @@ def main():
         train_list = placettes_names[train_ind]
         test_list = placettes_names[test_ind]
 
-        # generate the train and test dataset
         test_set = tnt.dataset.ListDataset(
             test_list,
             functools.partial(
@@ -135,7 +134,6 @@ def main():
                 args=args,
             ),
         )
-
         # TRAINING on fold
 
         (
@@ -176,7 +174,8 @@ def main():
         for p in infos
     ]
     df_inference = pd.DataFrame(cloud_info_list_all_folds)
-    df_inference = calculate_performance_indicators(df_inference)
+    df_inference = calculate_performance_indicators_V1(df_inference)
+    df_inference = calculate_performance_indicators_V2(df_inference)
     inference_path = os.path.join(args.stats_path, "PCC_inference_all_placettes.csv")
     df_inference.to_csv(inference_path, index=False)
 

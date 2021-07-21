@@ -118,6 +118,7 @@ def train_full(
     # initialize the model and define the classifier
     model = PointNet(args.MLP_1, args.MLP_2, args.MLP_3, args)
     PCC = PointCloudClassifier(args)
+
     writer = SummaryWriter(os.path.join(args.stats_path, f"runs/fold_{fold_id}/"))
     logger.info(
         "Total number of parameters: {}".format(

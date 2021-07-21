@@ -44,7 +44,7 @@ from utils.load_data import (
     load_and_clean_single_las,
     transform_features_of_plot_cloud,
 )
-from data_loader.loader import cloud_loader_for_prediction
+from data_loader.loader import cloud_loader_from_pickle
 
 # from inference.geotiff_raster import create_geotiff_raster, merge_geotiff_rasters
 
@@ -105,7 +105,7 @@ def main():
         dataset = tnt.dataset.ListDataset(
             [pp_id for pp_id in p_data.keys()],
             functools.partial(
-                cloud_loader_for_prediction,
+                cloud_loader_from_pickle,
                 dataset=p_data,
                 args=args,
             ),
@@ -116,7 +116,12 @@ def main():
             shuffle=False,
         )
 
-        for batch_id, (clouds_batch, centers_batch, pseudoplot_ID_batch) in enumerate(
+        for batch_id, (
+            clouds_batch,
+            centers_batch,
+            pseudoplot_ID_batch,
+            _,
+        ) in enumerate(
             tqdm(dataloader, desc=f"Inference on {parcel_ID}", total=len(dataloader))
         ):
             pred_pointwise, pred_pointwise_b = PCC.run(model, clouds_batch)

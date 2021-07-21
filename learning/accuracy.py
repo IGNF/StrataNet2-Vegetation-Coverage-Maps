@@ -77,13 +77,10 @@ def compute_accuracy2(
         return 0
 
 
-# we derive indicators of performance
-def calculate_performance_indicators(df):
+def calculate_performance_indicators_V1(df):
     """Compute indicators of performances from df of predictions and GT:
     - MAE: absolute distance of predicted value to ground truth
     - Accuracy: 1 if predicted value falls within class boundaries
-    - MAE2: absolute distance of predicted value to ground truth class boundaries.
-    - Accuracy2: 1 if predicted value falls within class boundaries + a margin of 10%
     Note: Predicted and ground truths coverage values are ratios between 0 and 1.
     """
     # round to 3rd to avoid artefacts like 0.8999999 for 0.9 as key of dict
@@ -110,6 +107,19 @@ def calculate_performance_indicators(df):
     df["acc_veg_b_and_moy"] = df[["acc_veg_b", "acc_veg_moy"]].mean(axis=1)
     df["acc_all"] = df[["acc_veg_b", "acc_veg_moy"]].mean(axis=1)
 
+    return df
+
+
+def calculate_performance_indicators_V2(df):
+    """Compute indicators of performances from df of predictions and GT:
+    - MAE2: absolute distance of predicted value to ground truth class boundaries.
+    - Accuracy2: 1 if predicted value falls within class boundaries + a margin of 10%
+    Note: Predicted and ground truths coverage values are ratios between 0 and 1.
+    """
+    # round to 3rd to avoid artefacts like 0.8999999 for 0.9 as key of dict
+    df[["vt_veg_b", "vt_veg_moy", "vt_veg_h"]] = (
+        df[["vt_veg_b", "vt_veg_moy", "vt_veg_h"]].astype(np.float).round(3)
+    )
     # MAE2 errors
     df["error2_veg_b"] = df.apply(
         lambda x: compute_mae2(x.pred_veg_b, x.vt_veg_b), axis=1

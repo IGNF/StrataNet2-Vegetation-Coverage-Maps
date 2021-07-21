@@ -7,7 +7,7 @@ import time
 import pandas as pd
 from argparse import ArgumentParser
 
-from learning.accuracy import calculate_performance_indicators
+from learning.accuracy import calculate_performance_indicators_V1, calculate_performance_indicators_V2 
 from utils.utils import create_dir
 
 
@@ -88,7 +88,8 @@ def main():
         print(fname)
         df = pd.read_csv(fname)
         df = format_cols(df)
-        df = calculate_performance_indicators(df)
+        df = calculate_performance_indicators_V1(df)
+        df = calculate_performance_indicators_V2(df)
         means.append(df.mean())
     df_out = pd.DataFrame(
         means,
