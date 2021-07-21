@@ -65,11 +65,13 @@ parser.add_argument('--offline_experiment', default=False, type=bool, help="")
 parser.add_argument("--comet_name", default="", type=str, help="Add this tag to the XP, to indicate its goal")
 parser.add_argument("--full_model_training", default=False, type=str, help="False to avoid a full training after cross-validation")
 parser.add_argument('--disabled', default=False, type=bool, help="Wether we disable Comet for this run.")
-
 parser.add_argument('--resume_last_job', default=0, type=bool, help="Use (1) or do not use (0) the folder of the last experiment.")
-parser.add_argument("--use_prev_config", default=None, type=str, help="Identifier of a previous run from which to copy parameters from (e.g. yyyy-mm-dd_XhXmXs).")
+# SSL
+parser.add_argument("--use_SSL_model", default=False, type=bool,help="Set to True to load finetune model SSL_model_id in main.py.")
+parser.add_argument('--SSL_model_id', default="2021-07-21_13h23m57s", type=str, help="Identifier of experiment to load saved model traine on pseudo-labels (e.g. yyyy-mm-dd_XhXmXs).")
 
 # Inference parameters
+parser.add_argument("--use_prev_config", default=None, type=str, help="Identifier of a previous run from which to copy parameters from (e.g. yyyy-mm-dd_XhXmXs).")
 parser.add_argument('--inference_model_id', default="2021-07-16_14h13m48s", type=str, help="Identifier of experiment to load saved model with torch.load (e.g. yyyy-mm-dd_XhXmXs).")
 
 
@@ -97,7 +99,7 @@ parser.add_argument('--nb_stratum', default=3, type=int,
 parser.add_argument('--ECM_ite_max', default=5, type=int, help='Max number of EVM iteration')
 parser.add_argument('--NR_ite_max', default=10, type=int, help='Max number of Netwon-Rachson iteration')
 parser.add_argument('--znorm_radius_in_meters', default=1.5, type=float, help='Radius for KNN normalization of altitude.')
-parser.add_argument('--z_max', default=None, type=float, help="Max (radius-normalized) altitude of points in plots, calculated on the fly.")
+parser.add_argument('--z_max', default=24.24, type=float, help="Max (normalized) altitude of points in plots, based on labeled plots.")
 
 # Network Parameters
 parser.add_argument('--MLP_1', default=[32, 32], type=list,
@@ -113,7 +115,8 @@ parser.add_argument('--soft', default=True, type=bool,
 # Optimization Parameters
 parser.add_argument('--folds', default=5, type=int, help="Number of folds for cross validation model training")
 parser.add_argument('--wd', default=0.001, type=float, help="Weight decay for the optimizer")
-parser.add_argument('--lr', default=1e-3, type=float, help="Learning rate")
+parser.add_argument('--lr', default=1e-3 / 2, type=float, help="Learning rate")
+# parser.add_argument('--lr', default=1e-3, type=float, help="Learning rate")  # WARNING
 parser.add_argument('--step_size', default=1, type=int,
                     help="After this number of steps we decrease learning rate. (Period of learning rate decay)")
 parser.add_argument('--lr_decay', default=0.985, type=float,
@@ -121,10 +124,16 @@ parser.add_argument('--lr_decay', default=0.985, type=float,
 parser.add_argument('--batch_size', default=20, type=int, help="Size of the training batch")
 
 # WARNING: Parameters set for SSL
+# parser.add_argument('--n_epoch', default=200 if not MODE=="DEV" else 2, type=int, help="Number of training epochs")
+# parser.add_argument('--n_epoch_test', default=1 if not MODE=="DEV" else 1, type=int, help="We evaluate every -th epoch, and every epoch after epoch_to_start_early_stop")
+# parser.add_argument('--epoch_to_start_early_stop', default=1 if not MODE=="DEV" else 1, type=int, help="Epoch from which to start early stopping process, after ups and down of training.")
+# parser.add_argument('--patience_in_epochs', default=5 if not MODE=="DEV" else 1, type=int, help="Epoch to wait for improvement of MAE_loss before early stopping. Set to np.inf to disable ES.")
+
+# WARNING: For classical training after SSL
 parser.add_argument('--n_epoch', default=200 if not MODE=="DEV" else 2, type=int, help="Number of training epochs")
-parser.add_argument('--n_epoch_test', default=1 if not MODE=="DEV" else 1, type=int, help="We evaluate every -th epoch, and every epoch after epoch_to_start_early_stop")
+parser.add_argument('--n_epoch_test', default=5 if not MODE=="DEV" else 1, type=int, help="We evaluate every -th epoch, and every epoch after epoch_to_start_early_stop")
 parser.add_argument('--epoch_to_start_early_stop', default=1 if not MODE=="DEV" else 1, type=int, help="Epoch from which to start early stopping process, after ups and down of training.")
-parser.add_argument('--patience_in_epochs', default=5 if not MODE=="DEV" else 1, type=int, help="Epoch to wait for improvement of MAE_loss before early stopping. Set to np.inf to disable ES.")
+parser.add_argument('--patience_in_epochs', default=15 if not MODE=="DEV" else 1, type=int, help="Epoch to wait for improvement of MAE_loss before early stopping. Set to np.inf to disable ES.")
 
 # fmt: on
 args, _ = parser.parse_known_args()

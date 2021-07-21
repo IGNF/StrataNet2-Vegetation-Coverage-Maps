@@ -130,7 +130,7 @@ def main():
             os.path.join(args.unlabeled_dataset_pkl_path, f"{parcel_ID}.pckl"), "wb"
         ) as f:
             pickle.dump(plots_data, f)
-        if las_nb > 15:
+        if args.mode == "DEV" and las_nb > 15:
             break
 
 

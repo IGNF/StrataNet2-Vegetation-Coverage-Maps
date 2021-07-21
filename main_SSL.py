@@ -88,8 +88,6 @@ def main():
     z_all = [c_data["plot_points_arr"][:, 2] for c_data in p_data_all.values()]
     z_all = np.concatenate(z_all)
     logger.info(f"Fitting Mixture KDE on N={len(z_all)} z values.")
-
-    args.z_max = np.max(z_all)
     args.n_input_feats = len(args.input_feats)
     logger.info("args: \n" + str(args))
 
@@ -102,7 +100,7 @@ def main():
 
     # cross-validation
     start_time = time.time()
-    fold_id = 1
+    fold_id = -1
     cloud_info_list_by_fold = {}
 
     p_data_all_keys = np.array(list(p_data_all.keys()))
@@ -134,6 +132,8 @@ def main():
     # ATTENTION: epochs will not be comparable. Attention to learning rate decay...
 
     # TRAINING on fold
+    model = PointNet(args.MLP_1, args.MLP_2, args.MLP_3, args)
+    PCC = PointCloudClassifier(args)
 
     (
         trained_model,
@@ -141,7 +141,15 @@ def main():
         all_epochs_test_loss_dict,
         cloud_info_list,
     ) = train_full(
-        args, fold_id, train_set, test_set, test_list, xy_centers_dict, kde_mixture
+        args,
+        fold_id,
+        train_set,
+        test_set,
+        test_list,
+        xy_centers_dict,
+        model,
+        PCC,
+        kde_mixture,
     )
 
     cloud_info_list_by_fold[fold_id] = cloud_info_list

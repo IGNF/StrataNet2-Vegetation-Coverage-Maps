@@ -12,8 +12,7 @@ import gc
 from data_loader.loader import *
 from model.reproject_to_2d_and_predict_plot_coverage import *
 from learning.loss_functions import *
-from model.point_net import PointNet
-from model.point_cloud_classifier import PointCloudClassifier
+
 from torch.utils.tensorboard import SummaryWriter
 import os
 import torch
@@ -107,17 +106,21 @@ def train(model, PCC, train_set, kde_mixture, optimizer, args):
 
 
 def train_full(
-    args, fold_id, train_set, test_set, test_list, xy_centers_dict, kde_mixture
+    args,
+    fold_id,
+    train_set,
+    test_set,
+    test_list,
+    xy_centers_dict,
+    model,
+    PCC,
+    kde_mixture,
 ):
     """The full training loop.
     If fold_id = -1, this is the full training and we make inferences at last epoch for this test=train set.
     """
     experiment = args.experiment
     args.current_fold_id = fold_id
-
-    # initialize the model and define the classifier
-    model = PointNet(args.MLP_1, args.MLP_2, args.MLP_3, args)
-    PCC = PointCloudClassifier(args)
 
     writer = SummaryWriter(os.path.join(args.stats_path, f"runs/fold_{fold_id}/"))
     logger.info(

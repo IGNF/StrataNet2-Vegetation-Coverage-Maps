@@ -21,13 +21,6 @@ import torch.nn as nn
 
 import matplotlib
 
-# Weird behavior: loading twice in cell appears to remove an elsewise occuring error.
-# for i in range(2):
-#    try:
-#        matplotlib.use("TkAgg")  # rerun this cell if an error occurs.
-#    except:
-#        pass
-
 np.random.seed(42)
 torch.cuda.empty_cache()
 
@@ -39,7 +32,8 @@ from utils.load_data import load_all_las_from_folder, open_metadata_dataframe
 from learning.loss_functions import *
 from learning.accuracy import *
 from learning.train import train_full
-
+from model.point_net import PointNet
+from model.point_cloud_classifier import PointCloudClassifier
 
 np.random.seed(42)
 torch.cuda.empty_cache()
@@ -89,9 +83,6 @@ def main():
 
     # Fit a mixture of thre KDE
     z_all = all_points_nparray[:, 2]
-    args.z_max = np.max(
-        z_all
-    )  # maximum z value for data normalization, obtained from the normalized dataset analysis
     args.n_input_feats = len(args.input_feats)  # number of input features
     logger.info("args: \n" + str(args))  # save all the args parameters
     kde_mixture = KdeMixture(z_all, args)
@@ -135,14 +126,31 @@ def main():
             ),
         )
         # TRAINING on fold
+        model = PointNet(args.MLP_1, args.MLP_2, args.MLP_3, args)
+        if args.use_SSL_model:
+            args.trained_model_path = get_trained_model_path_from_experiment(
+                args.path, args.SSL_model_id
+            )
+            model.load_state(args.trained_model_path)
+            model.set_patience_attributes(args)
+            model.eval()
 
+        PCC = PointCloudClassifier(args)
         (
             trained_model,
             all_epochs_train_loss_dict,
             all_epochs_test_loss_dict,
             cloud_info_list,
         ) = train_full(
-            args, fold_id, train_set, test_set, test_list, xy_centers_dict, kde_mixture
+            args,
+            fold_id,
+            train_set,
+            test_set,
+            test_list,
+            xy_centers_dict,
+            model,
+            PCC,
+            kde_mixture,
         )
 
         cloud_info_list_by_fold[fold_id] = cloud_info_list

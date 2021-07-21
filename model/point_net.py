@@ -31,11 +31,7 @@ class PointNet(nn.Module):
         self.drop = args.drop
         self.soft = args.soft
         self.input_feat = args.n_input_feats
-
-        self.stopped_early = False
-        self.best_metric_value = 10 ** 6
-        self.best_metric_epoch = 1
-        self.patience_in_epochs = args.patience_in_epochs
+        self.set_patience_attributes(args)
 
         # since we don't know the number of layers in the MLPs, we need to use loops
         # to create the correct number of layers
@@ -122,6 +118,13 @@ class PointNet(nn.Module):
             out_pointwise = self.sigmoid(out_pointwise)
         return out_pointwise
 
+    def set_patience_attributes(self, args):
+        """Reset patience. Useful when we load a pretrained model."""
+        self.stopped_early = False
+        self.best_metric_value = 10 ** 6
+        self.best_metric_epoch = 1
+        self.patience_in_epochs = args.patience_in_epochs
+
     def stop_early(self, val_metric, epoch, fold_id, args):
         """Save best model state until now, based on a validation metric to minimize, if no improvement over n epochs."""
 
@@ -152,12 +155,18 @@ class PointNet(nn.Module):
         torch.save(checkpoint, save_path)
 
     def load_best_state(self, fold_id, args):
-        """Load model from early stopping checkpoint. Does not load the optimizer state."""
+        """Load best model state from early stopping checkpoint. Does not load the optimizer state."""
         save_path = os.path.join(
             args.stats_path,
             f"PCC_model_{'fold_n='+str(fold_id) if fold_id>0 else 'full'}.pt",
         )
+        self.load_state(save_path)
+        return self
+
+    def load_state(self, save_path):
+        """Load model state from a path."""
         checkpoint = torch.load(save_path)
         self.load_state_dict(checkpoint["state_dict"])
         self.best_metric_epoch = checkpoint["best_metric_epoch"]
         self.best_metric_value = checkpoint["best_metric_value"]
+        return self
