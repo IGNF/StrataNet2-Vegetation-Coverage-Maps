@@ -103,9 +103,9 @@ parser.add_argument('--znorm_radius_in_meters', default=1.5, type=float, help='R
 parser.add_argument('--z_max', default=24.24, type=float, help="Max (normalized) altitude of points in plots, based on labeled plots.")
 
 # Network Parameters
-parser.add_argument('--MLP_1', default=[32, 32], type=list,
+parser.add_argument('--MLP_1', default=[32, 64], type=list,
                     help="Parameters of the 1st MLP block (output size of each layer). See PointNet article")
-parser.add_argument('--MLP_2', default=[64, 128], type=list,
+parser.add_argument('--MLP_2', default=[128, 256], type=list,
                     help="Parameters of the 2nd MLP block (output size of each layer). See PointNet article")
 parser.add_argument('--MLP_3', default=[64, 32], type=list,
                     help="Parameters of the 3rd MLP block (output size of each layer). See PointNet article")

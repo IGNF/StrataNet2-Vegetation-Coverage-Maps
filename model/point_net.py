@@ -35,8 +35,8 @@ class PointNet(nn.Module):
 
         # since we don't know the number of layers in the MLPs, we need to use loops
         # to create the correct number of layers
-        m1 = MLP_1[-1]  # size of the first embeding F1
-        m2 = MLP_2[-1]  # size of the second embeding F2
+        m1 = MLP_1[-1] * 2  # size of the first embeding F1
+        m2 = MLP_2[-1] * 2  # size of the second embeding F2
 
         # build MLP_1: input [input_feat x n] -> f1 [m1 x n]
         modules = []
@@ -75,7 +75,7 @@ class PointNet(nn.Module):
         for i in range(len(MLP_3)):
             modules.append(
                 nn.Conv1d(
-                    in_channels=MLP_3[i - 1] if i > 0 else (m1 + m2),
+                    in_channels=MLP_3[i - 1] if i > 0 else m2,
                     out_channels=MLP_3[i],
                     kernel_size=1,
                     bias=False,
@@ -107,11 +107,15 @@ class PointNet(nn.Module):
         if self.cuda_device is not None:
             input = input.cuda(self.cuda_device)
         f1 = self.MLP_1(input)
-        f2 = self.MLP_2(f1)
-        G = self.maxpool(f2)
-        self.last_G_tensor = G
-        Gf1 = torch.cat((G.repeat(1, 1, self.subsample_size), f1), 1)
-        out_pointwise = self.MLP_3(Gf1)
+        G1 = self.maxpool(f1)
+        G1f2 = torch.cat((G1.repeat(1, 1, self.subsample_size), f1), 1)
+
+        f2 = self.MLP_2(G1f2)
+        G2 = self.maxpool(f2)
+        self.last_G_tensor = G2
+        G2f2 = torch.cat((G2.repeat(1, 1, self.subsample_size), f2), 1)
+
+        out_pointwise = self.MLP_3(G2f2)
         if self.soft:
             out_pointwise = self.softmax(out_pointwise)
         else:
