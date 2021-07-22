@@ -68,8 +68,8 @@ parser.add_argument('--disabled', default=False, type=bool, help="Wether we disa
 parser.add_argument('--resume_last_job', default=0, type=bool, help="Use (1) or do not use (0) the folder of the last experiment.")
 
 # SSL
-parser.add_argument("--use_PT_model", default=False, type=bool,help="Set to True to load finetune model SSL_model_id in main.py.")
-parser.add_argument('--SSL_model_id', default="2021-07-21_13h23m57s", type=str, help="Identifier of experiment to load saved model traine on pseudo-labels (e.g. yyyy-mm-dd_XhXmXs).")
+parser.add_argument("--use_PT_model", default=False, type=bool,help="Set to True to load finetune model PT_model_id in main.py.")
+parser.add_argument('--PT_model_id', default="2021-07-21_13h23m57s", type=str, help="Identifier of experiment to load saved model traine on pseudo-labels (e.g. yyyy-mm-dd_XhXmXs).")
 
 # Inference parameters
 parser.add_argument("--use_prev_config", default=None, type=str, help="Identifier of a previous run from which to copy parameters from (e.g. yyyy-mm-dd_XhXmXs).")

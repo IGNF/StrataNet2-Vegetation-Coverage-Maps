@@ -34,15 +34,16 @@ from learning.accuracy import *
 from learning.train import train_full
 from model.point_net import PointNet
 from model.point_cloud_classifier import PointCloudClassifier
+from argparse import ArgumentParser
 
 np.random.seed(42)
 torch.cuda.empty_cache()
 # fmt: off
 parser = ArgumentParser(description="Training")
-parser.add_argument('--n_epoch', default=200 if not MODE=="DEV" else 2, type=int, help="Number of training epochs")
-parser.add_argument('--n_epoch_test', default=5 if not MODE=="DEV" else 1, type=int, help="We evaluate every -th epoch, and every epoch after epoch_to_start_early_stop")
-parser.add_argument('--epoch_to_start_early_stop', default=45 if not MODE=="DEV" else 1, type=int, help="Epoch from which to start early stopping process, after ups and down of training.")
-parser.add_argument('--patience_in_epochs', default=30 if not MODE=="DEV" else 1, type=int, help="Epoch to wait for improvement of MAE_loss before early stopping. Set to np.inf to disable ES.")
+parser.add_argument('--n_epoch', default=200 if not args.mode=="DEV" else 2, type=int, help="Number of training epochs")
+parser.add_argument('--n_epoch_test', default=5 if not args.mode=="DEV" else 1, type=int, help="We evaluate every -th epoch, and every epoch after epoch_to_start_early_stop")
+parser.add_argument('--epoch_to_start_early_stop', default=45 if not args.mode=="DEV" else 1, type=int, help="Epoch from which to start early stopping process, after ups and down of training.")
+parser.add_argument('--patience_in_epochs', default=30 if not args.mode=="DEV" else 1, type=int, help="Epoch to wait for improvement of MAE_loss before early stopping. Set to np.inf to disable ES.")
 parser.add_argument('--lr', default=1e-3, type=float, help="Learning rate")
 parser.add_argument('--step_size', default=1, type=int,
                     help="After this number of steps we decrease learning rate. (Period of learning rate decay)")
@@ -117,7 +118,7 @@ def main():
         model = PointNet(args.MLP_1, args.MLP_2, args.MLP_3, args)
         if args.use_PT_model:
             args.trained_model_path = get_trained_model_path_from_experiment(
-                args.path, args.SSL_model_id
+                args.path, args.PT_model_id
             )
             model.load_state(args.trained_model_path)
             model.set_patience_attributes(args)
