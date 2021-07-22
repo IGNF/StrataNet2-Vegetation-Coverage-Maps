@@ -7,7 +7,11 @@ import time
 import pandas as pd
 from argparse import ArgumentParser
 
-from learning.accuracy import calculate_performance_indicators_V1, calculate_performance_indicators_V2 
+from learning.accuracy import (
+    calculate_performance_indicators_V1,
+    calculate_performance_indicators_V2,
+    calculate_performance_indicators_V3,
+)
 from utils.utils import create_dir
 
 
@@ -84,19 +88,22 @@ def main():
             f"No result file found via regex {args.results_files_lookup_expression}"
         )
     means = []
+    fnames = []
     for fname in results_file_paths:
-        print(fname)
         df = pd.read_csv(fname)
         df = format_cols(df)
-        df = calculate_performance_indicators_V1(df)
-        df = calculate_performance_indicators_V2(df)
-        means.append(df.mean())
+        print(fname)
+        try:
+            df = calculate_performance_indicators_V1(df)
+            df = calculate_performance_indicators_V2(df)
+            df = calculate_performance_indicators_V3(df)
+            means.append(df.mean())
+            fnames.append(fname)
+        except KeyError:
+            print("Ground truths are not discrete.")
     df_out = pd.DataFrame(
         means,
-        index=[
-            f.replace(repo_absolute_path, "").replace(".csv", "")
-            for f in results_file_paths
-        ],
+        index=[f.replace(repo_absolute_path, "").replace(".csv", "") for f in fnames],
     )
     df_out = df_out.reset_index().sort_values("index", ascending=False)
     create_dir(os.path.dirname(args.benchmark_file_path))

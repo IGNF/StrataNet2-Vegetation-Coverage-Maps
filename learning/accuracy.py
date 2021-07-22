@@ -37,7 +37,7 @@ center_to_border_dict = {
     center: borders for center, borders in zip(bins_centers, zip(bb_[:-1], bb_[1:]))
 }
 
-# TODO: use this in metric computation
+# TODO: simplify by providing a param version=1,2,3
 def compute_mae(y_pred, y, center_to_border_dict=None):
     """
     Returns the absolute distance of predicted value to ground truth.
@@ -57,6 +57,40 @@ def compute_mae2(y_pred, y, center_to_border_dict=center_to_border_dict):
         return min(abs(borders[0] - y_pred), abs(borders[1] - y_pred))
 
 
+def get_neighboor_centers(y):
+    """From a center y, get neighboor centers. Returns the same center if it is 0 or 100"""
+    assert 0 <= y <= 1
+    y_neigh_lower = bins_centers[max(0, np.argwhere(bins_centers == y) - 1)]
+    y_neigh_higher = bins_centers[
+        min(len(bins_centers) - 1, np.argwhere(bins_centers == y) + 1)
+    ]
+    return y_neigh_lower.item(), y_neigh_higher.item()
+
+
+assert get_neighboor_centers(0.5) == (0.33, 0.75)
+
+
+def get_neighboor_external_bounds(y):
+    assert 0 <= y <= 1
+    y_neigh_lower, y_neigh_higher = get_neighboor_centers(y)
+    lower_bound = center_to_border_dict[y_neigh_lower][0]
+    higher_bound = center_to_border_dict[y_neigh_higher][1]
+    return lower_bound, higher_bound
+
+
+def compute_mae3(y_pred, y, center_to_border_dict=center_to_border_dict):
+    """
+    Returns the absolute distance of predicted value to groun truth class boundaries.
+    """
+
+    lower_bound, higher_bound = get_neighboor_external_bounds(y)
+
+    if lower_bound <= y_pred <= higher_bound:
+        return 0.0
+    else:
+        return min(abs(lower_bound - y_pred), abs(higher_bound - y_pred))
+
+
 def compute_accuracy(y_pred, y, center_to_border_dict=center_to_border_dict):
     """Get Acc2 from y_pred and y (ground truth, center of class)."""
     bounds = center_to_border_dict[y]
@@ -72,6 +106,17 @@ def compute_accuracy2(
     """Get Acc2 from y_pred and y (ground truth, center of class)."""
     bounds = center_to_border_dict[y]
     if (bounds[0] - margin) <= y_pred <= (bounds[1] + margin):
+        return 1
+    else:
+        return 0
+
+
+def compute_accuracy3(
+    y_pred, y, margin=0.1, center_to_border_dict=center_to_border_dict
+):
+    """Get Acc2 from y_pred and y (ground truth, center of class)."""
+    lower_bound, higher_bound = get_neighboor_external_bounds(y)
+    if lower_bound <= y_pred <= higher_bound:
         return 1
     else:
         return 0
@@ -150,6 +195,50 @@ def calculate_performance_indicators_V2(df):
     )
     df["acc2_veg_b_and_moy"] = df[["acc2_veg_b", "acc2_veg_moy"]].mean(axis=1)
     df["acc2_all"] = df[["acc2_veg_b", "acc2_veg_moy", "acc2_veg_h"]].mean(axis=1)
+
+    return df
+
+
+def calculate_performance_indicators_V3(df):
+    """Compute indicators of performances from df of predictions and GT:
+    - MAE3: absolute distance of predicted value to next class boundaries.
+    - Accuracy3: 1 if predicted value falls within class boundaries + neighboor classes
+    Note: Predicted and ground truths coverage values are ratios between 0 and 1.
+    """
+    # round to 3rd to avoid artefacts like 0.8999999 for 0.9 as key of dict
+    df[["vt_veg_b", "vt_veg_moy", "vt_veg_h"]] = (
+        df[["vt_veg_b", "vt_veg_moy", "vt_veg_h"]].astype(np.float).round(3)
+    )
+    # MAE3 errors
+    df["error3_veg_b"] = df.apply(
+        lambda x: compute_mae3(x.pred_veg_b, x.vt_veg_b), axis=1
+    )
+    df["error3_veg_moy"] = df.apply(
+        lambda x: compute_mae3(x.pred_veg_moy, x.vt_veg_moy), axis=1
+    )
+    df["error3_veg_h"] = df.apply(
+        lambda x: compute_mae3(x.pred_veg_h, x.vt_veg_h), axis=1
+    )
+    df["error3_veg_b_and_moy"] = df[["error3_veg_b", "error3_veg_moy"]].mean(axis=1)
+    df["error3_all"] = df[["error3_veg_b", "error2_veg_moy", "error3_veg_h"]].mean(
+        axis=1
+    )
+
+    # Accuracy 3
+    df["acc3_veg_b"] = df.apply(
+        lambda x: compute_accuracy3(x.pred_veg_b, x.vt_veg_b),
+        axis=1,
+    )
+    df["acc3_veg_moy"] = df.apply(
+        lambda x: compute_accuracy3(x.pred_veg_moy, x.vt_veg_moy),
+        axis=1,
+    )
+    df["acc3_veg_h"] = df.apply(
+        lambda x: compute_accuracy3(x.pred_veg_h, x.vt_veg_h),
+        axis=1,
+    )
+    df["acc3_veg_b_and_moy"] = df[["acc3_veg_b", "acc3_veg_moy"]].mean(axis=1)
+    df["acc3_all"] = df[["acc3_veg_b", "acc3_veg_moy", "acc3_veg_h"]].mean(axis=1)
 
     return df
 

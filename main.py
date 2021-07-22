@@ -168,6 +168,7 @@ def main():
     df_inference = pd.DataFrame(cloud_info_list_all_folds)
     df_inference = calculate_performance_indicators_V1(df_inference)
     df_inference = calculate_performance_indicators_V2(df_inference)
+    df_inference = calculate_performance_indicators_V3(df_inference)
     inference_path = os.path.join(args.stats_path, "PCC_inference_all_placettes.csv")
     df_inference.to_csv(inference_path, index=False)
 
