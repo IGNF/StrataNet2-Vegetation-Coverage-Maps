@@ -43,7 +43,7 @@ parser.add_argument('--n_epoch', default=200 if not MODE=="DEV" else 2, type=int
 parser.add_argument('--n_epoch_test', default=5 if not MODE=="DEV" else 1, type=int, help="We evaluate every -th epoch, and every epoch after epoch_to_start_early_stop")
 parser.add_argument('--epoch_to_start_early_stop', default=45 if not MODE=="DEV" else 1, type=int, help="Epoch from which to start early stopping process, after ups and down of training.")
 parser.add_argument('--patience_in_epochs', default=30 if not MODE=="DEV" else 1, type=int, help="Epoch to wait for improvement of MAE_loss before early stopping. Set to np.inf to disable ES.")
-parser.add_argument('--lr', default=1e-3, type=float, help="Learning rate")  # WARNING
+parser.add_argument('--lr', default=1e-3, type=float, help="Learning rate")
 parser.add_argument('--step_size', default=1, type=int,
                     help="After this number of steps we decrease learning rate. (Period of learning rate decay)")
 parser.add_argument('--lr_decay', default=0.985, type=float,
