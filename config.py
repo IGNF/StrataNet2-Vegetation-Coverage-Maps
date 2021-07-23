@@ -87,7 +87,7 @@ parser.add_argument('--subsample_size', default=10000, type=int, help="Subsample
 parser.add_argument('--diam_meters', default=20, type=int, help="Diameters of the plots.")
 parser.add_argument('--diam_pix', default=20, type=int, 
                     help="Size of the output stratum raster (its diameter in pixels)")
-parser.add_argument('--m', default=0.25, type=float,
+parser.add_argument('--m', default=0.10, type=float,
                     help="Loss regularization. The weight of the negative loglikelihood loss in the total loss")
 parser.add_argument('--norm_ground', default=False, type=bool,
                     help="Whether we normalize low vegetation and bare soil values, so LV+BS=1 (True) or we keep unmodified LV value (False) (recommended)")
