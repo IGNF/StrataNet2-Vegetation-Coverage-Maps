@@ -66,7 +66,9 @@ class PointCloudClassifier:
         #         i_batch, :, :
         #     ] = cloud.clone()  # place current sampled cloud in sampled_clouds
 
-        point_prediction = model(clouds)  # classify the batch of sampled clouds
+        coverages_pointwise, proba_pointwise = model(
+            clouds
+        )  # classify the batch of sampled clouds
         # assert point_prediction.shape == torch.Size(
         #     [batch_size, self.n_class, self.subsample_size]
         # )
@@ -89,9 +91,9 @@ class PointCloudClassifier:
         #     prediction_batch = torch.cat((prediction_batch, prediction_cloud), 1)
         #     prediction_batches.append(prediction_cloud)
         prediction_batches = [
-            prediction_cloud for prediction_cloud in point_prediction
+            cloud for cloud in coverages_pointwise
         ]  # [(c,subsample_size) x b]
         pointwise_prediction = torch.cat(
             [cloud.permute(1, 0) for cloud in prediction_batches]
         )  # (4, b*subsample_size)
-        return pointwise_prediction, prediction_batches
+        return pointwise_prediction, prediction_batches, proba_pointwise

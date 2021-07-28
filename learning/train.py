@@ -55,7 +55,7 @@ def train(model, PCC, train_set, kde_mixture, optimizer, args):
             gt = gt.cuda(PCC.cuda_device)
 
         optimizer.zero_grad(set_to_none=True)  # put gradient to zero
-        pred_pointwise, pred_pointwise_b = PCC.run(
+        pred_pointwise, pred_pointwise_b, proba_pointwise = PCC.run(
             model, cloud
         )  # compute the pointwise prediction
         pred_pl, pred_adm, pred_pixels = project_to_2d(
@@ -65,11 +65,11 @@ def train(model, PCC, train_set, kde_mixture, optimizer, args):
         # we compute two losses (negative loglikelihood and the absolute error loss for 2 or 3 stratum)
         loss_abs = loss_absolute(pred_pl, gt, args)
         loss_log, _, _ = loss_loglikelihood(
-            pred_pointwise, cloud, kde_mixture, PCC, args
+            proba_pointwise, cloud, kde_mixture, PCC, args
         )  # negative loglikelihood loss + likelihood value (not-used)
 
         if args.ent:
-            loss_e = loss_entropy(pred_pixels)
+            loss_e = loss_entropy(proba_pointwise)
 
         if args.adm:
             # we compute admissibility loss

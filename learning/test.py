@@ -60,7 +60,7 @@ def evaluate(
         if PCC.cuda_device is not None:
             gt = gt.cuda(PCC.cuda_device)
 
-        pred_pointwise, pred_pointwise_b = PCC.run(model, clouds)
+        pred_pointwise, pred_pointwise_b, proba_pointwise = PCC.run(model, clouds)
         pred_pl, pred_adm, pred_pixels = project_to_2d(
             pred_pointwise, clouds, pred_pointwise_b, PCC, args
         )
@@ -68,11 +68,11 @@ def evaluate(
         # we compute two losses (negative loglikelihood and the absolute error loss for 2 stratum)
         loss_abs = loss_absolute(pred_pl, gt, args)  # absolut loss
         loss_log, likelihood, p_all_pdf_all = loss_loglikelihood(
-            pred_pointwise, clouds, kde_mixture, PCC, args
+            proba_pointwise, clouds, kde_mixture, PCC, args
         )  # negative loglikelihood loss
 
         if args.ent:
-            loss_e = loss_entropy(pred_pixels)
+            loss_e = loss_entropy(proba_pointwise)
 
         if args.adm:
             # we compute admissibility loss

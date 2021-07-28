@@ -87,12 +87,12 @@ parser.add_argument('--subsample_size', default=10000, type=int, help="Subsample
 parser.add_argument('--diam_meters', default=20, type=int, help="Diameters of the plots.")
 parser.add_argument('--diam_pix', default=20, type=int, 
                     help="Size of the output stratum raster (its diameter in pixels)")
-parser.add_argument('--m', default=0.25, type=float,
+parser.add_argument('--m', default=0.10, type=float,
                     help="Loss regularization. The weight of the negative loglikelihood loss in the total loss")
 parser.add_argument('--norm_ground', default=False, type=bool,
                     help="Whether we normalize low vegetation and bare soil values, so LV+BS=1 (True) or we keep unmodified LV value (False) (recommended)")
 parser.add_argument('--ent', default=True, type=bool, help="Whether we add antropy loss or not")
-parser.add_argument('--e', default=0.2, type=float,
+parser.add_argument('--e', default=0.2 / 5, type=float,
                         help="Loss regularization for entropy of pointwise scores of coverage. The weight of the entropy loss in the total loss.")
 parser.add_argument('--adm', default=False, type=bool, help="Whether we compute admissibility or not")
 parser.add_argument('--nb_stratum', default=3, type=int,
@@ -103,9 +103,9 @@ parser.add_argument('--znorm_radius_in_meters', default=1.5, type=float, help='R
 parser.add_argument('--z_max', default=24.24, type=float, help="Max (normalized) altitude of points in plots, based on labeled plots.")
 
 # Network Parameters
-parser.add_argument('--MLP_1', default=[32, 32], type=list,
+parser.add_argument('--MLP_1', default=[32, 64], type=list,
                     help="Parameters of the 1st MLP block (output size of each layer). See PointNet article")
-parser.add_argument('--MLP_2', default=[64, 128], type=list,
+parser.add_argument('--MLP_2', default=[128, 256], type=list,
                     help="Parameters of the 2nd MLP block (output size of each layer). See PointNet article")
 parser.add_argument('--MLP_3', default=[64, 32], type=list,
                     help="Parameters of the 3rd MLP block (output size of each layer). See PointNet article")
