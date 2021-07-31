@@ -39,7 +39,7 @@ from inference.infer_utils import (
     divide_parcel_las_and_get_disk_centers,
     extract_points_within_disk,
 )
-from utils.load_data import transform_features_of_plot_cloud
+from utils.load_data import pre_transform
 
 
 # TODO: remove / collapse with other close function in infer_utils.py
@@ -54,9 +54,7 @@ def get_transformed_cloud_data_from_center(
     if plots_point_nparray.shape[0] == 0:
         return None
     else:
-        plots_point_nparray = transform_features_of_plot_cloud(
-            plots_point_nparray, args
-        )
+        plots_point_nparray = pre_transform(plots_point_nparray, args)
         return plots_point_nparray
 
 
@@ -64,14 +62,14 @@ def main():
     # Setup: save everything to the dataset_folder
     global args
     args.unlabeled_dataset_pkl_path = (
-        args.las_parcelles_folder_path[:-1] + "_pickled_unlabeled"
+        args.las_parcels_folder_path[:-1] + "_pickled_unlabeled"
     )
     create_dir(args.unlabeled_dataset_pkl_path)
 
     # Get the shapefile records and las filenames
     shp = shapefile.Reader(args.parcel_shapefile_path)
     shp_records = {rec.ID: rec for rec in shp.records()}
-    las_filenames = get_files_of_type_in_folder(args.las_parcelles_folder_path, ".las")
+    las_filenames = get_files_of_type_in_folder(args.las_parcels_folder_path, ".las")
     las_filenames = [
         l
         for l in las_filenames

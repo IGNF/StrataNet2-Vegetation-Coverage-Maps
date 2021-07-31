@@ -58,7 +58,6 @@ def cloud_loader_from_pickle(pseudoplot_ID, dataset, args, return_X_y_only=False
     if return_X_y_only:
         return cloud_data, coverages
     else:
-        # TODO: Coverages may not be needed here in predict mode.
         return cloud_data, plot_center, pseudoplot_ID, coverages
 
 
@@ -67,8 +66,6 @@ def rescale_cloud_data(cloud_data, cloud_center, args):
     Normalize data by reducing scale, to feed te neural net.
     :param cloud_data: np.array of shape (9, N)
     """
-    # normalizing data
-    # Z data was already partially normalized during loading
     input_feats = args.input_feats
 
     if cloud_center is None:
@@ -95,12 +92,6 @@ def rescale_cloud_data(cloud_data, cloud_center, args):
     for feature in ["return_num", "num_returns"]:
         idx = input_feats.index(feature)
         cloud_data[idx] = (cloud_data[idx] - 1) / (7 - 1)
-
-    # idx = input_feats.index("scan_angle")
-    # cloud_data[idx] = (
-    #     cloud_data[idx]
-    # ) / 30.0  # angles in degrees    idx = input_feats.index("scan_angle")
-    # cloud_data[idx] = (cloud_data[idx]) / 30.0  # angles in degrees
 
     return cloud_data
 
@@ -159,18 +150,3 @@ def augment(cloud_data):
     )
 
     return cloud_data
-
-
-# def cloud_collate(batch):
-#     """Collates a list of dataset samples into a batch list for clouds
-#     and a single array for labels
-#     This function is necessary to implement because the clouds have different sizes (unlike for images)
-#     """
-#     clouds, labels = list(zip(*batch))
-#     labels = torch.cat(labels, 0)
-#     return clouds, labels
-
-
-def cloud_loader_from_parcel(parcel_points_nparray, disk_center):
-
-    pass

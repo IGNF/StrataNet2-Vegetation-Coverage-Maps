@@ -26,7 +26,7 @@ from utils.utils import (
 )
 from utils.load_data import (
     load_and_clean_single_las,
-    transform_features_of_plot_cloud,
+    pre_transform,
 )
 from data_loader.loader import rescale_cloud_data
 
@@ -38,18 +38,18 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def infer_and_project_on_rasters(current_cloud, pred_pointwise, args):
+def infer_and_project_on_rasters(cloud, coverages_pointwise, args):
     """
     We do raster reprojection, but we do not use torch scatter as we have to associate each value to a pixel
-    current_cloud: (2, N) 2D tensor
-     image_low_veg, image_med_veg, image_high_veg
+    cloud: (2, N) 2D tensor
+    Returns rasters [3, 20m, 20m]
     """
 
     # we get unique pixel coordinate to serve as group for raster prediction
     # Values are between 0 and args.diam_pix-1, sometimes (extremely rare) at args.diam_pix wich we correct
 
     scaling_factor = 10 * (args.diam_pix / args.diam_meters)  # * pix/normalized_unit
-    xy = current_cloud[:2, :]
+    xy = cloud[:2, :]
     xy = (
         torch.floor(
             (xy + 0.0001) * scaling_factor
@@ -65,52 +65,45 @@ def infer_and_project_on_rasters(current_cloud, pred_pointwise, args):
     # we get the values for each unique pixel and write them to rasters
     image_low_veg = np.full((args.diam_pix, args.diam_pix), np.nan)
     image_med_veg = np.full((args.diam_pix, args.diam_pix), np.nan)
-    if args.nb_stratum == 3:
-        image_high_veg = np.full((args.diam_pix, args.diam_pix), np.nan)
-    else:
-        image_high_veg = None
+    image_high_veg = np.full((args.diam_pix, args.diam_pix), np.nan)
+
     for i in np.unique(inverse):
         where = np.where(inverse == i)[0]
         k, m = xy.T[where][0]
         maxpool = nn.MaxPool1d(len(where))
         max_pool_val = (
-            maxpool(pred_pointwise[:, where].unsqueeze(0))
+            maxpool(coverages_pointwise[:, where].unsqueeze(0))
             .cpu()
             .detach()
             .numpy()
             .flatten()
         )
-        sum_val = pred_pointwise[:, where].sum(axis=1)
+        sum_val = coverages_pointwise[:, where].sum(axis=1)
 
-        if args.norm_ground:  # we normalize ground level coverage values
-            proba_low_veg = sum_val[0] / (sum_val[:2].sum())
-        else:  # we do not normalize anything, as bare soil coverage does not participate in absolute loss
-            proba_low_veg = max_pool_val[0]
-        image_low_veg[m, k] = proba_low_veg
-
+        proba_low_veg = max_pool_val[0]
         proba_med_veg = max_pool_val[2]
-        image_med_veg[m, k] = proba_med_veg
+        proba_high_veg = max_pool_val[3]
 
-        if args.nb_stratum == 3:
-            proba_high_veg = max_pool_val[3]
-            image_high_veg[m, k] = proba_high_veg
+        image_low_veg[m, k] = proba_low_veg
+        image_med_veg[m, k] = proba_med_veg
+        image_high_veg[m, k] = proba_high_veg
 
     # We flip along y axis as the 1st raster row starts with 0
     image_low_veg = np.flip(image_low_veg, axis=0)
     image_med_veg = np.flip(image_med_veg, axis=0)
-    if args.nb_stratum == 3:
-        image_high_veg = np.flip(image_high_veg, axis=0)
-    return image_low_veg, image_med_veg, image_high_veg
+    image_high_veg = np.flip(image_high_veg, axis=0)
+
+    rasters = np.concatenate(([image_low_veg], [image_med_veg], [image_high_veg]), 0)
+    return rasters
 
 
-def stack_the_rasters_and_get_their_geotransformation(
-    plot_center_xy, args, image_low_veg, image_med_veg, image_high_veg
-):
-    """ """
-    # geotransform reference : https://gdal.org/user/raster_data_model.html
-    # top_left_x, pix_width_in_meters, _, top_left_y, pix_heighgt_in_meters (neg for north up picture)
+def get_geotransform(plot_center_xy, args):
+    """Get geotransform from plot center and plot dims.
+    Structure: top_left_x, pix_width_in_meters, _, top_left_y, pix_heighgt_in_meters (neg for north up picture)
+    Geotransform reference : https://gdal.org/user/raster_data_model.html
+    """
 
-    geo = [
+    return [
         plot_center_xy[0] - args.diam_meters // 2,  # xmin
         args.diam_meters / args.diam_pix,
         0,
@@ -119,14 +112,6 @@ def stack_the_rasters_and_get_their_geotransformation(
         -args.diam_meters / args.diam_pix,
         # negative b/c in geographic raster coordinates (0,0) is at top left
     ]
-
-    if args.nb_stratum == 2:
-        img_to_write = np.concatenate(([image_low_veg], [image_med_veg]), 0)
-    else:
-        img_to_write = np.concatenate(
-            ([image_low_veg], [image_med_veg], [image_high_veg]), 0
-        )
-    return img_to_write, geo
 
 
 def divide_parcel_las_and_get_disk_centers(
@@ -332,7 +317,6 @@ def save_image_of_parcel_division_into_plots(
         alpha=0.6,
         linestyle="-",
     )
-    # fig.show()
 
     cutting_plot_save_folder_path = os.path.join(args.stats_path, f"img/cuttings/")
     create_dir(cutting_plot_save_folder_path)
@@ -364,7 +348,7 @@ def get_and_prepare_cloud_around_center(parcel_points_nparray, plot_center, args
         return None
 
     # TODO: for clarity: make operations on the same axes instead of transposing inbetween
-    plots_point_nparray = transform_features_of_plot_cloud(plots_point_nparray, args)
+    plots_point_nparray = pre_transform(plots_point_nparray, args)
     plots_point_nparray = plots_point_nparray.transpose()
     plots_point_nparray = rescale_cloud_data(plots_point_nparray, plot_center, args)
 
@@ -446,11 +430,11 @@ def make_parcel_predictions_csv(parcel_shapefile_path, stats_path):
     return df_inference, csv_path
 
 
-def get_list_las_files_not_infered_yet(stats_path, las_parcelles_folder_path):
+def get_list_las_files_not_infered_yet(stats_path, las_parcels_folder_path):
     """
     List paths of las parcel files which for which we do not have a global prediction raster yet.
     """
-    las_filenames = get_files_of_type_in_folder(las_parcelles_folder_path, ".las")
+    las_filenames = get_files_of_type_in_folder(las_parcels_folder_path, ".las")
     las_filenames = [
         l
         for l in las_filenames

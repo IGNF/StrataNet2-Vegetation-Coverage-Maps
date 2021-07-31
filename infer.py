@@ -25,7 +25,6 @@ from utils.utils import (
     get_trained_model_path_from_experiment,
     create_a_logger,
 )
-from model.point_cloud_classifier import PointCloudClassifier
 from inference.infer_utils import (
     divide_parcel_las_and_get_disk_centers,
     get_list_las_files_not_infered_yet,
@@ -36,10 +35,11 @@ from inference.infer_utils import (
 )
 from utils.load_data import (
     load_and_clean_single_las,
-    transform_features_of_plot_cloud,
+    pre_transform,
 )
 from data_loader.loader import sample_cloud, rescale_cloud_data
 from inference.geotiff_raster import create_geotiff_raster, merge_geotiff_rasters
+from model.point_net import PointNet
 
 
 def main():
@@ -56,9 +56,10 @@ def main():
     trained_model_path = get_trained_model_path_from_experiment(
         args.path, args.inference_model_id, use_full_model=False
     )
-    model = torch.load(trained_model_path)
+    model = PointNet(args.MLP_1, args.MLP_2, args.MLP_3, args)
+    model.load_state(trained_model_path)
     model.eval()
-    PCC = PointCloudClassifier(args)
+
     print_stats(
         args.stats_file,
         f"Trained model loaded from {trained_model_path}",
@@ -69,7 +70,7 @@ def main():
     shp = shapefile.Reader(args.parcel_shapefile_path)
     shp_records = {rec.ID: rec for rec in shp.records()}
     las_filenames = get_list_las_files_not_infered_yet(
-        args.stats_path, args.las_parcelles_folder_path
+        args.stats_path, args.las_parcels_folder_path
     )
     logger.info(f"N={len(las_filenames)} parcels to infer on.")
 
@@ -116,17 +117,11 @@ def main():
                 leave=True,
             )
         ):
-            # plot_points_tensor = get_and_prepare_cloud_around_center(
-            #     parcel_points_nparray, plot_center, args
-            # )
-            # TODO: correct order of operations here.
 
             plots_point_nparray = extract_points_within_disk(
                 parcel_points_nparray, plot_center
             )
-            plots_point_nparray = transform_features_of_plot_cloud(
-                plots_point_nparray, args
-            )
+            plots_point_nparray = pre_transform(plots_point_nparray, args)
             plots_point_nparray = plots_point_nparray.transpose()
             plots_point_nparray = rescale_cloud_data(plots_point_nparray, None, args)
             plots_point_nparray = sample_cloud(plots_point_nparray, args.subsample_size)
@@ -135,15 +130,12 @@ def main():
             plot_points_tensor = torch.from_numpy(plots_point_nparray)
             if plot_points_tensor is not None and plot_points_tensor.shape[-1] > 500:
                 with torch.no_grad():
-                    pred_pointwise, _ = PCC.run(model, plot_points_tensor)
+                    coverages_pointwise, _ = model(plot_points_tensor)
+
                     create_geotiff_raster(
                         args,
-                        pred_pointwise.permute(
-                            1, 0
-                        ),  # pred_pointwise was permuted from (N_scores, N_points) to (N_points, N_scores) at the end of PCC.run
-                        plot_points_tensor[
-                            0, :, :
-                        ],  # (N_feats, N_points) cloud 2D tensor
+                        coverages_pointwise[0],
+                        plot_points_tensor[0],  # (N_feats, N_points) cloud 2D tensor
                         plot_center,
                         parcel_ID,
                     )

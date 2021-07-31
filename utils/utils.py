@@ -67,20 +67,13 @@ def get_args_from_prev_config(args, experiment_id):
         "diam_meters",
         "diam_pix",
         "m",
-        "norm_ground",
-        "ent",
         "e",
-        "adm",
-        "nb_stratum",
-        "ECM_ite_max",
-        "NR_ite_max",
         "znorm_radius_in_meters",
         "z_max",
         "MLP_1",
         "MLP_2",
         "MLP_3",
         "drop",
-        "soft",
         "folds",
         "wd",
         "lr",
@@ -127,8 +120,6 @@ def print_stats(stats_file, text, print_to_console=True):
 
 
 # Path and lookup helper functions
-
-
 def create_dir(dir_name):
     """Create a new folder if does not exists"""
     if not os.path.exists(dir_name):
@@ -137,18 +128,14 @@ def create_dir(dir_name):
 
 def create_new_experiment_folder(args, task="learning", resume_last_job=False):
 
-    # We write results to different folders depending on the chosen parameters
     results_path = os.path.join(args.path, f"experiments/")
-
     results_path = os.path.join(results_path, f"{task}/{args.mode}")
     args.results_path = results_path
 
     if resume_last_job:
-        # Use last job
         prev_jobs = os.listdir(results_path)
         run_name = sorted(prev_jobs)[-1]
     else:
-        # Define a new job by date and time
         start_time = time.time()
         logger.info(time.strftime("%H:%M:%S", time.gmtime(start_time)))
         run_name = str(time.strftime("%Y-%m-%d_%Hh%Mm%Ss"))
@@ -204,7 +191,7 @@ def get_trained_model_path_from_experiment(path, experiment_id, use_full_model=T
     if use_full_model:
         model_path = [m for m in models if "full" in m][0]
     else:
-        model_path = [m for m in models if "fold_1" in m][0]
+        model_path = [m for m in models if "fold_n=1" in m][0]
     return model_path
 
 

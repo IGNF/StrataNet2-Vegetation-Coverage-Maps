@@ -30,23 +30,19 @@ from utils.utils import (
     create_a_logger,
     create_dir,
 )
-from model.point_cloud_classifier import PointCloudClassifier
-from model.reproject_to_2d_and_predict_plot_coverage import project_to_2d
+from model.project_to_2d import project_to_2d
 from inference.infer_utils import (
     divide_parcel_las_and_get_disk_centers,
     get_list_las_files_not_infered_yet,
     log_inference_times,
     make_parcel_predictions_csv,
-    get_and_prepare_cloud_around_center,
     extract_points_within_disk,
 )
 from utils.load_data import (
     load_and_clean_single_las,
-    transform_features_of_plot_cloud,
+    pre_transform,
 )
 from data_loader.loader import cloud_loader_from_pickle
-
-# from inference.geotiff_raster import create_geotiff_raster, merge_geotiff_rasters
 
 
 @torch.no_grad()
@@ -63,14 +59,13 @@ def main():
     )
     model = torch.load(args.trained_model_path)
     model.eval()
-    PCC = PointCloudClassifier(args)
 
     # DATA
     args.unlabeled_dataset_pkl_path = (
-        args.las_parcelles_folder_path[:-1] + "_pickled_unlabeled"
+        args.las_parcels_folder_path[:-1] + "_pickled_unlabeled"
     )
     args.labeled_dataset_pkl_path = (
-        args.las_parcelles_folder_path[:-1] + "_pickled_labeled"
+        args.las_parcels_folder_path[:-1] + "_pickled_labeled"
     )
     create_dir(args.labeled_dataset_pkl_path)
 
@@ -122,12 +117,9 @@ def main():
         ) in enumerate(
             tqdm(dataloader, desc=f"Inference on {parcel_ID}", total=len(dataloader))
         ):
-            pred_pointwise, pred_pointwise_b = PCC.run(model, clouds_batch)
+            coverages_pointwise, proba_pointwise = model(clouds_batch)
 
-            # if infer_task == "selftrain":
-            pred_pl, _, _ = project_to_2d(
-                pred_pointwise, clouds_batch, pred_pointwise_b, PCC, args
-            )
+            pred_pl, _ = project_to_2d(coverages_pointwise, clouds_batch, args)
             for pp_ID, pred in zip(pseudoplot_ID_batch, pred_pl.cpu().detach().numpy()):
                 p_data[pp_ID].update({"coverages": pred})
 

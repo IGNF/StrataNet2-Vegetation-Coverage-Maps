@@ -19,7 +19,7 @@ from shapely.geometry.point import Point
 
 from inference.infer_utils import (
     infer_and_project_on_rasters,
-    stack_the_rasters_and_get_their_geotransformation,
+    get_geotransform,
 )
 
 from utils.utils import create_dir
@@ -29,30 +29,24 @@ np.random.seed(42)
 
 def create_geotiff_raster(
     args,
-    pred_pointwise,
+    coverages_pointwise,
     plot_points_tensor,  # (N_feats, N_points) cloud 2D tensor
     plot_center,
     plot_name,
 ):
     """ """
     # we do raster reprojection, but we do not use torch scatter as we have to associate each value to a pixel
-    image_low_veg, image_med_veg, image_high_veg = infer_and_project_on_rasters(
-        plot_points_tensor, pred_pointwise, args
+    rasters = infer_and_project_on_rasters(
+        plot_points_tensor, coverages_pointwise, args
     )
+    rasters = add_weights_band_to_rasters(rasters, args)
 
     # We normalize back x,y values to get the geotransform that position the raster on a map
-    img_to_write, geo = stack_the_rasters_and_get_their_geotransformation(
+    geo = get_geotransform(
         plot_center,
         args,
-        image_low_veg,
-        image_med_veg,
-        image_high_veg,
     )
 
-    # add the weights band for each band
-    img_to_write = add_weights_band_to_rasters(img_to_write, args)
-
-    # define save paths
     tiff_folder_path = os.path.join(
         args.stats_path,
         f"img/rasters/{plot_name}/",
@@ -63,14 +57,14 @@ def create_geotiff_raster(
         f"predictions_{plot_name}_X{plot_center[0]:.0f}_Y{plot_center[1]:.0f}.tif",
     )
 
-    nb_channels = len(img_to_write)
+    nb_channels = len(rasters)
     save_rasters_to_geotiff_file(
         nb_channels=nb_channels,
         new_tiff_name=tiff_file_path,
         width=args.diam_pix,
         height=args.diam_pix,
         datatype=gdal.GDT_Float32,
-        data_array=img_to_write,
+        data_array=rasters,
         geotransformation=geo,
     )
 
