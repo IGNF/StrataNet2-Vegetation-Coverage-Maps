@@ -225,7 +225,7 @@ def visualize(
 
     create_dir(args.plot_path)
     save_path = args.plot_path + pl_id + ".png"
-    plt.savefig(save_path, format="png", bbox_inches="tight", dpi=50)
+    plt.savefig(save_path, format="png", bbox_inches="tight", dpi=150)
     plt.clf()
     plt.close("all")
     return save_path

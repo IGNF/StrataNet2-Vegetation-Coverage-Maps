@@ -90,7 +90,7 @@ def cross_validate():
         all_folds_loss_test_dicts.append(all_epochs_test_loss_dict)
         cloud_info_list_by_fold[args.current_fold_id] = cloud_info_list
 
-        if args.mode == "DEV" and args.current_fold_id >= 3:
+        if args.mode == "DEV" and args.current_fold_id >= 1:
             break
 
     # UPDATE LOGS

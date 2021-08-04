@@ -67,6 +67,8 @@ parser.add_argument('--diam_pix', default=20, type=int, help="Size of the output
 parser.add_argument('--m', default=0.10, type=float, help="Loss regularization. The weight of the negative loglikelihood loss in the total loss")
 parser.add_argument('--e', default=0.2 / 5, type=float, help="Loss regularization for entropy of pointwise scores of coverage. The weight of the entropy loss in the total loss.")
 parser.add_argument('--znorm_radius_in_meters', default=1.5, type=float, help='Radius for KNN normalization of altitude.')
+parser.add_argument('--occlusion_radius_in_meters', default=0.05, type=float, help='Radius of effect around a point to occlude points below.')
+parser.add_argument('--depth_for_occlusion_in_meters', default=0.1, type=float, help='Depth below which occlusion occurs')
 parser.add_argument('--z_max', default=24.24, type=float, help="Max (normalized) altitude of points in plots, based on labeled plots.")
 
 # Network Parameters
