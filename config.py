@@ -1,6 +1,5 @@
 from argparse import ArgumentParser
 import os
-from utils.utils import get_args_from_prev_config
 
 parser = ArgumentParser(description="mode")
 parser.add_argument(
@@ -24,9 +23,10 @@ parser.add_argument('--data_path', default=data_path, type=str, help="Path to /r
 
 # Data
 parser.add_argument('--las_plots_folder_path', default=os.path.join(data_path, "placettes_dataset/las_classes/"), type=str, help="Path to folder with plot las files.")
+parser.add_argument('--plots_pickled_dataset_path', default=os.path.join(data_path, "placettes_dataset/plots_dataset.pkl"), type=str, help="Path to folder with plot las files.")
 parser.add_argument('--gt_file_path', default=os.path.join(data_path, "placettes_dataset/placettes_metadata.csv"), type=str, help="Path to ground truth file. Put in dataset folder.")
 parser.add_argument('--las_parcels_folder_path', default=os.path.join(data_path, "SubsetParcelle_v0/"), type=str, help="Path to folder with parcels las files (ends with a /).")
-parser.add_argument('--parcel_shapefile_path', default=os.path.join(data_path, "SubsetParcelle_v0/Parcelle_jeutest_v0.shp"), type=str, help="Path to shapefile of parcels.")
+parser.add_argument('--parcel_shapefile_path', default=os.path.join(data_path, "SubsetParcelle_v0/input/Parcelle_jeutest_v0.shp"), type=str, help="Path to shapefile of parcels.")
 
 # Experiment parameters
 PLOT_NAME_TO_VISUALIZE_DURING_TRAINING = {"Releve_Lidar_F68", # Vm = 100% -> Vm vs Vb distinction
@@ -41,17 +41,10 @@ parser.add_argument('--offline_experiment', default=False,  action="store_true",
 parser.add_argument("--full_model_training", default=False,  action="store_true", help="Use to do a full training after cross-validation")
 parser.add_argument('--disabled', default=False, action="store_true", help="Wether we disable Comet for this run.")
 
-# SSL
-parser.add_argument("--use_PT_model", default=False,  action="store_true", help="Set to True to load finetune model PT_model_id in main.py.")
-parser.add_argument('--PT_model_id', default="2021-07-21_13h23m57s", type=str, help="Identifier of experiment to load saved model traine on pseudo-labels (e.g. yyyy-mm-dd_XhXmXs).")
+# Prediction mode
+parser.add_argument('--PT_model_id', default="", type=str, help="Identifier of experiment to load saved model traine on pseudo-labels (e.g. yyyy-mm-dd_XhXmXs).")
+parser.add_argument('--inference_model_id', default="", type=str, help="Identifier of experiment to load saved model with torch.load (e.g. yyyy-mm-dd_XhXmXs).")
 
-# Inference parameters
-parser.add_argument("--use_prev_config", default=None, type=str, help="Identifier of a previous run from which to copy parameters from (e.g. yyyy-mm-dd_XhXmXs).")
-parser.add_argument('--inference_model_id', default="2021-07-16_14h13m48s", type=str, help="Identifier of experiment to load saved model with torch.load (e.g. yyyy-mm-dd_XhXmXs).")
-parser.add_argument('--resume_last_job', default=False,  action="store_true", help="Use (1) or do not use (0) the folder of the last experiment.")
-
-
-# Herafter are the args that are reused when use_prev_config is set to a previous experiment id.
 # Model Parameters 
 parser.add_argument('--n_class', default=4, type=int,
                     help="Size of the model output vector. In our case 4 - different vegetation coverage types")
@@ -87,11 +80,19 @@ parser.add_argument('--folds', default=5, type=int, help="Number of folds for cr
 parser.add_argument('--wd', default=0.001, type=float, help="Weight decay for the optimizer")
 parser.add_argument('--batch_size', default=20, type=int, help="Size of the training batch")
 
+# Training parameters
+parser.add_argument('--n_epoch', default=200 if not mode=="DEV" else 2, type=int, help="Number of training epochs")
+parser.add_argument('--n_epoch_test', default=5 if not mode=="DEV" else 1, type=int, help="We evaluate every -th epoch, and every epoch after epoch_to_start_early_stop")
+parser.add_argument('--epoch_to_start_early_stop', default=45 if not mode=="DEV" else 1, type=int, help="Epoch from which to start early stopping process, after ups and down of training.")
+parser.add_argument('--patience_in_epochs', default=30 if not mode=="DEV" else 1, type=int, help="Epoch to wait for improvement of MAE_loss before early stopping. Set to np.inf to disable ES.")
+parser.add_argument('--lr', default=1e-3, type=float, help="Learning rate")
+parser.add_argument('--step_size', default=1, type=int,
+                    help="After this number of steps we decrease learning rate. (Period of learning rate decay)")
+parser.add_argument('--lr_decay', default=0.985, type=float,
+                    help="We multiply learning rate by this value after certain number of steps (see --step_size). (Multiplicative factor of learning rate decay)")
+
 # fmt: on
 args, _ = parser.parse_known_args()
 args.n_input_feats = len(args.input_feats)
-print(args.disabled)
-if args.use_prev_config is not None:
-    args = get_args_from_prev_config(args, args.use_prev_config)
 
-print(f"Arguments imported in {mode} mode.")
+print(f"MODE: {mode}")

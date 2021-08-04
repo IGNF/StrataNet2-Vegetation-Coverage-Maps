@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 from matplotlib import colors
 import matplotlib.gridspec as gridspec
 
-from inference.infer_utils import (
+from model.project_to_2d import project_to_2d_rasters
+from inference.geotiff_raster import (
     get_geotransform,
-    infer_and_project_on_rasters,
 )
 from utils.utils import create_dir
 from inference.geotiff_raster import save_rasters_to_geotiff_file
@@ -24,21 +24,17 @@ def create_predictions_interpretations(
     pred_pl,
     gt,
     coverages_pointwise,
-    clouds,
+    current_cloud,
     likelihood_norm,
     plot_name,
-    xy_centers_dict,
+    plot_center,
     args,
 ):
     """
     We do final data reprojection to the 2D space by associating the points to the pixels.
     """
 
-    pred_pointwise = coverages_pointwise[0]
-    current_cloud = clouds[0]
-    plot_center = xy_centers_dict[plot_name]
-
-    rasters = infer_and_project_on_rasters(current_cloud, pred_pointwise, args)
+    rasters = project_to_2d_rasters(current_cloud, coverages_pointwise, args)
 
     text_pred_vs_gt, preds_nparray, gt_nparray = get_pred_summary_text(pred_pl, gt)
 
@@ -49,7 +45,7 @@ def create_predictions_interpretations(
     png_path = visualize(
         rasters,
         current_cloud,
-        pred_pointwise,
+        coverages_pointwise,
         plot_name,
         args,
         text_pred_vs_gt=text_pred_vs_gt,
@@ -68,11 +64,9 @@ def create_predictions_interpretations(
             args,
         )
         save_rasters_to_geotiff_file(
-            nb_channels=3,
-            new_tiff_name=args.plot_path + plot_name + ".tif",
+            output_path=args.plot_path + plot_name + ".tif",
             width=args.diam_pix,
             height=args.diam_pix,
-            datatype=gdal.GDT_Float32,
             data_array=rasters,
             geotransformation=geo,
         )
@@ -89,7 +83,7 @@ def visualize(
     text_pred_vs_gt=None,
     p_all_pdf_all=None,
     predictions=["Vb", "soil", "Vm", "Vh"],
-    gt=["Vb", "soil", "Vm", "Vh", "Adm"],
+    gt=["Vb", "soil", "Vm", "Vh"],
 ):
     (
         image_low_veg,

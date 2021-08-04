@@ -141,18 +141,22 @@ def calculate_performance_indicators_V1(df):
     df["error_all"] = df[["error_veg_b", "error_veg_moy", "error_veg_h"]].mean(axis=1)
 
     # Accuracy
-    df["acc_veg_b"] = df.apply(
-        lambda x: compute_accuracy(x.pred_veg_b, x.vt_veg_b), axis=1
-    )
-    df["acc_veg_moy"] = df.apply(
-        lambda x: compute_accuracy(x.pred_veg_moy, x.vt_veg_moy), axis=1
-    )
-    df["acc_veg_h"] = df.apply(
-        lambda x: compute_accuracy(x.pred_veg_h, x.vt_veg_h), axis=1
-    )
-    df["acc_veg_b_and_moy"] = df[["acc_veg_b", "acc_veg_moy"]].mean(axis=1)
-    df["acc_all"] = df[["acc_veg_b", "acc_veg_moy"]].mean(axis=1)
-
+    try:
+        df["acc_veg_b"] = df.apply(
+            lambda x: compute_accuracy(x.pred_veg_b, x.vt_veg_b), axis=1
+        )
+        df["acc_veg_moy"] = df.apply(
+            lambda x: compute_accuracy(x.pred_veg_moy, x.vt_veg_moy), axis=1
+        )
+        df["acc_veg_h"] = df.apply(
+            lambda x: compute_accuracy(x.pred_veg_h, x.vt_veg_h), axis=1
+        )
+        df["acc_veg_b_and_moy"] = df[["acc_veg_b", "acc_veg_moy"]].mean(axis=1)
+        df["acc_all"] = df[["acc_veg_b", "acc_veg_moy"]].mean(axis=1)
+    except KeyError:
+        logger.info(
+            "Cannot calculate class-based performance indicators due to continuous ground truths."
+        )
     return df
 
 
@@ -311,7 +315,6 @@ def stats_for_all_folds(all_folds_loss_train_lists, all_folds_loss_test_lists, a
 def log_last_stats_of_fold(
     all_epochs_train_loss_dict,
     all_epochs_test_loss_dict,
-    fold_id,
     args,
 ):
     last_dict_train = max(all_epochs_train_loss_dict, key=lambda x: x["epoch"])
@@ -321,7 +324,7 @@ def log_last_stats_of_fold(
     logging.info(
         "Fold %3d Train Loss: %1.2f Train Loss Abs (MAE): %1.2f Train Loss Log: %1.2f"
         % (
-            fold_id,
+            args.current_fold_id,
             total_loss,
             MAE_loss,
             log_loss,
@@ -336,14 +339,12 @@ def log_last_stats_of_fold(
     logging.info(
         "Fold %3d Test Loss: %1.2f Test Loss Abs (MAE): %1.2f Test Loss Log: %1.2f"
         % (
-            fold_id,
+            args.current_fold_id,
             total_loss,
             MAE_loss,
             log_loss,
         ),
     )
-
-    return last_dict_train, last_dict_test
 
 
 def print_epoch_losses(i_epoch, epoch_loss_dict, train):
@@ -386,9 +387,15 @@ def post_cross_validation_logging(
         for p in infos
     ]
     df_inference = pd.DataFrame(cloud_info_list_all_folds)
-    df_inference = calculate_performance_indicators_V1(df_inference)
-    df_inference = calculate_performance_indicators_V2(df_inference)
-    df_inference = calculate_performance_indicators_V3(df_inference)
+    try:
+        df_inference = calculate_performance_indicators_V1(df_inference)
+        df_inference = calculate_performance_indicators_V2(df_inference)
+        df_inference = calculate_performance_indicators_V3(df_inference)
+    except KeyError:
+        logger.info(
+            "Cannot calculate class-based performance indicators due to continuous ground truths."
+        )
+
     inference_path = os.path.join(args.stats_path, "PCC_inference_all_placettes.csv")
     df_inference.to_csv(inference_path, index=False)
 

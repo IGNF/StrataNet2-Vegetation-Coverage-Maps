@@ -13,7 +13,7 @@ import shapefile
 import numpy as np
 import torch
 import torchnet as tnt
-from codetiming import Timer
+from argparse import ArgumentParser
 
 warnings.simplefilter(action="ignore")
 np.random.seed(42)
@@ -22,111 +22,111 @@ torch.cuda.empty_cache()
 # Local imports
 from config import args
 from utils.utils import (
-    create_new_experiment_folder,
-    get_args_from_prev_config,
-    get_filename_no_extension,
-    print_stats,
-    get_trained_model_path_from_experiment,
     create_a_logger,
+    setup_experiment_folder,
+    get_filename_no_extension,
     create_dir,
+    get_unprocessed_files,
+    update_namespace_with_another_namespace,
 )
-from model.project_to_2d import project_to_2d
-from inference.infer_utils import (
-    divide_parcel_las_and_get_disk_centers,
-    get_list_las_files_not_infered_yet,
-    log_inference_times,
+from learning.train import find_pretrained_model, initialize_model
+from inference.predict_utils import (
+    create_geotiff_raster,
+    load_dataset,
+    create_dataloader,
+    filter_dataset,
     make_parcel_predictions_csv,
-    extract_points_within_disk,
+    define_plot_geotiff_output_path,
 )
-from utils.load_data import (
-    load_and_clean_single_las,
-    pre_transform,
+from inference.geotiff_raster import merge_geotiff_rasters
+from model.project_to_2d import project_to_plotwise_coverages
+
+parser = ArgumentParser(description="predict")
+parser.add_argument(
+    "--task",
+    default="inference",
+    choices=["inference", "pseudo_labelling"],
+    help="Weither to predict parcel-level rasters of coverages or to predict pseudo-labels into a new dataset for pretraining.",
 )
-from data_loader.loader import cloud_loader_from_pickle
+
+args_local, _ = parser.parse_known_args()
+args = update_namespace_with_another_namespace(args, args_local)
 
 
-@torch.no_grad()
-def main():
-    # SETUP
-    create_new_experiment_folder(
-        args, task="inference", resume_last_job=args.resume_last_job
-    )
-    logger = create_a_logger(args)
+# SETUP
+setup_experiment_folder(args, task=args.task)
+is_pseudo_labelling = args.task == "pseudo_labelling"
+logger = create_a_logger(args)
 
-    # MODEL
-    args.trained_model_path = get_trained_model_path_from_experiment(
-        args.path, args.inference_model_id, use_full_model=False
-    )
-    model = torch.load(args.trained_model_path)
-    model.eval()
+# MODEL
+torch.set_grad_enabled(False)
+model_path, model_id = find_pretrained_model(args)
+model = initialize_model(args, model_path)
+model.eval()
 
-    # DATA
-    args.unlabeled_dataset_pkl_path = (
-        args.las_parcels_folder_path[:-1] + "_pickled_unlabeled"
-    )
-    args.labeled_dataset_pkl_path = (
-        args.las_parcels_folder_path[:-1] + "_pickled_labeled"
-    )
-    create_dir(args.labeled_dataset_pkl_path)
+# DATA
+input_folder = os.path.join(args.las_parcels_folder_path, "prepared")
+output_folder = os.path.join(
+    args.las_parcels_folder_path, os.path.join(args.task, model_id)
+)
+create_dir(output_folder)
 
-    while True:
 
-        unlabeled = glob.glob(os.path.join(args.unlabeled_dataset_pkl_path, "*"))
-        labeled = glob.glob(os.path.join(args.labeled_dataset_pkl_path, "*"))
-        unlabeled = [
-            p
-            for p in unlabeled
-            if not any(
-                get_filename_no_extension(p) in p_labeled for p_labeled in labeled
+while True:
+
+    unprocessed = get_unprocessed_files(input_folder, output_folder)
+    if not unprocessed:
+        logging.info(f"No more prepared parcel to predict on in {input_folder}")
+        break
+    filename = unprocessed.pop(0)
+    parcel_id = get_filename_no_extension(filename)
+
+    dataset = load_dataset(filename)
+    dataset = filter_dataset(dataset, is_pseudo_labelling)
+    dataloader = create_dataloader(dataset, args)
+
+    for cloud_data in tqdm(
+        dataloader, desc=f"Inference on {parcel_id}", total=len(dataloader)
+    ):
+        clouds = cloud_data["cloud"]
+        plot_ids = cloud_data["plot_id"]
+        plot_centers = cloud_data["plot_center"]
+        coverages_pointwise, _ = model(clouds)
+
+        if is_pseudo_labelling:
+            pred_coverages = project_to_plotwise_coverages(
+                coverages_pointwise, clouds, args
             )
-        ]
-        if not unlabeled:
-            break
+
+            pred_coverages = pred_coverages.cpu().detach().numpy()
+            for plot_name, pred in zip(plot_ids, pred_coverages):
+                dataset[plot_name].update({"coverages": pred.squeeze()})
         else:
-            p = unlabeled[0]
-            parcel_ID = get_filename_no_extension(p)
+            for idx, plot_id in enumerate(plot_ids):
+                plot_center = plot_centers[idx]
+                output_path = define_plot_geotiff_output_path(
+                    output_folder, parcel_id, plot_id, plot_center
+                )
+                create_geotiff_raster(
+                    coverages_pointwise[idx],
+                    clouds[idx],
+                    plot_center,
+                    output_path,
+                    args,
+                )
 
-        with open(p, "rb") as pfile:
-            p_data = pickle.load(pfile)
-            # for pseudolabeling, use only complete clouds
-            p_data = {
-                id: info
-                for id, info in p_data.items()
-                if info["N_points_in_cloud"] > 2000
-            }
+    if is_pseudo_labelling:
+        output_path = os.path.join(output_folder, parcel_id + ".pkl")
+        with open(output_path, "wb") as pfile:
+            pickle.dump(dataset, pfile)
+    else:
+        intermediate_tiffs_folder = os.path.dirname(output_path)
+        final_tiff_path = os.path.join(output_folder, f"{parcel_id}.tif")
+        message = merge_geotiff_rasters(final_tiff_path, intermediate_tiffs_folder)
+        logging.info(message)
 
-        dataset = tnt.dataset.ListDataset(
-            [pp_id for pp_id in p_data.keys()],
-            functools.partial(
-                cloud_loader_from_pickle,
-                dataset=p_data,
-                args=args,
-            ),
-        )
-        dataloader = torch.utils.data.DataLoader(
-            dataset,
-            batch_size=args.batch_size,
-            shuffle=False,
-        )
+    if args.mode == "DEV":
+        break
 
-        for batch_id, (
-            clouds_batch,
-            centers_batch,
-            pseudoplot_ID_batch,
-            _,
-        ) in enumerate(
-            tqdm(dataloader, desc=f"Inference on {parcel_ID}", total=len(dataloader))
-        ):
-            coverages_pointwise, proba_pointwise = model(clouds_batch)
-
-            pred_pl, _ = project_to_2d(coverages_pointwise, clouds_batch, args)
-            for pp_ID, pred in zip(pseudoplot_ID_batch, pred_pl.cpu().detach().numpy()):
-                p_data[pp_ID].update({"coverages": pred})
-
-        output_pkl = p.replace("_pickled_unlabeled", "_pickled_labeled")
-        with open(output_pkl, "wb") as pfile:
-            pickle.dump(p_data, pfile)
-
-
-if __name__ == "__main__":
-    main()
+if not is_pseudo_labelling:
+    make_parcel_predictions_csv(args.parcel_shapefile_path, output_folder)

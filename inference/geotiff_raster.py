@@ -10,81 +10,64 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from osgeo import gdal, osr
 import rasterio
-from rasterio.merge import merge
 import rasterio.features
 from rasterio.transform import Affine
 from shapely import geometry
 import shapefile
 from shapely.geometry.point import Point
 
-from inference.infer_utils import (
-    infer_and_project_on_rasters,
-    get_geotransform,
-)
-
-from utils.utils import create_dir
+from model.project_to_2d import project_to_2d_rasters
+from utils.utils import create_dir, get_files_of_type_in_folder
 
 np.random.seed(42)
 
+FINAL_RASTER_BANDNAMES = [
+    "VegetationBasse",
+    "VegetationIntermediaire",
+    "VegetationHaute",
+    "VegetationIntermediaireDiscretisee",
+    "Admissibilite",
+    "PonderationPredictions",
+]
 
-def create_geotiff_raster(
-    args,
-    coverages_pointwise,
-    plot_points_tensor,  # (N_feats, N_points) cloud 2D tensor
-    plot_center,
-    plot_name,
-):
-    """ """
-    # we do raster reprojection, but we do not use torch scatter as we have to associate each value to a pixel
-    rasters = infer_and_project_on_rasters(
-        plot_points_tensor, coverages_pointwise, args
-    )
-    rasters = add_weights_band_to_rasters(rasters, args)
 
-    # We normalize back x,y values to get the geotransform that position the raster on a map
-    geo = get_geotransform(
-        plot_center,
-        args,
-    )
+def get_geotransform(plot_center_xy, args):
+    """
+    Get geotransform from plot center and plot dims.
+    Structure: top_left_x, pix_width_in_meters, _, top_left_y, pix_heighgt_in_meters (neg for north up picture)
+    Geotransform reference : https://gdal.org/user/raster_data_model.html
+    """
 
-    tiff_folder_path = os.path.join(
-        args.stats_path,
-        f"img/rasters/{plot_name}/",
-    )
-    create_dir(tiff_folder_path)
-    tiff_file_path = os.path.join(
-        tiff_folder_path,
-        f"predictions_{plot_name}_X{plot_center[0]:.0f}_Y{plot_center[1]:.0f}.tif",
-    )
-
-    nb_channels = len(rasters)
-    save_rasters_to_geotiff_file(
-        nb_channels=nb_channels,
-        new_tiff_name=tiff_file_path,
-        width=args.diam_pix,
-        height=args.diam_pix,
-        datatype=gdal.GDT_Float32,
-        data_array=rasters,
-        geotransformation=geo,
-    )
+    return [
+        plot_center_xy[0] - args.diam_meters // 2,  # xmin
+        args.diam_meters / args.diam_pix,
+        0,
+        plot_center_xy[1] + args.diam_meters // 2,  # ymax
+        0,
+        -args.diam_meters / args.diam_pix,
+        # negative b/c in geographic raster coordinates (0,0) is at top left
+    ]
 
 
 def save_rasters_to_geotiff_file(
-    nb_channels, new_tiff_name, width, height, datatype, data_array, geotransformation
+    output_path, width, height, data_array, geotransformation
 ):
     """
     Create a tiff file from stacked rasters (and their weights during inference)
     Note: for training plots, the xy localization may be approximative since the geotransformation has
     its corner at -10, -10 of the *mean point* of the cloud.
     """
-
     # We set Lambert 93 projection
+    nb_channels = len(data_array)
     srs = osr.SpatialReference()
     srs.ImportFromEPSG(2154)
     proj = srs.ExportToWkt()
-    # We create a datasource
+
     driver_tiff = gdal.GetDriverByName("GTiff")
-    dst_ds = driver_tiff.Create(new_tiff_name, width, height, nb_channels, datatype)
+    create_dir(os.path.dirname(output_path))
+    dst_ds = driver_tiff.Create(
+        output_path, width, height, nb_channels, gdal.GDT_Float32
+    )
     dst_ds.SetGeoTransform(geotransformation)
     dst_ds.SetProjection(proj)
     if nb_channels == 1:
@@ -203,58 +186,40 @@ def insert_admissibility_raster(src_mosaic):
     return mosaic
 
 
-def merge_geotiff_rasters(args, plot_name):
+def merge_geotiff_rasters(output_folder_path, intermediate_tiff_folder_path):
     """
     Create a weighted average form a folder of tif files with channels [C1, C2, ..., Cn, W1, W2, ..., Wn].
     Outputed tif has same nb of canals, with wreightd average from C1 to Cn and sum of weights on W1 to Wn.
     Returns a message to log.
     """
-    tiff_folder_path = os.path.join(
-        args.stats_path,
-        f"img/rasters/{plot_name}/",
-    )
-    dem_fps = glob.glob(os.path.join(tiff_folder_path, "*tif"))
-    src_files_to_mosaic = []
-    for fp in dem_fps:
-        src = rasterio.open(fp)
-        src_files_to_mosaic.append(src)
-    if src_files_to_mosaic:
-        mosaic, out_trans = merge(
-            src_files_to_mosaic, method=_weighted_average_of_rasters
-        )
-        # hard raster wera also averaged and need to be set to 0 or 1
-        mosaic = finalize_merged_raster(mosaic)
+    tiff_filenames = get_files_of_type_in_folder(intermediate_tiff_folder_path, ".tif")
+    src_files_to_mosaic = [rasterio.open(filename) for filename in tiff_filenames]
+    if len(src_files_to_mosaic) == 0:
+        return f"Nothing in {intermediate_tiff_folder_path}. Cannot merge."
 
-        # save
-        out_meta = src.meta.copy()
-        out_meta.update(
-            {
-                "driver": "GTiff",
-                "height": mosaic.shape[1],
-                "width": mosaic.shape[2],
-                "count": len(mosaic),
-                "transform": out_trans,
-                #         "crs": "+proj=utm +zone=35 +ellps=GRS80 +units=m +no_defs ",
-            }
-        )
-        out_fp = os.path.join(
-            tiff_folder_path, f"prediction_raster_parcel_{plot_name}.tif"
-        )
-        descriptions = [
-            "VegetationBasse",
-            "VegetationIntermediaire",
-            "VegetationHaute",
-            "VegetationIntermediaireDiscretisee",
-            "Admissibilite",
-            "PonderationPredictions",
-        ]
-        with rasterio.open(out_fp, "w", **out_meta) as dest:
-            dest.write(mosaic)
-            for idx in range(len(descriptions)):
-                dest.set_band_description(1 + idx, descriptions[idx])
-        return f"Saved merged raster prediction to {out_fp}"
-    else:
-        return f"No predictions for {plot_name}. Cannot merge."
+    mosaic, out_trans = rasterio.merge.merge(
+        src_files_to_mosaic, method=_weighted_average_of_rasters
+    )
+    mosaic = finalize_merged_raster(mosaic)
+
+    # save
+    out_meta = src_files_to_mosaic[0].meta.copy()
+    out_meta.update(
+        {
+            "driver": "GTiff",
+            "height": mosaic.shape[1],
+            "width": mosaic.shape[2],
+            "count": len(mosaic),
+            "transform": out_trans,
+        }
+    )
+
+    with rasterio.open(output_folder_path, "w", **out_meta) as dest:
+        dest.write(mosaic)
+        for idx in range(len(FINAL_RASTER_BANDNAMES)):
+            dest.set_band_description(1 + idx, FINAL_RASTER_BANDNAMES[idx])
+
+    return f"Saved merged raster prediction to {output_folder_path}"
 
 
 def finalize_merged_raster(mosaic):

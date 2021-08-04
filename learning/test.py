@@ -20,10 +20,7 @@ np.random.seed(42)
 def evaluate(
     model,
     test_set,
-    kde_mixture,
     args,
-    test_list,
-    xy_centers_dict,
     last_epoch=False,
 ):
     """Eval on test set and inference if this is the last epoch
@@ -47,19 +44,21 @@ def evaluate(
 
     cloud_prediction_summaries = []
     last_G_tensor_list = []
-    for index_cloud, (clouds, gt) in enumerate(loader):
-        plot_name = test_list[index_cloud]
+    for cloud_data in loader:
 
+        plot_center = cloud_data["plot_center"][0]
+        plot_name = cloud_data["plot_id"][0]
+        clouds = cloud_data["cloud"]
+        gt_coverages = cloud_data["coverages"]
         if args.cuda is not None:
-            gt = gt.cuda(args.cuda)
+            gt_coverages = gt_coverages.cuda(args.cuda)
+            clouds = clouds.cuda(args.cuda)
 
         coverages_pointwise, proba_pointwise = model(clouds)
-        pred_pl, pred_pixels = project_to_2d(coverages_pointwise, clouds, args)
+        pred_pl = project_to_plotwise_coverages(coverages_pointwise, clouds, args)
 
-        loss_abs = get_absolute_loss(pred_pl, gt)
-        loss_log, p_all_pdf_all = get_NLL_loss(
-            proba_pointwise, clouds, kde_mixture, args
-        )
+        loss_abs = get_absolute_loss(pred_pl, gt_coverages)
+        loss_log, p_all_pdf_all = get_NLL_loss(proba_pointwise, clouds, args)
 
         loss_e = get_entropy_loss(proba_pointwise)
         loss = loss_abs + args.m * loss_log + args.e * loss_e
@@ -69,7 +68,7 @@ def evaluate(
         loss_meter_log.add(loss_log.item())
         gc.collect()
 
-        component_losses = get_absolute_loss_by_strata(pred_pl, gt)
+        component_losses = get_absolute_loss_by_strata(pred_pl, gt_coverages)
         loss_abs_gl, loss_abs_ml, loss_abs_hl = component_losses
         loss_meter_abs_gl.add(loss_abs_gl.item())
         loss_meter_abs_hl.add(loss_abs_hl.item())
@@ -78,21 +77,21 @@ def evaluate(
         if last_epoch or plot_name in args.plot_name_to_visualize_during_training:
             png_path = create_predictions_interpretations(
                 pred_pl,
-                gt,
-                coverages_pointwise,
-                clouds,
+                gt_coverages,
+                coverages_pointwise[0],
+                clouds[0],
                 p_all_pdf_all,
                 plot_name,
-                xy_centers_dict,
+                plot_center,
                 args,
             )
 
         if last_epoch:
             # Keep and format prediction from pred_pl
             pred_pl_cpu = pred_pl.cpu().numpy()[0]
-            gt_cpu = gt.cpu().numpy()[0]
+            gt_coverages_cpu = gt_coverages.cpu().numpy()[0]
             cloud_prediction_summary = get_cloud_prediction_summary(
-                plot_name, pred_pl_cpu, gt_cpu, coverages_pointwise
+                plot_name, pred_pl_cpu, gt_coverages_cpu, coverages_pointwise
             )
             cloud_prediction_summaries.append(cloud_prediction_summary)
             if isinstance(args.experiment, Experiment):
@@ -119,7 +118,9 @@ def evaluate(
     )
 
 
-def get_cloud_prediction_summary(plot_name, pred_pl_cpu, gt_cpu, coverages_pointwise):
+def get_cloud_prediction_summary(
+    plot_name, pred_pl_cpu, gt_coverages_cpu, coverages_pointwise
+):
     return {
         "pl_id": plot_name,
         "pl_N_points": coverages_pointwise.shape[1],
@@ -127,10 +128,10 @@ def get_cloud_prediction_summary(plot_name, pred_pl_cpu, gt_cpu, coverages_point
         "pred_sol_nu": pred_pl_cpu[1],
         "pred_veg_moy": pred_pl_cpu[2],
         "pred_veg_h": pred_pl_cpu[3],
-        "vt_veg_b": gt_cpu[0],
-        "vt_sol_nu": gt_cpu[1],
-        "vt_veg_moy": gt_cpu[2],
-        "vt_veg_h": gt_cpu[3],
+        "vt_veg_b": gt_coverages_cpu[0],
+        "vt_sol_nu": gt_coverages_cpu[1],
+        "vt_veg_moy": gt_coverages_cpu[2],
+        "vt_veg_h": gt_coverages_cpu[3],
     }
 
 

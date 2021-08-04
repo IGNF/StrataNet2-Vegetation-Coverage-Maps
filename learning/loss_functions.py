@@ -24,7 +24,7 @@ def get_entropy_loss(pred_pixels):
     ).mean()
 
 
-def get_NLL_loss(pred_pointwise, cloud, kde_mixture, args):
+def get_NLL_loss(pred_pointwise, cloud, args):
     """Negative log-likelihood based on three KDEs fitted on z feature."""
 
     z_all = np.empty((0))
@@ -34,7 +34,7 @@ def get_NLL_loss(pred_pointwise, cloud, kde_mixture, args):
 
     z_all = np.asarray(z_all).reshape(-1)
 
-    pdf_ground, pdf_m, pdf_h = kde_mixture.predict(z_all)
+    pdf_ground, pdf_m, pdf_h = args.kde_mixture.predict(z_all)
 
     pdf_all = np.concatenate(
         (pdf_ground.reshape(-1, 1), pdf_m.reshape(-1, 1), pdf_h.reshape(-1, 1)), 1

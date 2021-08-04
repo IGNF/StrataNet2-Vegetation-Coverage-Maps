@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 np.random.seed(42)
 
 
-def train(model, train_set, kde_mixture, optimizer, args):
+def train(model, train_set, optimizer, args):
     """train for one epoch"""
     model.train()
 
@@ -41,17 +41,23 @@ def train(model, train_set, kde_mixture, optimizer, args):
     loss_meter_abs = tnt.meter.AverageValueMeter()
     loss_meter_log = tnt.meter.AverageValueMeter()
 
-    for index_batch, (clouds, gt) in enumerate(loader):
+    for cloud_data in loader:
+
+        clouds = cloud_data["cloud"]
+        gt_coverages = cloud_data["coverages"]
 
         if args.cuda is not None:
-            gt = gt.cuda(args.cuda)
+            gt_coverages = gt_coverages.cuda(args.cuda)
+            clouds = clouds.cuda(args.cuda)
 
         optimizer.zero_grad(set_to_none=True)
         coverages_pointwise, proba_pointwise = model(clouds)
-        pred_pl, pred_pixels = project_to_2d(coverages_pointwise, clouds, args)
+        pred_coverages = project_to_plotwise_coverages(
+            coverages_pointwise, clouds, args
+        )
 
-        loss_abs = get_absolute_loss(pred_pl, gt)
-        loss_log, _ = get_NLL_loss(proba_pointwise, clouds, kde_mixture, args)
+        loss_abs = get_absolute_loss(pred_coverages, gt_coverages)
+        loss_log, _ = get_NLL_loss(proba_pointwise, clouds, args)
         loss_e = get_entropy_loss(proba_pointwise)
 
         loss = loss_abs + args.m * loss_log + args.e * loss_e
@@ -75,18 +81,18 @@ def train(model, train_set, kde_mixture, optimizer, args):
 
 
 def train_full(
-    args,
     train_set,
     test_set,
-    test_list,
-    xy_centers_dict,
-    kde_mixture,
+    args,
 ):
     """The full training loop.
     If fold_id = -1, this is the full training and we make inferences at last epoch for this test=train set.
     If fold_id = -2, this is pretraining.
     """
-    model = initialize_model(args)
+    optionnal_trained_model_path, optionnal_trained_model_id = find_pretrained_model(
+        args
+    )
+    model = initialize_model(args, trained_model_path=optionnal_trained_model_path)
     scheduler, optimizer = get_optimizers(model, args)
 
     set_predictions_interpretation_folder(args)
@@ -103,7 +109,7 @@ def train_full(
 
         # train one epoch
         with args.experiment.context_manager(f"fold_{args.current_fold_id}_train"):
-            train_loss_dict = train(model, train_set, kde_mixture, optimizer, args)
+            train_loss_dict = train(model, train_set, optimizer, args)
             print_epoch_losses(i_epoch, train_loss_dict, train=True)
             args.experiment.log_metrics(
                 train_loss_dict, epoch=i_epoch, step=train_loss_dict["step"]
@@ -114,17 +120,13 @@ def train_full(
         with args.experiment.context_manager(f"fold_{args.current_fold_id}_val"):
 
             # if not last epoch, we just evaluate performances on test plots, during cross-validation only.
-            if (
-                (i_epoch % args.n_epoch_test == 0)
-                or (i_epoch > args.epoch_to_start_early_stop)
-            ) and (args.crossvalidating):
+            if (i_epoch % args.n_epoch_test == 0) or (
+                i_epoch > args.epoch_to_start_early_stop
+            ):
                 test_loss_dict, _ = evaluate(
                     model,
                     test_set,
-                    kde_mixture,
                     args,
-                    test_list,
-                    xy_centers_dict,
                 )
                 gc.collect()
                 print_epoch_losses(i_epoch, test_loss_dict, train=False)
@@ -155,10 +157,7 @@ def train_full(
         test_loss_dict, cloud_info_list = evaluate(
             model,
             test_set,
-            kde_mixture,
             args,
-            test_list,
-            xy_centers_dict,
             last_epoch=True,
         )
         gc.collect()
@@ -179,27 +178,38 @@ def get_optimizers(model, args):
 
 
 def set_predictions_interpretation_folder(args):
-    args.crossvalidating = args.current_fold_id >= 0
+    crossvalidating = args.current_fold_id >= 0
 
-    current_task = "crossval" if args.crossvalidating else "full"
+    current_task = "crossval" if crossvalidating else "full"
     args.plot_path = os.path.join(args.stats_path, f"img/plots/{current_task}/")
 
     create_dir(args.plot_path)
 
 
-def initialize_model(args):
+def initialize_model(args, trained_model_path=None):
     """Get a clean NN model, potentially using pretrained weights."""
     model = PointNet(args.MLP_1, args.MLP_2, args.MLP_3, args)
-    if args.use_PT_model:
-        args.trained_model_path = get_trained_model_path_from_experiment(
-            args.path, args.PT_model_id
-        )
-        model.load_state(args.trained_model_path)
-        model.set_patience_attributes(args)
-        model.train()
     logger.info(
         "Total number of parameters: {}".format(
             sum([p.numel() for p in model.parameters()])
         )
     )
+    if trained_model_path is not None:
+        model.load_state(trained_model_path)
+        model.set_patience_attributes(args)
+
     return model
+
+
+def find_pretrained_model(args):
+    """If the id of a precomputed model is specified, return its path and its id"""
+    if args.PT_model_id or args.inference_model_id:
+        model_id = args.PT_model_id if args.PT_model_id else args.inference_model_id
+        try:
+            return get_trained_model_path_from_experiment(args.path, model_id), model_id
+        except IndexError:
+            logger.error(f"Could not find specified model with id {model_id}")
+            raise
+            sys.exit(0)
+    else:
+        return None, None

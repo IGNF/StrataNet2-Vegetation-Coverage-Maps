@@ -10,6 +10,29 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+SUBSAMPLE_SIZE = 5 * 10 ** 5
+
+
+def sample_z_from_dataset(dataset, subsample_size=SUBSAMPLE_SIZE):
+    """Get sample of z values from plot dataset, as a 1D np.array"""
+    all_z = [c_data["cloud"][2] for c_data in dataset.values()]
+    all_z = np.concatenate(all_z)
+    np.random.shuffle(all_z)
+    return all_z[:subsample_size]
+
+
+def get_fitted_kde_mixture_from_z_arr(z_arr, args):
+    """From array of z values dataset, get a fitted KDE mixture"""
+    logger.info(f"Fitting Mixture KDE on N={len(z_arr)} z values.")
+    kde_mixture = KdeMixture(z_arr, args)
+    return kde_mixture
+
+
+def get_fitted_kde_mixture_from_dataset(dataset, args):
+    """From plot dataset, get a fitted KDE mixture"""
+    z_arr = sample_z_from_dataset(dataset)
+    return get_fitted_kde_mixture_from_z_arr(z_arr, args)
+
 
 class KdeMixture:
     def __init__(self, z, args):
@@ -93,20 +116,3 @@ class KdeMixture:
         create_dir(os.path.dirname(savepath))
         plt.savefig(savepath, dpi=100)
         self.args.experiment.log_image(savepath)
-
-
-def get_kde_mixture(z, args):
-    """Get existiong pickled KdeMixture object fo fit one using all z from plot dataset."""
-    # TODO: change to PROD/DEV folders
-    kde_mixture_path = os.path.join(args.stats_path, "kde_mixture.pkl")
-    if not os.path.isfile(kde_mixture_path):
-        logger.info("Fit kde mixture")
-        kde_mixture = KdeMixture(z, args)
-        with open(kde_mixture_path, "wb") as f:
-            pickle.dump(kde_mixture, f)
-    else:
-        logger.info("Found precomputed kde mixture")
-        with open(kde_mixture_path, "rb") as f:
-            kde_mixture = pickle.load(f)
-            kde_mixture.add_args_and_plot(args)
-    return kde_mixture
