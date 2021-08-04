@@ -48,7 +48,6 @@ def train(model, train_set, optimizer, args):
 
         if args.cuda is not None:
             gt_coverages = gt_coverages.cuda(args.cuda)
-            clouds = clouds.cuda(args.cuda)
 
         optimizer.zero_grad(set_to_none=True)
         coverages_pointwise, proba_pointwise = model(clouds)

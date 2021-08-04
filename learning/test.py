@@ -52,7 +52,6 @@ def evaluate(
         gt_coverages = cloud_data["coverages"]
         if args.cuda is not None:
             gt_coverages = gt_coverages.cuda(args.cuda)
-            clouds = clouds.cuda(args.cuda)
 
         coverages_pointwise, proba_pointwise = model(clouds)
         pred_pl = project_to_plotwise_coverages(coverages_pointwise, clouds, args)
