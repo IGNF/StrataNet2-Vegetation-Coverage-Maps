@@ -35,7 +35,7 @@ from learning.loss_functions import *
 from learning.kde_mixture import KdeMixture
 from learning.accuracy import log_last_stats_of_fold, post_cross_validation_logging
 from learning.train import train_full, initialize_model
-from model.point_net import PointNet
+from model.point_net2 import PointNet2
 from learning.kde_mixture import get_fitted_kde_mixture_from_dataset
 
 

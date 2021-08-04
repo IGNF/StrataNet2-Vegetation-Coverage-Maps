@@ -35,8 +35,8 @@ def project_to_plotwise_coverages(pred_pointwise, clouds, args):
     if args.cuda is not None:
         index_batches = index_batches.cuda(args.cuda)
         index_group = index_group.cuda(args.cuda)
-    pred_pointwise_cat = torch.cat([preds for preds in pred_pointwise], dim=1)
-    pixel_max = scatter_max(pred_pointwise_cat, index_batches)[0]
+
+    pixel_max = scatter_max(pred_pointwise.transpose(1, 0), index_batches)[0]
 
     c_low_veg_pix = pixel_max[0, :]
     c_bare_soil_pix = 1 - c_low_veg_pix

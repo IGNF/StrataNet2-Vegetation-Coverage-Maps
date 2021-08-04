@@ -58,7 +58,7 @@ def evaluate(
         if args.cuda is not None:
             gt_coverages = gt_coverages.cuda(args.cuda)
 
-        coverages_pointwise, proba_pointwise = model(clouds)
+        coverages_pointwise, proba_pointwise = model(cloud_data)
         pred_pl = project_to_plotwise_coverages(coverages_pointwise, clouds, args)
 
         loss_abs = get_absolute_loss(pred_pl, gt_coverages)
@@ -82,7 +82,7 @@ def evaluate(
             png_path = create_predictions_interpretations(
                 pred_pl,
                 gt_coverages,
-                coverages_pointwise[0],
+                coverages_pointwise.transpose(1, 0),
                 clouds[0],
                 p_all_pdf_all,
                 plot_name,
@@ -97,7 +97,11 @@ def evaluate(
         )
         cloud_prediction_summaries.append(cloud_prediction_summary)
 
-        if last_epoch and isinstance(args.experiment, Experiment):
+        if (
+            last_epoch
+            and isinstance(args.experiment, Experiment)
+            and args.log_embeddings
+        ):
             last_G_tensor_list.append(
                 [model.last_G_tensor.cpu().numpy(), plot_name, png_path]
             )
@@ -108,9 +112,9 @@ def evaluate(
     ):
         log_confusion_matrices(args, cloud_prediction_summaries)
 
-    if last_epoch:
-        if isinstance(args.experiment, Experiment):
-            log_MAE_histograms(args, cloud_prediction_summaries)
+    if last_epoch and isinstance(args.experiment, Experiment):
+        log_MAE_histograms(args, cloud_prediction_summaries)
+        if args.log_embeddings:
             log_embeddings(last_G_tensor_list, args)
 
     return (

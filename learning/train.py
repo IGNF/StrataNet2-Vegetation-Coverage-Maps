@@ -19,7 +19,7 @@ from learning.test import evaluate
 from learning.loss_functions import *
 from learning.accuracy import *
 from utils.utils import *
-from model.point_net import PointNet
+from model.point_net2 import PointNet2
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ def train(model, train_set, optimizer, args):
             gt_coverages = gt_coverages.cuda(args.cuda)
 
         optimizer.zero_grad(set_to_none=True)
-        coverages_pointwise, proba_pointwise = model(clouds)
+        coverages_pointwise, proba_pointwise = model(cloud_data)
         pred_coverages = project_to_plotwise_coverages(
             coverages_pointwise, clouds, args
         )
@@ -194,7 +194,7 @@ def set_predictions_interpretation_folder(args):
 
 def initialize_model(args, trained_model_path=None):
     """Get a clean NN model, potentially using pretrained weights."""
-    model = PointNet(args.MLP_1, args.MLP_2, args.MLP_3, args)
+    model = PointNet2(args)
     logger.info(
         "Total number of parameters: {}".format(
             sum([p.numel() for p in model.parameters()])

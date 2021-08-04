@@ -106,7 +106,6 @@ def visualize(
         vmin=0,
         vmax=1,
         s=10,
-        alpha=1,
     )
     ax1.auto_scale_xyz
     ax1.set_yticklabels([])
@@ -141,6 +140,9 @@ def visualize(
     ax3 = fig.add_subplot(row, col, 3, projection="3d")
     ax3.auto_scale_xyz
     colors_pred = prediction.cpu().detach().numpy().transpose()
+    colors_pred = np.clip(
+        colors_pred, a_min=0, a_max=1
+    )  # clipping in case of numerical instability
     color_matrix = [[0, 1, 0], [0.8, 0.4, 0.1], [0, 0, 1], [1, 0, 0]]
     colors_pred = np.matmul(colors_pred, color_matrix)
     ax3.scatter(
@@ -151,7 +153,6 @@ def visualize(
         s=10,
         vmin=0,
         vmax=1,
-        alpha=1,
     )
     ax3.set_title("Pointwise prediction")
     ax3.set_yticklabels([])
@@ -184,7 +185,9 @@ def visualize(
     p_all = p_all.cpu().detach().numpy()
     pdf_all = pdf_all.cpu().detach().numpy()
     colors_pred = p_all[pdf_all.argmax(axis=1)[:, None] == range(pdf_all.shape[1])]
-    colors_pred = colors_pred / (colors_pred.max() + 0.00001)
+    colors_pred = np.clip(
+        colors_pred, a_min=0, a_max=1
+    )  # clipping in case of numerical instability
     ax5.scatter(
         cloud[0],
         cloud[1],

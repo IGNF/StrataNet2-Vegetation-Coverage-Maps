@@ -73,12 +73,17 @@ def _load_cloud_data(pseudoplot_ID, dataset, args):
 def load_cloud(pseudoplot_ID, dataset, args, train=False):
     """From a list of dict of plots infos, get model-ready data with metainfo for eval."""
     cloud_data = _load_cloud_data(pseudoplot_ID, dataset, args)
+    original_xyz = cloud_data["cloud"][:3]
+
     cloud_data["cloud"] = center_cloud(cloud_data["cloud"], cloud_data["plot_center"])
     cloud_data["cloud"] = rescale_cloud(cloud_data["cloud"], args)
     if train:
         cloud_data["cloud"] = augment(cloud_data["cloud"])
-    cloud_data["cloud"] = sample_cloud(cloud_data["cloud"], args.subsample_size)
-    cloud_data["xyz"] = cloud_data["cloud"][:3]
+    cloud_data["cloud"], sampled_points_idx = sample_cloud(
+        cloud_data["cloud"], args.subsample_size
+    )
+
+    cloud_data["xyz"] = original_xyz[:, sampled_points_idx]
 
     return cloud_data
 
@@ -161,13 +166,13 @@ def sample_cloud(cloud, subsample_size):
     """Select subsample_size points out of cloud, with replacement only if necessary."""
     n_points = cloud.shape[1]
     if n_points > subsample_size:
-        selected_points = np.random.choice(n_points, subsample_size, replace=False)
+        sampled_points_idx = np.random.choice(n_points, subsample_size, replace=False)
     else:
-        selected_points = np.concatenate(
+        sampled_points_idx = np.concatenate(
             [
                 np.arange(n_points),
                 np.random.choice(n_points, subsample_size - n_points, replace=True),
             ]
         )
-    cloud = cloud[:, selected_points].copy()
-    return cloud
+    cloud = cloud[:, sampled_points_idx].copy()
+    return cloud, sampled_points_idx

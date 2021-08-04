@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+import numpy as np
 import os
 
 parser = ArgumentParser(description="mode")
@@ -36,11 +37,11 @@ PLOT_NAME_TO_VISUALIZE_DURING_TRAINING = {"Releve_Lidar_F68", # Vm = 100% -> Vm 
                                         }
 parser.add_argument('--plot_name_to_visualize_during_training', default=PLOT_NAME_TO_VISUALIZE_DURING_TRAINING,  help="A few plot name to track during learning")
 parser.add_argument('--plot_geotiff_file', default=False,  action="store_true", help="Set to False to output SVG article format and GeoTIFF at last epoch.")
+parser.add_argument("--log_embeddings", default=False, action="store_true", help="False to avoid logging embeddings")
 parser.add_argument("--comet_name", default="", type=str, help="Add this tag to the XP, to indicate its goal")
 parser.add_argument('--offline_experiment', default=False,  action="store_true", help="Use for an offline Comet exoperiment.")
 parser.add_argument("--log_confusion_matrix_frequency", default=10 if not mode=="DEV" else 1, help="Frequency (in  epoch) to log confusion matrixes to comet.")
 parser.add_argument('--disabled', default=False, action="store_true", help="Wether we disable Comet for this run.")
-
 # Prediction mode
 parser.add_argument('--PT_model_id', default="", type=str, help="Identifier of experiment to load saved model traine on pseudo-labels (e.g. yyyy-mm-dd_XhXmXs).")
 parser.add_argument('--inference_model_id', default="", type=str, help="Identifier of experiment to load saved model with torch.load (e.g. yyyy-mm-dd_XhXmXs).")
@@ -70,10 +71,11 @@ parser.add_argument('--znorm_radius_in_meters', default=1.5, type=float, help='R
 parser.add_argument('--z_max', default=24.24, type=float, help="Max (normalized) altitude of points in plots, based on labeled plots.")
 
 # Network Parameters
-parser.add_argument('--MLP_1', default=[32, 64], type=list)
-parser.add_argument('--MLP_2', default=[128, 256], type=list)
-parser.add_argument('--MLP_3', default=[64, 32], type=list)
 parser.add_argument('--drop', default=0.4, type=float, help="Probability value of the Dropout layer")
+parser.add_argument('--ratio1', default=0.25, type=float, help="Ratio of centroid of first PointNet2 layer")
+parser.add_argument('--r1', default=np.sqrt(2.0), type=float, help="Radius of first PointNet2 layer")
+parser.add_argument('--ratio2', default=0.25, type=float, help="Ratio of centroid of second PointNet2 layer")
+parser.add_argument('--r2', default=np.sqrt(8.0), type=float, help="Radius of second PointNet2 layer")
  
 # Optimization Parameters
 parser.add_argument('--folds', default=5, type=int, help="Number of folds for cross validation model training")
