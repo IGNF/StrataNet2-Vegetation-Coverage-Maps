@@ -5,6 +5,7 @@ import torchnet as tnt
 import functools
 from collections import namedtuple
 import copy
+from utils.load_data import remove_color_from_occluded_points
 
 
 def get_train_val_datasets(dataset, args, train_idx=None, val_idx=None):
@@ -76,7 +77,7 @@ def load_cloud(pseudoplot_ID, dataset, args, train=False):
     cloud_data["cloud"] = center_cloud(cloud_data["cloud"], cloud_data["plot_center"])
     cloud_data["cloud"] = rescale_cloud(cloud_data["cloud"], args)
     if train:
-        cloud_data["cloud"] = augment(cloud_data["cloud"])
+        cloud_data["cloud"] = augment(cloud_data["cloud"], args)
     cloud_data["cloud"] = sample_cloud(cloud_data["cloud"], args.subsample_size)
     cloud_data["xyz"] = cloud_data["cloud"][:3]
 
@@ -117,7 +118,7 @@ def rescale_cloud(cloud, args):
     return cloud
 
 
-def augment(cloud):
+def augment(cloud, args):
     """augmentation function
     Does random rotation around z axis and adds Gaussian noise to all the features, except z and return number
     """
@@ -144,7 +145,6 @@ def augment(cloud):
             a_max=clip,
         ).astype(np.float32)
     )
-
     cloud[3:8] = (
         cloud[3:8]
         + np.clip(
@@ -153,6 +153,10 @@ def augment(cloud):
             a_max=clip,
         ).astype(np.float32)
     )
+    cloud[3:8] = cloud[3:8] - cloud[3:8].min(1, keepdims=True)
+
+    # Reset colors of augmented points to 0
+    cloud = remove_color_from_occluded_points(cloud, args.input_feats)
 
     return cloud
 

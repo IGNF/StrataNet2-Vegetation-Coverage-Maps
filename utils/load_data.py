@@ -228,8 +228,6 @@ def pre_transform(cloud, args):
     cloud = normalize_z_with_minz_in_a_radius(cloud, args.znorm_radius_in_meters)
     cloud = remove_color_from_occluded_points(
         cloud,
-        args.occlusion_radius_in_meters,
-        args.depth_for_occlusion_in_meters,
         args.input_feats,
     )
     return cloud
@@ -250,27 +248,31 @@ def normalize_z_with_minz_in_a_radius(cloud, znorm_radius_in_meters):
     return cloud
 
 
-def remove_color_from_occluded_points(
-    cloud, occlusion_radius_in_meters, depth_for_occlusion_in_meters, input_feats
-):
+def remove_color_from_occluded_points(cloud, input_feats):
     """
     Remove color information if point has points above itself in a given radius.
     The radius is defined in relationship with the resolution of image acquisition.
     """
-    xyz = cloud[:3].copy()
-    xyz[2] = -xyz[2]
-    xyz = normalize_z_with_minz_in_a_radius(xyz, occlusion_radius_in_meters)
-    occluded_points_mask = xyz[2] > depth_for_occlusion_in_meters
+    colors_idx = get_color_features_idx(input_feats)
+    return_num_idx = input_feats.index("return_num")
+
+    first_echo_number = cloud[return_num_idx].min()
+    occluded_points_mask = cloud[return_num_idx] > first_echo_number
+
+    colors = cloud[colors_idx]
+    colors[:, occluded_points_mask] = 0
+    cloud[colors_idx] = colors
+
+    return cloud
+
+
+def get_color_features_idx(input_feats):
+    """Get color features idx from the list of features"""
     colors_idx = [
         input_feats.index(channel)
         for channel in ["red", "green", "blue", "near_infrared"]
     ]
-    colors = cloud[colors_idx]
-    colors[:, occluded_points_mask] = 1
-    cloud[colors_idx] = colors
-    # TODO: try a version with imputation of color using KNN from intensity and z ?
-
-    return cloud
+    return colors_idx
 
 
 def sample_filenames_for_dev_crossvalidation(filename, args, n_by_fold=6):
