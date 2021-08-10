@@ -173,14 +173,14 @@ def clean(cloud, las_filename, args):
     # There is a file with 2 points 60m above others (maybe birds), we delete these points
     feature_idx = args.input_feats.index("z_flat")
     if las_filename.endswith("Releve_Lidar_F70.las"):
-        cloud = cloud[cloud[feature_idx] < 640]
+        cloud = cloud[:, cloud[feature_idx] < 640]
 
     # We do the same for the intensity
     feature_idx = args.input_feats.index("intensity")
     if las_filename.endswith("POINT_OBS8.las"):
-        cloud = cloud[cloud[feature_idx] < 32768]
+        cloud = cloud[:, cloud[feature_idx] < 32768]
     if las_filename.endswith("Releve_Lidar_F39.las"):
-        cloud = cloud[cloud[feature_idx] < 20000]
+        cloud = cloud[:, cloud[feature_idx] < 20000]
 
     return cloud
 
