@@ -100,27 +100,27 @@ def train_full(
     all_epochs_test_loss_dict = []
     cloud_info_list = None
 
-    for i_epoch in range(1, args.n_epoch + 1):
+    for args.current_epoch in range(1, args.n_epoch + 1):
         train_loss_dict = None
         test_loss_dict = None
-        args.experiment.set_epoch(i_epoch)
+        args.experiment.set_epoch(args.current_epoch)
         args.experiment.log_metric("learning_rate", scheduler.get_last_lr())
 
         # train one epoch
         with args.experiment.context_manager(f"fold_{args.current_fold_id}_train"):
             train_loss_dict = train(model, train_set, optimizer, args)
-            print_epoch_losses(i_epoch, train_loss_dict, train=True)
+            print_epoch_losses(args.current_epoch, train_loss_dict, train=True)
             args.experiment.log_metrics(
-                train_loss_dict, epoch=i_epoch, step=train_loss_dict["step"]
+                train_loss_dict, epoch=args.current_epoch, step=train_loss_dict["step"]
             )
-            train_loss_dict.update({"epoch": i_epoch})
+            train_loss_dict.update({"epoch": args.current_epoch})
             all_epochs_train_loss_dict.append(train_loss_dict)
 
         with args.experiment.context_manager(f"fold_{args.current_fold_id}_val"):
 
             # if not last epoch, we just evaluate performances on test plots, during cross-validation only.
-            if (i_epoch % args.n_epoch_test == 0) or (
-                i_epoch > args.epoch_to_start_early_stop
+            if (args.current_epoch % args.n_epoch_test == 0) or (
+                args.current_epoch > args.epoch_to_start_early_stop
             ):
                 test_loss_dict, _ = evaluate(
                     model,
@@ -128,19 +128,19 @@ def train_full(
                     args,
                 )
                 gc.collect()
-                print_epoch_losses(i_epoch, test_loss_dict, train=False)
+                print_epoch_losses(args.current_epoch, test_loss_dict, train=False)
                 args.experiment.log_metrics(
-                    test_loss_dict, epoch=i_epoch, step=test_loss_dict["step"]
+                    test_loss_dict, epoch=args.current_epoch, step=test_loss_dict["step"]
                 )
-                test_loss_dict.update({"epoch": i_epoch})
+                test_loss_dict.update({"epoch": args.current_epoch})
                 all_epochs_test_loss_dict.append(test_loss_dict)
 
                 # if we stop early, load model state and generate summary visualizations
-                if model.stop_early(test_loss_dict["total_loss"], i_epoch, args):
-                    logger.info(f"Early stopping at epoch {i_epoch}")
+                if model.stop_early(test_loss_dict["total_loss"], args.current_epoch, args):
+                    logger.info(f"Early stopping at epoch {args.current_epoch}")
                     break
 
-        if (i_epoch) == args.n_epoch:
+        if (args.current_epoch) == args.n_epoch:
             logger.info(f"Last epoch passed n={args.n_epoch}")
             break
 
@@ -163,7 +163,7 @@ def train_full(
         if model.stopped_early:
             args.experiment.log_metric("early_stop_epoch", model.best_metric_epoch)
         else:
-            print_epoch_losses(i_epoch, test_loss_dict, train=False)
+            print_epoch_losses(args.current_epoch, test_loss_dict, train=False)
 
     return model, all_epochs_train_loss_dict, all_epochs_test_loss_dict, cloud_info_list
 

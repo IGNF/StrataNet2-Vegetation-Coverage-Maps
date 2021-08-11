@@ -148,3 +148,8 @@ def get_trained_model_path_from_experiment(path, experiment_id):
     except:
         model_path = [m for m in models if "fold_n=1" in m][0]
     return model_path
+
+
+def format_float_as_percentage(value):
+    """Format float value as a percentage string."""
+    return f"{value:.0%}"

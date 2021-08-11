@@ -7,6 +7,11 @@ from utils.visualize_predictions import *
 from data_loader.loader import *
 from model.project_to_2d import *
 from learning.loss_functions import *
+from learning.accuracy import (
+    get_closest_class_center_index,
+    bins_centers,
+    log_confusion_matrices,
+)
 from utils.utils import create_dir
 import torchnet as tnt
 import gc
@@ -85,22 +90,22 @@ def evaluate(
                 args,
             )
 
-        if last_epoch:
-            # Keep and format prediction from pred_pl
-            pred_pl_cpu = pred_pl.cpu().numpy()[0]
-            gt_coverages_cpu = gt_coverages.cpu().numpy()[0]
-            cloud_prediction_summary = get_cloud_prediction_summary(
-                plot_name, pred_pl_cpu, gt_coverages_cpu, coverages_pointwise
+        pred_pl_cpu = pred_pl.cpu().numpy()[0]
+        gt_coverages_cpu = gt_coverages.cpu().numpy()[0]
+        cloud_prediction_summary = get_cloud_prediction_summary(
+            plot_name, pred_pl_cpu, gt_coverages_cpu, coverages_pointwise
+        )
+        cloud_prediction_summaries.append(cloud_prediction_summary)
+
+        if last_epoch and isinstance(args.experiment, Experiment):
+            last_G_tensor_list.append(
+                [model.last_G_tensor.cpu().numpy(), plot_name, png_path]
             )
-            cloud_prediction_summaries.append(cloud_prediction_summary)
-            if isinstance(args.experiment, Experiment):
-                last_G_tensor_list.append(
-                    [model.last_G_tensor.cpu().numpy(), plot_name, png_path]
-                )
+
+    log_confusion_matrices(args, cloud_prediction_summaries)
 
     if last_epoch and isinstance(args.experiment, Experiment):
         log_MAE_histograms(args, cloud_prediction_summaries)
-
         log_embeddings(last_G_tensor_list, args)
 
     return (
@@ -156,7 +161,7 @@ def log_MAE_histograms(args, cloud_prediction_summaries):
         ],
         name="val_MAE_veg_b",
         step=args.current_fold_id,
-        epoch=args.current_fold_id,
+        epoch=args.current_epoch,
     )
     args.experiment.log_histogram_3d(
         [
@@ -165,7 +170,7 @@ def log_MAE_histograms(args, cloud_prediction_summaries):
         ],
         name="val_MAE_veg_moy",
         step=args.current_fold_id,
-        epoch=args.current_fold_id,
+        epoch=args.current_epoch,
     )
     args.experiment.log_histogram_3d(
         [
@@ -174,5 +179,5 @@ def log_MAE_histograms(args, cloud_prediction_summaries):
         ],
         name="val_MAE_veg_h",
         step=args.current_fold_id,
-        epoch=args.current_fold_id,
+        epoch=args.current_epoch,
     )

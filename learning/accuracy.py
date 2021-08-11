@@ -3,6 +3,9 @@ import pandas as pd
 from functools import reduce
 import logging
 import os
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+import matplotlib.pyplot as plt
+from utils.utils import create_dir, format_float_as_percentage
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +41,38 @@ center_to_border_dict = {
     center: borders for center, borders in zip(bins_centers, zip(bb_[:-1], bb_[1:]))
 }
 
+
+def get_closest_class_center_index(y):
+    """From y in 0-1 range, get index of closest coverage class center (e.g. 4 for y=0.47)"""
+    closest_center_index = np.argsort(abs(bins_centers - y))[0]
+    return closest_center_index
+
+
+def get_closest_class_center(y):
+    """From y in 0-1 range, get closest coverage class center (e.g. 0.5 for y=0.47)"""
+    closest_center_index = get_closest_class_center_index(y)
+    closest_center = bins_centers[closest_center_index]
+    return closest_center
+
+
+def get_neighboor_external_bounds(y):
+    assert 0 <= y <= 1
+    y_neigh_lower, y_neigh_higher = get_neighboor_centers(y)
+    lower_bound = center_to_border_dict[y_neigh_lower][0]
+    higher_bound = center_to_border_dict[y_neigh_higher][1]
+    return lower_bound, higher_bound
+
+
+def get_neighboor_centers(y):
+    """From a center y, get neighboor centers. Returns the same center if it is 0 or 100"""
+    assert 0 <= y <= 1
+    y_neigh_lower = bins_centers[max(0, np.argwhere(bins_centers == y) - 1)]
+    y_neigh_higher = bins_centers[
+        min(len(bins_centers) - 1, np.argwhere(bins_centers == y) + 1)
+    ]
+    return y_neigh_lower.item(), y_neigh_higher.item()
+
+
 # TODO: simplify by providing a param version=1,2,3
 def compute_mae(y_pred, y, center_to_border_dict=None):
     """
@@ -56,27 +91,6 @@ def compute_mae2(y_pred, y, center_to_border_dict=center_to_border_dict):
         return 0.0
     else:
         return min(abs(borders[0] - y_pred), abs(borders[1] - y_pred))
-
-
-def get_neighboor_centers(y):
-    """From a center y, get neighboor centers. Returns the same center if it is 0 or 100"""
-    assert 0 <= y <= 1
-    y_neigh_lower = bins_centers[max(0, np.argwhere(bins_centers == y) - 1)]
-    y_neigh_higher = bins_centers[
-        min(len(bins_centers) - 1, np.argwhere(bins_centers == y) + 1)
-    ]
-    return y_neigh_lower.item(), y_neigh_higher.item()
-
-
-assert get_neighboor_centers(0.5) == (0.33, 0.75)
-
-
-def get_neighboor_external_bounds(y):
-    assert 0 <= y <= 1
-    y_neigh_lower, y_neigh_higher = get_neighboor_centers(y)
-    lower_bound = center_to_border_dict[y_neigh_lower][0]
-    higher_bound = center_to_border_dict[y_neigh_higher][1]
-    return lower_bound, higher_bound
 
 
 def compute_mae3(y_pred, y, center_to_border_dict=center_to_border_dict):
@@ -248,6 +262,55 @@ def calculate_performance_indicators_V3(df):
     return df
 
 
+def log_confusion_matrices(args, prediction_summaries):
+    """Apply log_confusion_matrix for all three strata."""
+    for strata in ["veg_b", "veg_moy", "veg_h"]:
+        log_confusion_matrix(args, prediction_summaries, strata)
+
+
+def log_confusion_matrix(args, prediction_summaries, strata):
+    """From a list of prediction summary (as produced by get_cloud_prediction_summary), log a CM to comet."""
+
+    cm = compute_confusion_matrix(prediction_summaries, strata)
+
+    labels = [format_float_as_percentage(center) for center in bins_centers]
+    cm_display = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
+
+    fig, (ax) = plt.subplots(1, 1, figsize=np.array([1, 1]) * 15)
+    filename = strata
+    title = (
+        filename
+        + f" [N={len(prediction_summaries)}] \n (fold={args.current_fold_id}|epoch={args.current_epoch})"
+    )
+    plt.title(title)
+    cm_display.plot(
+        ax=ax, cmap=plt.get_cmap("Blues"), colorbar=False, values_format=".0%"
+    )
+    plt.tight_layout()
+
+    output_path = os.path.join(
+        args.stats_path, f"img/confusion_matrices/{filename}.png"
+    )
+    create_dir(os.path.dirname(output_path))
+    plt.savefig(output_path, dpi=100)
+    plt.clf()
+
+    args.experiment.log_image(output_path, step=args.current_epoch)
+
+
+def compute_confusion_matrix(prediction_summaries, strata):
+    """From a list of prediction summary (as produced by get_cloud_prediction_summary), compute a confusion matrix."""
+    y_true = np.array([item["vt_" + strata] for item in prediction_summaries])
+    y_predicted = np.array([item["pred_" + strata] for item in prediction_summaries])
+
+    y_true = np.vectorize(get_closest_class_center_index)(y_true)
+    y_predicted = np.vectorize(get_closest_class_center_index)(y_predicted)
+    cm = confusion_matrix(
+        y_true, y_predicted, labels=range(len(bins_centers)), normalize="true"
+    )
+    return cm
+
+
 # We compute all possible mean stats per loss for all folds
 def stats_for_all_folds(all_folds_loss_train_lists, all_folds_loss_test_lists, args):
     """
@@ -403,4 +466,9 @@ def post_cross_validation_logging(
         m = df_inference.mean().to_dict()
         args.experiment.log_metrics(m)
         args.experiment.log_table(inference_path)
+        log_confusion_matrices(
+            args,
+            cloud_info_list_all_folds,
+        )
+
     logger.info(f"Saved infered, cross-validated results to {inference_path}")
