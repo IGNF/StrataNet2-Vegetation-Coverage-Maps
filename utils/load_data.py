@@ -59,7 +59,7 @@ def prepare_and_save_plots_dataset(args):
             N_points_in_cloud: int,
             coverages:  np.array in [0; 1] range, of shape [, 4]
     }
-    Plots are also indexed to follow order in ground truth dataframe.
+    Plots are also indexed to follow order in ground truth dataframe, in order to have reproductible cross-validation.
     """
     las_filenames = get_files_of_type_in_folder(args.las_plots_folder_path, ".las")
     if args.mode == "DEV":
@@ -74,11 +74,7 @@ def prepare_and_save_plots_dataset(args):
 
     dataset = {}
     for index, plot_name in enumerate(plot_names):
-        filename = next(
-            filename
-            for filename in las_filenames
-            if filename.lower().endswith(plot_name.lower() + ".las")
-        )
+        filename = get_filename_from_plot_name(las_filenames, plot_name)
         plot_id, cloud_data = get_cloud_data(filename, args, ground_truths)
         cloud_data["index"] = index
         dataset.update({plot_id: cloud_data})
@@ -87,6 +83,15 @@ def prepare_and_save_plots_dataset(args):
         pickle.dump(dataset, pfile)
 
     return dataset
+
+
+def get_filename_from_plot_name(las_filenames, plot_name):
+    """Return filename from a lits based on plot_name (i.e. the basename in a path/to/plot_name.las fashion)"""
+    return next(
+        filename
+        for filename in las_filenames
+        if os.path.basename(filename.lower()) == (plot_name.lower() + ".las")
+    )
 
 
 def load_pseudo_labelled_datasets(args):
