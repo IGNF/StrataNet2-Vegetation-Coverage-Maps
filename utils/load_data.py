@@ -1,24 +1,25 @@
 import math
 import os
 import sys
-from utils.utils import (
-    get_filename_no_extension,
-    get_files_of_type_in_folder,
-)
 
 import numpy as np
 import pandas as pd
 from laspy.file import File
 from sklearn.neighbors import NearestNeighbors
 import warnings
-import random
 import pickle
 
-random.seed(0)
 import numpy_indexed as npi
 from random import random, shuffle, sample
+import random
 
+random.seed(0)
 np.random.seed(0)
+from utils.utils import (
+    get_filename_no_extension,
+    get_files_of_type_in_folder,
+)
+import utils.geo3dfeatures as geo3d
 
 warnings.simplefilter(action="ignore")
 
@@ -224,17 +225,12 @@ def pre_transform(cloud, args):
     """Initial prepare point cloud (before any rescaling/data augmentation).
     This is done only once per plot.
     """
-    # normalize "z"
+
     cloud = normalize_z_with_minz_in_a_radius(cloud, args.znorm_radius_in_meters)
-    # random feature
-    feature = cloud[0, None]
-    cloud = append_a_feature(cloud, feature)
+    cloud = append_local_features(cloud, args)
+    cloud = cloud.astype(np.float32)
+
     return cloud
-
-
-def append_a_feature(cloud, feature):
-    """Append a feature to the [n_features, n_points] cloud."""
-    return np.append(cloud, feature, axis=0)
 
 
 def normalize_z_with_minz_in_a_radius(cloud, znorm_radius_in_meters):
@@ -250,6 +246,39 @@ def normalize_z_with_minz_in_a_radius(cloud, znorm_radius_in_meters):
         zmin_neigh.append(np.min(z[neigh[n]]))
     cloud[2] = cloud[2] - zmin_neigh
     return cloud
+
+
+def append_local_features(cloud, args):
+    """Append some local features to the cloud. Thier order should match the one in config."""
+    # TODO: make robust to feat order in config
+
+    kde_tree = geo3d.compute_tree(cloud[:3].T, 100)
+    extended_points = [
+        append_local_features_to_point(point, kde_tree) for point in cloud.transpose()
+    ]
+    cloud = np.stack(extended_points).transpose()
+    return cloud
+
+
+def append_local_features_to_point(point, kde_tree):
+    """Return a vector with initial point features + additional local features."""
+    dist_to_neighbors, neighbors_indexes = geo3d.request_tree(
+        point[:3], kde_tree, radius=0.5
+    )
+    neighbors = kde_tree.data[neighbors_indexes]
+
+    num_neighbors = neighbors.shape[0] - 1
+
+    # TODO: add features that reflect 3D scattering to differentiate trees from medium veg.
+    additional_features = []
+
+    rad_3D = geo3d.radius_3D(dist_to_neighbors)
+    additional_features.append(geo3d.density_3D(0.5, len(neighbors)))
+    z = neighbors[:, 2]
+    additional_features.append(geo3d.std_deviation(z))
+    additional_features.append(geo3d.val_range(z))
+
+    return np.concatenate([point, np.array(additional_features)])
 
 
 def sample_filenames_for_dev_crossvalidation(filename, args, n_by_fold=6):

@@ -136,23 +136,18 @@ def augment(cloud):
 
     # random gaussian noise everywhere except z and return number
     sigma, clip = 0.01, 0.03
-    cloud[:2] = (
-        cloud[:2]
-        + np.clip(
-            sigma * np.random.randn(cloud[:2].shape[0], cloud[:2].shape[1]),
-            a_min=-clip,
-            a_max=clip,
-        ).astype(np.float32)
+    cloud[:2] = cloud[:2] + np.clip(
+        sigma * np.random.randn(cloud[:2].shape[0], cloud[:2].shape[1]),
+        a_min=-clip,
+        a_max=clip,
     )
 
-    cloud[3:8] = (
-        cloud[3:8]
-        + np.clip(
-            sigma * np.random.randn(cloud[3:8].shape[0], cloud[3:8].shape[1]),
-            a_min=-clip,
-            a_max=clip,
-        ).astype(np.float32)
+    cloud[3:8] = cloud[3:8] + np.clip(
+        sigma * np.random.randn(cloud[3:8].shape[0], cloud[3:8].shape[1]),
+        a_min=-clip,
+        a_max=clip,
     )
+    cloud = cloud.astype(np.float32)
 
     return cloud
 

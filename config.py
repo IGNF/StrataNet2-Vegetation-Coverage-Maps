@@ -46,8 +46,8 @@ parser.add_argument('--PT_model_id', default="", type=str, help="Identifier of e
 parser.add_argument('--inference_model_id', default="", type=str, help="Identifier of experiment to load saved model with torch.load (e.g. yyyy-mm-dd_XhXmXs).")
 
 # Model Parameters 
-parser.add_argument('--n_class', default=4, type=int,
-                    help="Size of the model output vector. In our case 4 - different vegetation coverage types")
+parser.add_argument('--n_class', default=4, type=int, help="Size of the model output vector. In our case 4 - different vegetation coverage types")
+GEO3D = ["density_3d", "z_std", "z_range"]
 FEATURE_NAMES = [
     "x",
     "y",
@@ -59,9 +59,9 @@ FEATURE_NAMES = [
     "intensity",
     "return_num",
     "num_returns",
-    "other1",
-]
+] + GEO3D
 parser.add_argument('--input_feats', default=FEATURE_NAMES, type=str, help="Point features that we keep. in this code, we keep them all. permuting those letters will break everything. To be modified")
+parser.add_argument('--geo3d_feats', default=GEO3D, type=str, help="Point features that we keep. in this code, we keep them all. permuting those letters will break everything. To be modified")
 parser.add_argument('--subsample_size', default=10000, type=int, help="Subsample cloud size")
 parser.add_argument('--diam_meters', default=20, type=int, help="Diameters of the plots.")
 parser.add_argument('--diam_pix', default=20, type=int, help="Size of the output stratum raster (its diameter in pixels)")
