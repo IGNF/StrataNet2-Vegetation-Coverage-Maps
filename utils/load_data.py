@@ -226,7 +226,15 @@ def pre_transform(cloud, args):
     """
     # normalize "z"
     cloud = normalize_z_with_minz_in_a_radius(cloud, args.znorm_radius_in_meters)
+    # random feature
+    feature = cloud[0, None]
+    cloud = append_a_feature(cloud, feature)
     return cloud
+
+
+def append_a_feature(cloud, feature):
+    """Append a feature to the [n_features, n_points] cloud."""
+    return np.append(cloud, feature, axis=0)
 
 
 def normalize_z_with_minz_in_a_radius(cloud, znorm_radius_in_meters):

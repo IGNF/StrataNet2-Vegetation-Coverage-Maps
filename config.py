@@ -59,6 +59,7 @@ FEATURE_NAMES = [
     "intensity",
     "return_num",
     "num_returns",
+    "other1",
 ]
 parser.add_argument('--input_feats', default=FEATURE_NAMES, type=str, help="Point features that we keep. in this code, we keep them all. permuting those letters will break everything. To be modified")
 parser.add_argument('--subsample_size', default=10000, type=int, help="Subsample cloud size")
