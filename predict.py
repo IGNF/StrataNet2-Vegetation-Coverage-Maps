@@ -61,6 +61,7 @@ logger = create_a_logger(args)
 # MODEL
 torch.set_grad_enabled(False)
 model_path, model_id = find_pretrained_model(args)
+assert model_id
 model = initialize_model(args, model_path)
 model.eval()
 

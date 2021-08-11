@@ -16,8 +16,8 @@ def get_train_val_datasets(dataset, args, train_idx=None, val_idx=None):
 
 def get_train_dataset(dataset, args, plot_idx=None):
     """Get the train dataset, with appropriate loading functions."""
-    plot_ids = sorted(list(dataset.keys()))
-    plot_ids = np.array(plot_ids)
+    # plot_ids = sorted(list(dataset.keys()))
+    plot_ids = get_index_sorted_plot_ids(dataset)
     if plot_idx is not None:
         train_list = plot_ids[plot_idx]
     else:
@@ -31,8 +31,7 @@ def get_train_dataset(dataset, args, plot_idx=None):
 
 def get_val_dataset(dataset, args, plot_idx=None):
     """Get the val dataset, with appropriate loading functions."""
-    plot_ids = sorted(list(dataset.keys()))
-    plot_ids = np.array(plot_ids)
+    plot_ids = get_index_sorted_plot_ids(dataset)
     if plot_idx is not None:
         test_list = plot_ids[plot_idx]
     else:
@@ -42,6 +41,17 @@ def get_val_dataset(dataset, args, plot_idx=None):
         functools.partial(load_cloud, dataset=dataset, args=args, train=False),
     )
     return val_set
+
+
+def get_index_sorted_plot_ids(dataset):
+    """From a dataset of cloud_data items, get list of plot_ids sorted by index."""
+    indexed_plot_id = [
+        {"plot_id": cloud_data["plot_id"], "index": cloud_data["index"]}
+        for cloud_data in dataset.values()
+    ]
+    indexed_plot_id = sorted(indexed_plot_id, key=lambda item: item["index"])
+    plot_ids = np.array([item["plot_id"] for item in indexed_plot_id])
+    return plot_ids
 
 
 def _load_cloud_data(pseudoplot_ID, dataset, args):

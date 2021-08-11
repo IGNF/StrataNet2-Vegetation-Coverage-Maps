@@ -50,7 +50,7 @@ def load_ground_truths_dataframe(args):
 
 
 def prepare_and_save_plots_dataset(args):
-    """Create a pickled dataset of plots from a folder of plot las files, wi_th structure:
+    """Create a pickled dataset of plots from a folder of plot las files, with structure:
     {plot_id :
         {
             plot_id: str,
@@ -59,6 +59,7 @@ def prepare_and_save_plots_dataset(args):
             N_points_in_cloud: int,
             coverages:  np.array in [0; 1] range, of shape [, 4]
     }
+    Plots are also indexed to follow order in ground truth dataframe.
     """
     las_filenames = get_files_of_type_in_folder(args.las_plots_folder_path, ".las")
     if args.mode == "DEV":
@@ -69,11 +70,17 @@ def prepare_and_save_plots_dataset(args):
         get_filename_no_extension(filename) for filename in las_filenames
     ]
     ground_truths = ground_truths[ground_truths["Name"].isin(plot_id_to_keep)]
+    plot_names = ground_truths.Name.values
 
     dataset = {}
-    for filename in las_filenames:
+    for index, plot_name in enumerate(plot_names):
+        filename = next(
+            filename
+            for filename in las_filenames
+            if filename.lower().endswith(plot_name.lower() + ".las")
+        )
         plot_id, cloud_data = get_cloud_data(filename, args, ground_truths)
-
+        cloud_data["index"] = index
         dataset.update({plot_id: cloud_data})
 
     with open(args.plots_pickled_dataset_path, "wb") as pfile:

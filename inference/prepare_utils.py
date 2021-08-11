@@ -76,6 +76,7 @@ def extract_cloud_data(query, parcel_cloud, args):
         "cloud": cloud,
         "plot_center": plot_center,
         "plot_id": plot_id,
+        "index": plot_idx,
         "N_points_in_cloud": N_points_in_cloud,
     }
     return cloud_data
