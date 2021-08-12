@@ -21,7 +21,7 @@ class SAModule(torch.nn.Module):
     def forward(self, x, pos, batch):
         idx = fps(pos, batch, ratio=self.ratio)
         row, col = radius(
-            pos, pos[idx], self.r, batch, batch[idx], max_num_neighbors=1000
+            pos, pos[idx], self.r, batch, batch[idx], max_num_neighbors=2000
         )
         edge_index = torch.stack([col, row], dim=0)
         x = self.conv(x, (pos, pos[idx]), edge_index)

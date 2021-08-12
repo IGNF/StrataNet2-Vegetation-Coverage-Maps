@@ -73,17 +73,15 @@ def _load_cloud_data(pseudoplot_ID, dataset, args):
 def load_cloud(pseudoplot_ID, dataset, args, train=False):
     """From a list of dict of plots infos, get model-ready data with metainfo for eval."""
     cloud_data = _load_cloud_data(pseudoplot_ID, dataset, args)
-    original_xyz = cloud_data["cloud"][:3]
 
     cloud_data["cloud"] = center_cloud(cloud_data["cloud"], cloud_data["plot_center"])
-    cloud_data["cloud"] = rescale_cloud(cloud_data["cloud"], args)
-    if train:
-        cloud_data["cloud"] = augment(cloud_data["cloud"])
-    cloud_data["cloud"], sampled_points_idx = sample_cloud(
-        cloud_data["cloud"], args.subsample_size
-    )
+    cloud_data["xyz"] = cloud_data["cloud"][:3].copy()
 
-    cloud_data["xyz"] = original_xyz[:, sampled_points_idx]
+    if train:
+        cloud_data = augment(args, cloud_data)
+    cloud_data["cloud"] = rescale_cloud(cloud_data["cloud"], args)
+
+    cloud_data = sample_cloud_data(cloud_data, args.subsample_size)
 
     return cloud_data
 
@@ -91,9 +89,8 @@ def load_cloud(pseudoplot_ID, dataset, args, train=False):
 def center_cloud(cloud, plot_center):
     """Center cloud data along x and y dimensions."""
     x_center, y_center = plot_center
-    cloud = cloud.copy()
-    cloud[0] = cloud[0] - x_center  # x
-    cloud[1] = cloud[1] - y_center  # y
+    cloud[0] = cloud[0] - x_center
+    cloud[1] = cloud[1] - y_center
     return cloud
 
 
@@ -115,6 +112,7 @@ def rescale_cloud(cloud, args):
     intensity_max = 32768
     idx = input_feats.index("intensity")
     cloud[idx] = cloud[idx] / intensity_max
+
     for feature in ["return_num", "num_returns"]:
         idx = input_feats.index(feature)
         cloud[idx] = (cloud[idx] - 1) / (7 - 1)
@@ -122,25 +120,27 @@ def rescale_cloud(cloud, args):
     return cloud
 
 
-def augment(cloud):
-    """augmentation function
-    Does random rotation around z axis and adds Gaussian noise to all the features, except z and return number
-    """
-    # random rotation around the Z axis
-    # angle = random angle 0..2pi
-    angle = np.radians(np.random.choice(360, 1)[0])
-    c, s = np.cos(angle), np.sin(angle)
-    M = np.array(((c, -s), (s, c)))  # rotation matrix around axis z with angle "angle"
-    cloud[:2] = np.dot(cloud[:2].T, M).T  # perform the rotation efficiently
+def augment(args, cloud_data):
+    """Augmentat data for generalization"""
 
-    # # Random flipping along x and/or y axis
-    if np.random.random() > 0.5:
+    cloud = cloud_data["cloud"]
+    xyz = cloud_data["xyz"]
+
+    # Random rotation around z and flipping along x and/or y axis
+    angle, flip_x, flip_y = get_xyz_augmentation_params()
+    cloud = rotate_around_z(cloud, angle)
+    xyz = rotate_around_z(xyz, angle)
+    if flip_x:
         cloud[0] = -cloud[0]
-    if np.random.random() > 0.5:
+        xyz[0] = -xyz[0]
+    if flip_y:
         cloud[1] = -cloud[1]
+        xyz[1] = -xyz[1]
 
-    # random gaussian noise everywhere except z and return number
-    sigma, clip = 0.01, 0.03
+    # random gaussian noise for x and y
+    xy_norm_factor = 10
+    sigma = 0.01 * xy_norm_factor
+    clip = 0.03 * xy_norm_factor
     cloud[:2] = (
         cloud[:2]
         + np.clip(
@@ -150,16 +150,46 @@ def augment(cloud):
         ).astype(np.float32)
     )
 
-    cloud[3:8] = (
-        cloud[3:8]
-        + np.clip(
-            sigma * np.random.randn(cloud[3:8].shape[0], cloud[3:8].shape[1]),
-            a_min=-clip,
-            a_max=clip,
-        ).astype(np.float32)
-    )
+    input_feats = args.input_feats
 
+    # random gaussian noise for RGB+NIR
+    colors_max = 65536
+    sigm = 0.01 * colors_max
+    clip = 0.03 * colors_max
+    for feature in ["red", "green", "blue", "near_infrared"]:
+        idx = input_feats.index(feature)
+        cloud[idx] = (
+            cloud[idx]
+            + np.clip(
+                sigma * np.random.randn(cloud[idx].shape[0]),
+                a_min=-clip,
+                a_max=clip,
+            ).astype(np.float32)
+        )
+
+    # intensity_max = 32768
+    # idx = input_feats.index("intensity")
+
+    cloud_data["cloud"] = cloud
+    cloud_data["xyz"] = xyz
+
+    return cloud_data
+
+
+def rotate_around_z(cloud, angle):
+    """Rotate cloud with an angle, assuming x and y are first two rows. This modifies cloud."""
+    c, s = np.cos(angle), np.sin(angle)
+    M = np.array(((c, -s), (s, c)))  # rotation matrix around axis z with angle "angle"
+    cloud[:2] = np.dot(cloud[:2].T, M).T  # perform the rotation efficiently
     return cloud
+
+
+def get_xyz_augmentation_params():
+    """Defines the xyz augmentations (rotation, x and y flip) to perform on both (scaled) data and (no rescaled) position."""
+    flip_x = np.random.random() > 0.5
+    flip_y = np.random.random() > 0.5
+    angle = np.radians(np.random.choice(360, 1)[0])
+    return angle, flip_x, flip_y
 
 
 def sample_cloud(cloud, subsample_size):
@@ -176,3 +206,12 @@ def sample_cloud(cloud, subsample_size):
         )
     cloud = cloud[:, sampled_points_idx].copy()
     return cloud, sampled_points_idx
+
+
+def sample_cloud_data(cloud_data, subsample_size):
+    """Perform the same subsampling, on cloud and xyz."""
+    cloud_data["cloud"], sampled_points_idx = sample_cloud(
+        cloud_data["cloud"], subsample_size
+    )
+    cloud_data["xyz"] = cloud_data["xyz"][:, sampled_points_idx]
+    return cloud_data
