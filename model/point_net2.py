@@ -77,20 +77,20 @@ class PointNet2(torch.nn.Module):
         self.log_embeddings = args.log_embeddings
         ndim = 3
         MLP1 = [self.n_input_feats + ndim, 16, 16]
-        MLP2 = [MLP1[-1] + ndim, 32, 32]
-        MLP3 = [MLP2[-1] + ndim, 64, 64]
+        MLP2 = [MLP1[-1] + ndim, 32]
+        MLP3 = [MLP2[-1] + ndim, 64]
         self.sa1_module = SAModule(args.ratio1, args.r1, MLP(MLP1))
         self.sa2_module = SAModule(args.ratio2, args.r2, MLP(MLP2))
         self.sa3_module = GlobalSAModule(MLP(MLP3))
 
         MLP3_fp = [MLP3[-1] + MLP2[-1], 64]
-        MLP2_fp = [MLP3_fp[-1] + MLP1[-1], 64]
-        MLP1_fp = [MLP2_fp[-1] + self.n_input_feats, 32]
+        MLP2_fp = [MLP3_fp[-1] + MLP1[-1], 34]
+        MLP1_fp = [MLP2_fp[-1] + self.n_input_feats, 16]
         self.fp3_module = FPModule(1, MLP(MLP3_fp))
         self.fp2_module = FPModule(3, MLP(MLP2_fp))
         self.fp1_module = FPModule(3, MLP(MLP1_fp))
 
-        self.lin1 = torch.nn.Linear(32, 16)
+        self.lin1 = torch.nn.Linear(16, 16)
         self.lin2 = torch.nn.Linear(16, self.n_class + 1)
         self.softmax = nn.Softmax(dim=1)
         self.sigmoid = nn.Sigmoid()

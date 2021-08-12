@@ -145,15 +145,22 @@ def visualize(
     )  # clipping in case of numerical instability
     color_matrix = [[0, 1, 0], [0.8, 0.4, 0.1], [0, 0, 1], [1, 0, 0]]
     colors_pred = np.matmul(colors_pred, color_matrix)
-    ax3.scatter(
-        cloud[0],
-        cloud[1],
-        cloud[2] * args.z_max,
-        c=colors_pred,
-        s=10,
-        vmin=0,
-        vmax=1,
-    )
+    try:
+        ax3.scatter(
+            cloud[0],
+            cloud[1],
+            cloud[2] * args.z_max,
+            c=colors_pred,
+            s=10,
+            vmin=0,
+            vmax=1,
+        )
+    except ValueError:
+        logger.error("Probably: ValueError: RGBA values should be within 0-1 range")
+        logger.info("color pred is:")
+        logger.info(str(colors_pred))
+        raise
+
     ax3.set_title("Pointwise prediction")
     ax3.set_yticklabels([])
     ax3.set_xticklabels([])
