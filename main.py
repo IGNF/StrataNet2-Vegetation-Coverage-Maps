@@ -41,10 +41,10 @@ experiment = launch_comet_experiment(args)
 
 logger.info("args: \n" + str(args))
 
-try:
-    dataset = load_pickled_dataset(args)
-except FileNotFoundError:
-    dataset = prepare_and_save_plots_dataset(args)
+# try:
+#     dataset = load_pickled_dataset(args)
+# except FileNotFoundError:
+dataset = prepare_and_save_plots_dataset(args)
 
 logger.info(f"Dataset contains {len(dataset)} plots.")
 
