@@ -272,11 +272,25 @@ def append_local_features_to_point(point, kde_tree):
     # TODO: add features that reflect 3D scattering to differentiate trees from medium veg.
     additional_features = []
 
-    rad_3D = geo3d.radius_3D(dist_to_neighbors)
-    additional_features.append(geo3d.density_3D(0.5, len(neighbors)))
-    z = neighbors[:, 2]
-    additional_features.append(geo3d.std_deviation(z))
-    additional_features.append(geo3d.val_range(z))
+    # rad_3D = geo3d.radius_3D(dist_to_neighbors)
+    # additional_features.append(geo3d.density_3D(0.5, len(neighbors)))
+    # z = neighbors[:, 2]
+    # additional_features.append(geo3d.std_deviation(z))
+    # additional_features.append(geo3d.val_range(z))
+    alpha = np.nan
+    beta = np.nan
+
+    if len(neighbors) > 2:
+        pca = geo3d.fit_pca(neighbors)
+        eigenvalues_3D = pca.singular_values_ ** 2
+        norm_eigenvalues_3D = geo3d.sum_normalize(eigenvalues_3D)
+        alpha, beta = geo3d.triangle_variance_space(norm_eigenvalues_3D)
+    if np.isnan(alpha):
+        alpha = 1 / 3
+        beta = 1 / 3
+
+    additional_features.append(alpha)
+    additional_features.append(beta)
 
     return np.concatenate([point, np.array(additional_features)])
 

@@ -47,7 +47,13 @@ parser.add_argument('--inference_model_id', default="", type=str, help="Identifi
 
 # Model Parameters 
 parser.add_argument('--n_class', default=4, type=int, help="Size of the model output vector. In our case 4 - different vegetation coverage types")
-GEO3D = ["density_3d", "z_std", "z_range"]
+GEO3D = [
+    # "density_3d", 
+    # "z_std", 
+    # "z_range",
+    "barycenter_alpha", 
+    "barycenter_beta"
+]
 FEATURE_NAMES = [
     "x",
     "y",
