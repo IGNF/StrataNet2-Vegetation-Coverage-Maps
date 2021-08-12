@@ -72,21 +72,20 @@ class PointNet2(torch.nn.Module):
         self.subsample_size = args.subsample_size
         self.n_class = args.n_class
         self.drop = args.drop
-        self.n_input_feats = args.n_input_feats
+        self.n_input_feats = args.n_input_feats - 2  # - x and y
         self.set_patience_attributes(args)
         self.log_embeddings = args.log_embeddings
-
         ndim = 3
-        MLP1 = [self.n_input_feats + ndim, 16, 32]
-        MLP2 = [MLP1[-1] + ndim, 32, 64]
-        MLP3 = [MLP2[-1] + ndim, 64, 128]
+        MLP1 = [self.n_input_feats + ndim, 16, 16]
+        MLP2 = [MLP1[-1] + ndim, 32, 32]
+        MLP3 = [MLP2[-1] + ndim, 64, 64]
         self.sa1_module = SAModule(args.ratio1, args.r1, MLP(MLP1))
         self.sa2_module = SAModule(args.ratio2, args.r2, MLP(MLP2))
         self.sa3_module = GlobalSAModule(MLP(MLP3))
 
-        MLP3_fp = [MLP3[-1] + MLP2[-1], 128, 128]
-        MLP2_fp = [MLP3_fp[-1] + MLP1[-1], 64, 64]
-        MLP1_fp = [MLP2_fp[-1] + self.n_input_feats, 64, 32]
+        MLP3_fp = [MLP3[-1] + MLP2[-1], 64]
+        MLP2_fp = [MLP3_fp[-1] + MLP1[-1], 64]
+        MLP1_fp = [MLP2_fp[-1] + self.n_input_feats, 32]
         self.fp3_module = FPModule(1, MLP(MLP3_fp))
         self.fp2_module = FPModule(3, MLP(MLP2_fp))
         self.fp1_module = FPModule(3, MLP(MLP1_fp))
@@ -105,12 +104,13 @@ class PointNet2(torch.nn.Module):
 
         batch_size = cloud.shape[0]
         cloud = self.get_long_form(cloud)
-
         batch = torch.from_numpy(
             np.concatenate(
                 [np.full((self.subsample_size, 1), b) for b in range(batch_size)]
             ).squeeze()
         )
+        # REMOVE x and y from consideration
+        cloud = cloud[:, 2:]
         if self.cuda_device is not None:
             sa0_out = (
                 cloud.cuda(self.cuda_device),
