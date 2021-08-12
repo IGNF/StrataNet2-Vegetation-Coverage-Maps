@@ -102,11 +102,16 @@ def evaluate(
                 [model.last_G_tensor.cpu().numpy(), plot_name, png_path]
             )
 
-    log_confusion_matrices(args, cloud_prediction_summaries)
+    if last_epoch or (
+        (args.current_epoch % args.log_confusion_matrix_frequency == 0)
+        and (args.log_confusion_matrix_frequency > 0)
+    ):
+        log_confusion_matrices(args, cloud_prediction_summaries)
 
-    if last_epoch and isinstance(args.experiment, Experiment):
-        log_MAE_histograms(args, cloud_prediction_summaries)
-        log_embeddings(last_G_tensor_list, args)
+    if last_epoch:
+        if isinstance(args.experiment, Experiment):
+            log_MAE_histograms(args, cloud_prediction_summaries)
+            log_embeddings(last_G_tensor_list, args)
 
     return (
         {

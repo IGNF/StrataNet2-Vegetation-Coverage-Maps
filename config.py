@@ -38,7 +38,7 @@ parser.add_argument('--plot_name_to_visualize_during_training', default=PLOT_NAM
 parser.add_argument('--plot_geotiff_file', default=False,  action="store_true", help="Set to False to output SVG article format and GeoTIFF at last epoch.")
 parser.add_argument("--comet_name", default="", type=str, help="Add this tag to the XP, to indicate its goal")
 parser.add_argument('--offline_experiment', default=False,  action="store_true", help="Use for an offline Comet exoperiment.")
-parser.add_argument("--full_model_training", default=False,  action="store_true", help="Use to do a full training after cross-validation")
+parser.add_argument("--log_confusion_matrix_frequency", default=10 if not mode=="DEV" else 1, help="Frequency (in  epoch) to log confusion matrixes to comet.")
 parser.add_argument('--disabled', default=False, action="store_true", help="Wether we disable Comet for this run.")
 
 # Prediction mode
