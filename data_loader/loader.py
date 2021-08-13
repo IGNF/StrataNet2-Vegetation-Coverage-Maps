@@ -75,6 +75,7 @@ def load_cloud(pseudoplot_ID, dataset, args, train=False):
     cloud_data = _load_cloud_data(pseudoplot_ID, dataset, args)
 
     cloud_data["cloud"] = center_cloud(cloud_data["cloud"], cloud_data["plot_center"])
+    cloud_data["cloud"] = add_fake_empty_ground_points(args, cloud_data["cloud"])
     cloud_data["xyz"] = cloud_data["cloud"][:3].copy()
 
     if train:
@@ -84,6 +85,43 @@ def load_cloud(pseudoplot_ID, dataset, args, train=False):
     cloud_data = sample_cloud_data(cloud_data, args.subsample_size)
 
     return cloud_data
+
+
+def add_fake_empty_ground_points(args, cloud):
+    """Add a fake point with features filled with 0 except for position, for evey pixel of the final raster"""
+    xx, yy = get_x_y_meshgrid(args.diam_meters)
+    x = xx + 0 * yy
+    y = yy + 0 * xx
+    x = x.flatten()
+    y = y.flatten()
+    r = np.sqrt(x ** 2 + y ** 2)
+    fake_points = []
+    for x, y, r in zip(x, y, r):
+        if r < args.diam_meters // 2:
+            fake_points.append([x, y, 0.0] + (args.n_input_feats - 3) * [0.0])
+    cloud = np.concatenate(
+        [cloud, np.array(fake_points, dtype=np.float32).transpose()], axis=1
+    )
+    return cloud
+
+
+def get_x_y_meshgrid(width):
+    """Create meshgrids of x and y values centered around 0 and with width size."""
+    x = np.arange(-width // 2, width // 2, 1) + 0.5
+    y = np.arange(-width // 2, width // 2, 1) + 0.5
+    xx, yy = np.meshgrid(x, y, sparse=True)
+    return xx, yy
+
+
+def get_normalized_x_y_meshgrid(width):
+    """
+    Create normalized meshgrids of x and y values centered around 0 and with width 1 (from -0.5 to 0.5).
+    Width defines the number of pixels along an axis.
+    """
+    xx, yy = get_x_y_meshgrid(width)
+    xx = xx / width
+    yy = yy / width
+    return xx, yy
 
 
 def center_cloud(cloud, plot_center):

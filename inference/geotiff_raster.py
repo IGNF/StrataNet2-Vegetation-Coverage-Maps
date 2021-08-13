@@ -21,6 +21,7 @@ from shapely.geometry.point import Point
 from model.project_to_2d import project_to_2d_rasters
 from utils.utils import create_dir, get_files_of_type_in_folder
 from inference.prepare_utils import keep_points_outside_shape, keep_points_in_shape
+from data_loader.loader import get_normalized_x_y_meshgrid
 
 np.random.seed(42)
 
@@ -106,9 +107,7 @@ def add_weights_band_to_rasters(img_to_write, args):
     """
 
     nb_channels = len(img_to_write)
-    x = (np.arange(-args.diam_pix // 2, args.diam_pix // 2, 1) + 0.5) / args.diam_pix
-    y = (np.arange(-args.diam_pix // 2, args.diam_pix // 2, 1) + 0.5) / args.diam_pix
-    xx, yy = np.meshgrid(x, y, sparse=True)
+    xx, yy = get_normalized_x_y_meshgrid(args.diam_pix)
     r = np.sqrt(xx ** 2 + yy ** 2)
     image_weights = 1.5 - r  # 1.5 to avoid null weights
     image_weights[r > 0.5] = np.nan  # 0.5 = "half of the square"

@@ -153,3 +153,5 @@ def get_trained_model_path_from_experiment(path, experiment_id):
 def format_float_as_percentage(value):
     """Format float value as a percentage string."""
     return f"{value:.0%}"
+
+
