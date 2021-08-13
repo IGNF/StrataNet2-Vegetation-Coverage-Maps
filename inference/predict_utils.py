@@ -116,54 +116,6 @@ def create_geotiff_raster(
     )
 
 
-# def get_parcel_info_and_predictions(tif, records):
-#     """From a prediction tif given by  its path and the records obtained from a shapefile,
-#     get the parcel metadata as well as the predictions : coverage and admissibility#     """
-#     mosaic = rasterio.open(tif).read()
-
-#     # Vb, Vmoy, Vh, Vmoy_hard
-#     band_means = np.nanmean(mosaic[:5], axis=(1, 2))
-
-#     tif_name = get_filename_no_extension(tif)
-#     rec = records[tif_name]
-
-#     metadata = {
-#         "NOM": tif_name,
-#         "SURFACE_m2": rec._area,
-#         "SURFACE_ha": np.round((rec._area) / 10000, 2),
-#         "SURF_ADM_ha": rec.SURF_ADM,
-#         "REPORTED_ADM": float(rec.ADM),
-#     }
-#     predictions = {
-#         "pred_veg_b": band_means[FINAL_RASTER_BANDNAMES.index("VegetationBasse")],
-#         "pred_veg_moy": band_means[
-#             FINAL_RASTER_BANDNAMES.index("VegetationIntermediaire")
-#         ],
-#         "pred_veg_h": band_means[FINAL_RASTER_BANDNAMES.index("VegetationHaute")],
-#         "admissibility": band_means[FINAL_RASTER_BANDNAMES.index("Admissibilite")],
-#     }
-#     metadata.update(predictions)
-#     return metadata
-
-
-# def make_parcel_predictions_csv(parcel_shapefile_path, output_folder):
-#     shp = shapefile.Reader(parcel_shapefile_path)
-#     records = {rec.ID: rec for rec in shp.records()}
-#     tif_filenames = get_files_of_type_in_folder(output_folder, "tif")
-#     assert len(tif_filenames) < 10 ** 5
-
-#     infos = []
-#     for tif_filename in tif_filenames:
-#         info = get_parcel_info_and_predictions(tif_filename, records)
-#         infos.append(info)
-
-#     # export to a csv
-#     df_inference = pd.DataFrame(infos)
-#     csv_path = os.path.join(output_folder, "PCC_inference_all_parcels.csv")
-#     df_inference.to_csv(csv_path, index=False)
-#     return df_inference, csv_path
-
-
 def get_shapefile_records_dict(shp):
     """Get the shapefile records as a ID:records dict."""
     return {rec.ID: rec for rec in shp.records()}
