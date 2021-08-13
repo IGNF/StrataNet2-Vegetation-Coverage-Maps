@@ -11,6 +11,7 @@ import torch
 from tqdm import tqdm
 import shapefile
 import torchnet as tnt
+from scipy.spatial import cKDTree as KDTree
 
 warnings.simplefilter(action="ignore")
 np.random.seed(42)
@@ -68,11 +69,14 @@ while True:
         {"plot_idx": idx, "plot_center": plot_center}
         for idx, plot_center in enumerate(plot_centers)
     ]
+    leaf_size = 50
+    parcel_tree = KDTree(parcel_cloud[:2].transpose(), leaf_size)
     dataset = tnt.dataset.ListDataset(
         queries,
         load=functools.partial(
             extract_cloud_data,
             parcel_cloud=parcel_cloud,
+            parcel_tree=parcel_tree,
             args=args,
         ),
     )

@@ -44,25 +44,24 @@ def get_xy_range(cloud):
     return x_min, x_max, y_min, y_max
 
 
-def extract_cloud(plot_center, parcel_cloud, radius=10):
+def extract_cloud(plot_center, parcel_cloud, parcel_tree, radius=10):
     """From a (2, N) np.array with x, y as first features, extract points within radius
     from the plot_center = (x_center, y_center)"""
-    xy = parcel_cloud[:2]  # (N, 2)
-    points_idx = ((xy - np.expand_dims(plot_center, 1)) ** 2).sum(axis=0) <= (
-        radius * radius
-    )
+    points_idx = parcel_tree.query_ball_point(plot_center, r=radius)
     cloud = parcel_cloud[:, points_idx]  # (N, f)
 
     return cloud
 
 
 # TODO: entwine parcel_cloud for faster search
-def extract_cloud_data(query, parcel_cloud, args):
+def extract_cloud_data(query, parcel_cloud, parcel_tree, args):
     """Extract cloud points from around plot_center and prepare its data."""
     plot_idx = query["plot_idx"]
     plot_center = query["plot_center"]
 
-    cloud = extract_cloud(plot_center, parcel_cloud, radius=args.diam_meters // 2)
+    cloud = extract_cloud(
+        plot_center, parcel_cloud, parcel_tree, radius=args.diam_meters // 2
+    )
     N_points_in_cloud = cloud.shape[1]
 
     MIN_N_POINTS_FOR_INFERENCE = 50
