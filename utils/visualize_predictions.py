@@ -237,7 +237,6 @@ def get_pred_summary_text(pred_pl, gt):
     )
     gt_nparray = gt.cpu().numpy()[0]
     text_pred_vs_gt = (
-        f"Coverage: Pred {preds_nparray[:4]} GT   {gt_nparray[:-1]}\n "
-        + f"Admissibility (GT only) {gt_nparray[-1]:.2f}"
+        f"Coverage: Pred {preds_nparray[[0,2,3]]} GT {gt_nparray[[0,2,3]]}"
     )
     return text_pred_vs_gt, preds_nparray, gt_nparray
