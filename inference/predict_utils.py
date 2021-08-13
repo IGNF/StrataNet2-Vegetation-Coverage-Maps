@@ -10,7 +10,6 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sys import getsizeof
-
 from osgeo import gdal
 import rasterio
 from rasterio.merge import merge
@@ -31,6 +30,7 @@ from utils.load_data import (
     get_plot_center,
     load_las_file,
     pre_transform,
+    get_filename_from_plot_name,
 )
 from data_loader.loader import get_val_dataset
 from data_loader.loader import rescale_cloud
@@ -39,6 +39,7 @@ from inference.geotiff_raster import (
     add_weights_band_to_rasters,
     save_rasters_to_geotiff_file,
     FINAL_RASTER_BANDNAMES,
+    SHP_FIELDS_NAME_DICT,
 )
 from model.project_to_2d import project_to_2d_rasters
 from inference.prepare_utils import define_plot_id
@@ -115,50 +116,110 @@ def create_geotiff_raster(
     )
 
 
-def get_parcel_info_and_predictions(tif, records):
-    """From a prediction tif given by  its path and the records obtained from a shapefile,
-    get the parcel metadata as well as the predictions : coverage and admissibility
+# def get_parcel_info_and_predictions(tif, records):
+#     """From a prediction tif given by  its path and the records obtained from a shapefile,
+#     get the parcel metadata as well as the predictions : coverage and admissibility#     """
+#     mosaic = rasterio.open(tif).read()
+
+#     # Vb, Vmoy, Vh, Vmoy_hard
+#     band_means = np.nanmean(mosaic[:5], axis=(1, 2))
+
+#     tif_name = get_filename_no_extension(tif)
+#     rec = records[tif_name]
+
+#     metadata = {
+#         "NOM": tif_name,
+#         "SURFACE_m2": rec._area,
+#         "SURFACE_ha": np.round((rec._area) / 10000, 2),
+#         "SURF_ADM_ha": rec.SURF_ADM,
+#         "REPORTED_ADM": float(rec.ADM),
+#     }
+#     predictions = {
+#         "pred_veg_b": band_means[FINAL_RASTER_BANDNAMES.index("VegetationBasse")],
+#         "pred_veg_moy": band_means[
+#             FINAL_RASTER_BANDNAMES.index("VegetationIntermediaire")
+#         ],
+#         "pred_veg_h": band_means[FINAL_RASTER_BANDNAMES.index("VegetationHaute")],
+#         "admissibility": band_means[FINAL_RASTER_BANDNAMES.index("Admissibilite")],
+#     }
+#     metadata.update(predictions)
+#     return metadata
+
+
+# def make_parcel_predictions_csv(parcel_shapefile_path, output_folder):
+#     shp = shapefile.Reader(parcel_shapefile_path)
+#     records = {rec.ID: rec for rec in shp.records()}
+#     tif_filenames = get_files_of_type_in_folder(output_folder, "tif")
+#     assert len(tif_filenames) < 10 ** 5
+
+#     infos = []
+#     for tif_filename in tif_filenames:
+#         info = get_parcel_info_and_predictions(tif_filename, records)
+#         infos.append(info)
+
+#     # export to a csv
+#     df_inference = pd.DataFrame(infos)
+#     csv_path = os.path.join(output_folder, "PCC_inference_all_parcels.csv")
+#     df_inference.to_csv(csv_path, index=False)
+#     return df_inference, csv_path
+
+
+def get_shapefile_records_dict(shp):
+    """Get the shapefile records as a ID:records dict."""
+    return {rec.ID: rec for rec in shp.records()}
+
+
+def get_parcel_predicted_values(tif_filename):
     """
-    mosaic = rasterio.open(tif).read()
-
-    # Vb, Vmoy, Vh, Vmoy_hard
-    band_means = np.nanmean(mosaic[:5], axis=(1, 2))
-
-    tif_name = get_filename_no_extension(tif).replace("prediction_raster_parcel_", "")
-    rec = records[tif_name]
-
-    metadata = {
-        "NOM": tif_name,
-        "SURFACE_m2": rec._area,
-        "SURFACE_ha": np.round((rec._area) / 10000, 2),
-        "SURF_ADM_ha": rec.SURF_ADM,
-        "REPORTED_ADM": float(rec.ADM),
-    }
-    infered_values = {
-        "pred_veg_b": band_means[FINAL_RASTER_BANDNAMES.index("VegetationBasse")],
-        "pred_veg_moy": band_means[
-            FINAL_RASTER_BANDNAMES.index("VegetationIntermediaire")
-        ],
-        "pred_veg_h": band_means[FINAL_RASTER_BANDNAMES.index("VegetationHaute")],
-        "admissibility": band_means[FINAL_RASTER_BANDNAMES.index("Admissibilite")],
-    }
-    metadata.update(infered_values)
-    return metadata
+    From a prediction tif_filename given, get the parcel-level averaged predicted coverage and admissibility.
+    Returns mock predictions filled with -1 if tif_filename is None.
+    """
+    predictions = {}
+    if tif_filename is not None:
+        mosaic = rasterio.open(tif_filename).read()
+        band_means = np.nanmean(mosaic[:5], axis=(1, 2))
+        for shp_field, channel_name in SHP_FIELDS_NAME_DICT.items():
+            predictions.update(
+                {
+                    shp_field: band_means[FINAL_RASTER_BANDNAMES.index(channel_name)],
+                }
+            )
+    else:
+        for shp_field, channel_name in SHP_FIELDS_NAME_DICT.items():
+            predictions.update(
+                {
+                    shp_field: -1,
+                }
+            )
+    return predictions
 
 
-def make_parcel_predictions_csv(parcel_shapefile_path, final_tiffs_folder):
+def update_shapefile_with_predictions(parcel_shapefile_path, output_folder):
+    """Add average coverage and admissibility values form .tiff of prediction rasters to shaepfile."""
+    tif_filenames = get_files_of_type_in_folder(output_folder, "tif")
+    A_HUNDRED_THOUSAND = 10 ** 5
+
     shp = shapefile.Reader(parcel_shapefile_path)
-    records = {rec.ID: rec for rec in shp.records()}
-    predictions_tif = get_files_of_type_in_folder(final_tiffs_folder, "tif")
-    assert len(predictions_tif) < 10 ** 4
+    output_shp_path = os.path.join(
+        output_folder, get_filename_no_extension(parcel_shapefile_path)
+    )
+    assert len(tif_filenames) < A_HUNDRED_THOUSAND
+    if len(tif_filenames) == 0:
+        logger.error(f"No prediction tif file found in {output_folder}")
 
-    infos = []
-    for tif_filename in predictions_tif:
-        info = get_parcel_info_and_predictions(tif_filename, records)
-        infos.append(info)
+    with shapefile.Writer(output_shp_path) as w:
+        w.fields = shp.fields[1:]  # skip first deletion field
+        shp_fields = SHP_FIELDS_NAME_DICT.keys()
+        for shp_field in shp_fields:
+            w.field(shp_field, "F", decimal=10)
 
-    # export to a csv
-    df_inference = pd.DataFrame(infos)
-    csv_path = os.path.join(final_tiffs_folder, "PCC_inference_all_parcels.csv")
-    df_inference.to_csv(csv_path, index=False)
-    return df_inference, csv_path
+        for shaperec in shp.iterShapeRecords():
+            parcel_ID = shaperec.record.ID
+            tif_filename = get_filename_from_plot_name(tif_filenames, parcel_ID, ".tif")
+            predictions = get_parcel_predicted_values(tif_filename)
+            for shp_field in shp_fields:
+                shaperec.record.append(predictions[shp_field])
+            w.record(*shaperec.record)
+            w.shape(shaperec.shape)
+            if tif_filename is not None:
+                a = 1

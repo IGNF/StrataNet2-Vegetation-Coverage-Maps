@@ -35,7 +35,7 @@ from inference.predict_utils import (
     load_dataset,
     create_dataloader,
     filter_dataset,
-    make_parcel_predictions_csv,
+    update_shapefile_with_predictions,
     define_plot_geotiff_output_path,
 )
 from inference.geotiff_raster import merge_geotiff_rasters
@@ -130,4 +130,4 @@ while True:
         break
 
 if not is_pseudo_labelling:
-    make_parcel_predictions_csv(args.parcel_shapefile_path, output_folder)
+    update_shapefile_with_predictions(args.parcel_shapefile_path, output_folder)

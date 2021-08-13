@@ -21,6 +21,7 @@ from utils.utils import create_dir, get_files_of_type_in_folder
 
 np.random.seed(42)
 
+# TODO: add VegetationRessource as a channel in final tiff.
 FINAL_RASTER_BANDNAMES = [
     "VegetationBasse",
     "VegetationIntermediaire",
@@ -29,6 +30,13 @@ FINAL_RASTER_BANDNAMES = [
     "Admissibilite",
     "PonderationPredictions",
 ]
+
+SHP_FIELDS_NAME_DICT = {
+    "PRED_BASSE": "VegetationBasse",
+    "PRED_INTER": "VegetationIntermediaire",
+    "PRED_HAUTE": "VegetationHaute",
+    "PRED_ADM": "Admissibilite",
+}
 
 
 def get_geotransform(plot_center_xy, args):

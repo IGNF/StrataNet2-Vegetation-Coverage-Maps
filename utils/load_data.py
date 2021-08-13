@@ -74,7 +74,7 @@ def prepare_and_save_plots_dataset(args):
 
     dataset = {}
     for index, plot_name in enumerate(plot_names):
-        filename = get_filename_from_plot_name(las_filenames, plot_name)
+        filename = get_filename_from_plot_name(las_filenames, plot_name, ".las")
         plot_id, cloud_data = get_cloud_data(filename, args, ground_truths)
         cloud_data["index"] = index
         dataset.update({plot_id: cloud_data})
@@ -85,13 +85,19 @@ def prepare_and_save_plots_dataset(args):
     return dataset
 
 
-def get_filename_from_plot_name(las_filenames, plot_name):
-    """Return filename from a lits based on plot_name (i.e. the basename in a path/to/plot_name.las fashion)"""
-    return next(
-        filename
-        for filename in las_filenames
-        if os.path.basename(filename.lower()) == (plot_name.lower() + ".las")
-    )
+def get_filename_from_plot_name(filenames, plot_name, extension):
+    """Return filename from a list based on plot_name (i.e. the basename in a path/to/plot_name.las fashion).
+    Returns None if no file is found.
+    """
+    assert extension.startswith(".")
+    try:
+        return next(
+            filename
+            for filename in filenames
+            if os.path.basename(filename.lower()) == (plot_name.lower() + extension)
+        )
+    except:
+        return None
 
 
 def load_pseudo_labelled_datasets(args):
