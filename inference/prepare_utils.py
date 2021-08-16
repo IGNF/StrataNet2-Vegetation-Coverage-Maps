@@ -197,7 +197,6 @@ def save_image_of_parcel_division_into_plots(
     """
 
     parcel_center = get_plot_center(parcel_cloud)
-    parcel_cloud = center_cloud(parcel_cloud, parcel_center)
 
     # xy to dataframe for visualization
     coordinates = parcel_cloud[:2]
