@@ -24,7 +24,12 @@ torch.cuda.empty_cache()
 from config import args
 from utils.utils import *
 from data_loader.loader import *
-from utils.load_data import load_pickled_dataset, prepare_and_save_plots_dataset
+from utils.load_data import (
+    load_pickled_dataset,
+    prepare_and_save_plots_dataset,
+    load_ground_truths_dataframe,
+    get_plot_ground_truth_coverages,
+)
 from learning.accuracy import *
 from learning.kde_mixture import get_fitted_kde_mixture_from_dataset
 from learning.train import train_full
@@ -44,7 +49,7 @@ logger.info("args: \n" + str(args))
 # try:
 #     dataset = load_pickled_dataset(args)
 # except FileNotFoundError:
-dataset = prepare_and_save_plots_dataset(args)
+dataset = prepare_and_save_plots_dataset(args, args.corrected_gt_file_path)
 
 logger.info(f"Dataset contains {len(dataset)} plots.")
 
@@ -90,11 +95,41 @@ def cross_validate():
         all_folds_loss_test_dicts.append(all_epochs_test_loss_dict)
         cloud_info_list_by_fold[args.current_fold_id] = cloud_info_list
 
-        if args.mode == "DEV" and args.current_fold_id >= 3:
+        if args.mode == "PROD" and args.current_fold_id >= 1:
             break
 
-    # UPDATE LOGS
+    # UPDATE LOGS using relabeled data
+    for cloud_info_list in cloud_info_list_by_fold.values():
+        for cloud_info in cloud_info_list:
+            cloud_info["vt_veg_b"] = get_closest_class_center(cloud_info["vt_veg_b"])
+            cloud_info["vt_sol_nu"] = get_closest_class_center(cloud_info["vt_sol_nu"])
+            cloud_info["vt_veg_moy"] = get_closest_class_center(
+                cloud_info["vt_veg_moy"]
+            )
+            cloud_info["vt_veg_h"] = get_closest_class_center(cloud_info["vt_veg_h"])
+
     post_cross_validation_logging(
+        "relabeled_summary",
+        all_folds_loss_train_dicts,
+        all_folds_loss_test_dicts,
+        cloud_info_list_by_fold,
+        args,
+    )
+
+    # UPDATE LOGS using original labels
+    ground_truths = load_ground_truths_dataframe(args.gt_file_path)
+    for cloud_info_list in cloud_info_list_by_fold.values():
+        for cloud_info in cloud_info_list:
+            pl_id = cloud_info["pl_id"]
+            (
+                cloud_info["vt_veg_b"],
+                cloud_info["vt_sol_nu"],
+                cloud_info["vt_veg_moy"],
+                cloud_info["vt_veg_h"],
+            ) = get_plot_ground_truth_coverages(ground_truths, pl_id)
+
+    post_cross_validation_logging(
+        "summary",
         all_folds_loss_train_dicts,
         all_folds_loss_test_dicts,
         cloud_info_list_by_fold,

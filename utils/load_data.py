@@ -23,12 +23,12 @@ np.random.seed(0)
 warnings.simplefilter(action="ignore")
 
 
-def load_ground_truths_dataframe(args):
+def load_ground_truths_dataframe(gt_file_path):
     """This opens the ground truth file. It completes if necessary admissibility value using ASP method.
     Values are kept as % as they are transformed during data loading into ratios."""
 
     df_gt = pd.read_csv(
-        args.gt_file_path,
+        gt_file_path,
         sep=",",
         header=0,
     )
@@ -49,7 +49,7 @@ def load_ground_truths_dataframe(args):
     return df_gt
 
 
-def prepare_and_save_plots_dataset(args):
+def prepare_and_save_plots_dataset(args, gt_file_path):
     """Create a pickled dataset of plots from a folder of plot las files, with structure:
     {plot_id :
         {
@@ -65,7 +65,7 @@ def prepare_and_save_plots_dataset(args):
     if args.mode == "DEV":
         las_filenames = sample_filenames_for_dev_crossvalidation(las_filenames, args)
 
-    ground_truths = load_ground_truths_dataframe(args)
+    ground_truths = load_ground_truths_dataframe(gt_file_path)
     plot_id_to_keep = [
         get_filename_no_extension(filename) for filename in las_filenames
     ]

@@ -441,7 +441,11 @@ def print_epoch_losses(i_epoch, epoch_loss_dict, train):
 
 
 def post_cross_validation_logging(
-    all_folds_loss_train_dicts, all_folds_loss_test_dicts, cloud_info_list_by_fold, args
+    summary_context_name,
+    all_folds_loss_train_dicts,
+    all_folds_loss_test_dicts,
+    cloud_info_list_by_fold,
+    args,
 ):
     stats_for_all_folds(all_folds_loss_train_dicts, all_folds_loss_test_dicts, args)
     cloud_info_list_all_folds = [
@@ -459,10 +463,12 @@ def post_cross_validation_logging(
             "Cannot calculate class-based performance indicators due to continuous ground truths."
         )
 
-    inference_path = os.path.join(args.stats_path, "PCC_inference_all_placettes.csv")
+    inference_path = os.path.join(
+        args.stats_path, f"PCC_inference_all_placettes_{summary_context_name}.csv"
+    )
     df_inference.to_csv(inference_path, index=False)
 
-    with args.experiment.context_manager("summary"):
+    with args.experiment.context_manager(summary_context_name):
         m = df_inference.mean().to_dict()
         args.experiment.log_metrics(m)
         args.experiment.log_table(inference_path)
