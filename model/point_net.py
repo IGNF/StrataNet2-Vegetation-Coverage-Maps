@@ -98,8 +98,10 @@ class PointNet(nn.Module):
         if self.cuda_device is not None:
             self = self.cuda(self.cuda_device)
 
-    def forward(self, input):
+    def forward(self, cloud_data):
         """Get coverage scores and class probabilities from points cloud."""
+
+        input = cloud_data["cloud"]
         if self.cuda_device is not None:
             input = input.cuda(self.cuda_device)
         f1 = self.MLP_1(input)

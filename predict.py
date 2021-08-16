@@ -92,8 +92,8 @@ while True:
         clouds = cloud_data["cloud"]
         plot_ids = cloud_data["plot_id"]
         plot_centers = cloud_data["plot_center"]
-        coverages_pointwise, _ = model(clouds)
 
+        coverages_pointwise, _ = model(cloud_data)
         if is_pseudo_labelling:
             pred_coverages = project_to_plotwise_coverages(
                 coverages_pointwise, clouds, args
