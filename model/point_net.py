@@ -160,7 +160,10 @@ class PointNet(nn.Module):
 
     def load_state(self, save_path):
         """Load model state from a path."""
-        checkpoint = torch.load(save_path)
+        if self.cuda_device is not None:
+            checkpoint = torch.load(save_path)
+        else:
+            checkpoint = torch.load(save_path, map_location=torch.device("cpu"))
         self.load_state_dict(checkpoint["state_dict"])
         self.best_metric_epoch = checkpoint["best_metric_epoch"]
         self.best_metric_value = checkpoint["best_metric_value"]
