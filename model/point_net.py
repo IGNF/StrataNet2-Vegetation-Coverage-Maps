@@ -130,7 +130,7 @@ class PointNet(nn.Module):
         self.patience_in_epochs = args.patience_in_epochs
 
     def stop_early(self, val_metric, epoch, args):
-        """Save best model state until now, based on a validation metric to minimize, if no improvement over n epochs."""
+        """Save best model state until now, based on a validation metric to MINIMIZE, if no improvement over n epochs."""
         if val_metric < self.best_metric_value:
             self.best_metric_value = val_metric
             self.best_metric_epoch = epoch

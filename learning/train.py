@@ -130,15 +130,20 @@ def train_full(
                 gc.collect()
                 print_epoch_losses(args.current_epoch, test_loss_dict, train=False)
                 args.experiment.log_metrics(
-                    test_loss_dict, epoch=args.current_epoch, step=test_loss_dict["step"]
+                    test_loss_dict,
+                    epoch=args.current_epoch,
+                    step=test_loss_dict["step"],
                 )
                 test_loss_dict.update({"epoch": args.current_epoch})
                 all_epochs_test_loss_dict.append(test_loss_dict)
 
                 # if we stop early, load model state and generate summary visualizations
-                if model.stop_early(test_loss_dict["total_loss"], args.current_epoch, args):
-                    logger.info(f"Early stopping at epoch {args.current_epoch}")
-                    break
+                if args.use_early_stopping:
+                    if model.stop_early(
+                        test_loss_dict["total_loss"], args.current_epoch, args
+                    ):
+                        logger.info(f"Early stopping at epoch {args.current_epoch}")
+                        break
 
         if (args.current_epoch) == args.n_epoch:
             logger.info(f"Last epoch passed n={args.n_epoch}")
@@ -148,10 +153,11 @@ def train_full(
 
     with args.experiment.context_manager(f"fold_{args.current_fold_id}_val"):
 
-        logger.info(
-            f"Load best model of epoch {model.best_metric_epoch} for final inference."
-        )
-        model.load_best_state(args)
+        if args.use_early_stopping:
+            logger.info(
+                f"Load best model of epoch {model.best_metric_epoch} for final inference."
+            )
+            model.load_best_state(args)
 
         test_loss_dict, cloud_info_list = evaluate(
             model,
@@ -162,6 +168,7 @@ def train_full(
         gc.collect()
         if model.stopped_early:
             args.experiment.log_metric("early_stop_epoch", model.best_metric_epoch)
+            print_epoch_losses(model.best_metric_epoch, test_loss_dict, train=False)
         else:
             print_epoch_losses(args.current_epoch, test_loss_dict, train=False)
 
