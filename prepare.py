@@ -55,6 +55,7 @@ while True:
         break
     else:
         logger.info(f"N={len(unprocessed)} parcels to prepare.")
+        shuffle(unprocessed)
     filename = unprocessed.pop(-1)
     parcel_id = get_filename_no_extension(filename)
 
