@@ -79,8 +79,10 @@ while True:
 
     unprocessed = get_unprocessed_files(input_folder, output_folder)
     if not unprocessed:
-        logging.info(f"No more prepared parcel to predict on in {input_folder}")
+        logger.info(f"No more prepared parcel to predict on in {input_folder}")
         break
+    else:
+        logger.info(f"N={len(unprocessed)} prepared parcels to process.")
     filename = unprocessed.pop(0)
     parcel_id = get_filename_no_extension(filename)
 
