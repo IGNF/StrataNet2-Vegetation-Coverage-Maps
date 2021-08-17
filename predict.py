@@ -134,7 +134,7 @@ while True:
         message = merge_geotiff_rasters(
             final_tiff_path, intermediate_tiffs_folder, parcel_shape
         )
-        logging.info(message)
+        logger.info(message)
 
     if args.mode == "DEV":
         break

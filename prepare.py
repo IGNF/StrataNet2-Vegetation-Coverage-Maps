@@ -51,7 +51,7 @@ while True:
         filename for filename in unprocessed if filename.lower().endswith(".las")
     ]
     if not unprocessed:
-        logging.info(f"No prepared parcel found to predict on in {input_folder}")
+        logger.info(f"No prepared parcel found to predict on in {input_folder}")
         break
     filename = unprocessed.pop(-1)
     parcel_id = get_filename_no_extension(filename)
