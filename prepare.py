@@ -53,6 +53,8 @@ while True:
     if not unprocessed:
         logger.info(f"No prepared parcel found to predict on in {input_folder}")
         break
+    else:
+        logger.info(f"N={len(unprocessed)} parcels to prepare.")
     filename = unprocessed.pop(-1)
     parcel_id = get_filename_no_extension(filename)
 
