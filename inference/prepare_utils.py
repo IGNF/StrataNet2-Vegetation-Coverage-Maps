@@ -33,8 +33,8 @@ logger = logging.getLogger(__name__)
 def get_shape(shp, query_object_name):
     """Get shapely shape in shapefile by its ID."""
     oid = next(rec.oid for rec in shp.records() if rec.ID == query_object_name)
-    parcel_shape = shapely.geometry.shape(shp.shape(oid).__geo_interface__)
-    return parcel_shape
+    shape = shapely.geometry.shape(shp.shape(oid).__geo_interface__)
+    return shape
 
 
 def get_xy_range(cloud):
@@ -143,14 +143,12 @@ def divide_parcel_las_and_get_disk_centers(
             new_plot_center = [current_x, current_y]
             plot_centers.append(new_plot_center)
 
-    # Ignore plot center if not in shape of shapefile
-    plot_centers = [
-        np.array(plot_center, dtype=np.float32)
-        for plot_center in plot_centers
-        if parcel_shape.buffer(args.diam_meters // 2).contains(
-            Point(plot_center[0], plot_center[1])
-        )
-    ]
+    # Ignore plot center if distant from 20m-bufferized shape of more than plot radius
+    LAS_PARCEL_BUFFER = 20
+    INCLUSION_BUFFER = args.diam_meters // 2
+    plot_centers = keep_points_in_shape(
+        plot_centers, parcel_shape, LAS_PARCEL_BUFFER + INCLUSION_BUFFER
+    )
 
     # visualization
     if division_fig_save_path:
@@ -165,6 +163,26 @@ def divide_parcel_las_and_get_disk_centers(
         )
 
     return plot_centers, parcel_cloud
+
+
+def keep_points_in_shape(xy_iterable, shape, inclusion_buffer):
+    """From an iterable of (x, y) iterables, select points with a shapely shape, with an inclusion buffer"""
+    return [
+        np.array(plot_center, dtype=np.float32)
+        for plot_center in xy_iterable
+        if shape.buffer(inclusion_buffer).contains(
+            Point(plot_center[0], plot_center[1])
+        )
+    ]
+
+
+def keep_points_outside_shape(xy_iterable, shape, exclusion_buffer):
+    """From an iterable of (x, y) iterables, select points outside a shapely shape, with an exclusion buffer (positive)"""
+    return [
+        np.array(xy, dtype=np.float32)
+        for xy in xy_iterable
+        if not shape.buffer(exclusion_buffer).contains(Point(xy[0], xy[1]))
+    ]
 
 
 def save_image_of_parcel_division_into_plots(

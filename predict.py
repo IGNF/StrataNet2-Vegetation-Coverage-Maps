@@ -38,6 +38,7 @@ from inference.predict_utils import (
     update_shapefile_with_predictions,
     define_plot_geotiff_output_path,
 )
+from inference.prepare_utils import get_shape
 from inference.geotiff_raster import merge_geotiff_rasters
 from model.project_to_2d import project_to_plotwise_coverages
 
@@ -71,7 +72,8 @@ output_folder = os.path.join(
     args.las_parcels_folder_path, os.path.join(args.task, model_id)
 )
 create_dir(output_folder)
-
+if not is_pseudo_labelling:
+    shp = shapefile.Reader(args.parcel_shapefile_path)
 
 while True:
 
@@ -85,7 +87,7 @@ while True:
     dataset = load_dataset(filename)
     dataset = filter_dataset(dataset, is_pseudo_labelling)
     dataloader = create_dataloader(dataset, args)
-
+    i = 0
     for cloud_data in tqdm(
         dataloader, desc=f"Inference on {parcel_id}", total=len(dataloader)
     ):
@@ -115,6 +117,9 @@ while True:
                     output_path,
                     args,
                 )
+        i = i + 1
+        if args.mode == "DEV" and i > 10:
+            break
 
     if is_pseudo_labelling:
         output_path = os.path.join(output_folder, parcel_id + ".pkl")
@@ -123,7 +128,10 @@ while True:
     else:
         intermediate_tiffs_folder = os.path.dirname(output_path)
         final_tiff_path = os.path.join(output_folder, f"{parcel_id}.tif")
-        message = merge_geotiff_rasters(final_tiff_path, intermediate_tiffs_folder)
+        parcel_shape = get_shape(shp, parcel_id)
+        message = merge_geotiff_rasters(
+            final_tiff_path, intermediate_tiffs_folder, parcel_shape
+        )
         logging.info(message)
 
     if args.mode == "DEV":

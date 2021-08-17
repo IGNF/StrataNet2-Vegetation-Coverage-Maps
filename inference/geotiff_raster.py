@@ -1,6 +1,6 @@
 # Dependency imports
 import os
-from sys import getsizeof
+import itertools
 import glob
 from math import cos, pi, ceil
 import numpy as np
@@ -12,12 +12,15 @@ from osgeo import gdal, osr
 import rasterio
 import rasterio.features
 from rasterio.transform import Affine
+from rasterio.transform import xy as rasterio_xy
+from rasterio.transform import rowcol as rasterio_rowcol
 from shapely import geometry
 import shapefile
 from shapely.geometry.point import Point
 
 from model.project_to_2d import project_to_2d_rasters
 from utils.utils import create_dir, get_files_of_type_in_folder
+from inference.prepare_utils import keep_points_outside_shape, keep_points_in_shape
 
 np.random.seed(42)
 
@@ -42,7 +45,7 @@ SHP_FIELDS_NAME_DICT = {
 def get_geotransform(plot_center_xy, args):
     """
     Get geotransform from plot center and plot dims.
-    Structure: top_left_x, pix_width_in_meters, _, top_left_y, pix_heighgt_in_meters (neg for north up picture)
+    Structure: top_left_x, pix_width_in_meters, _, top_left_y, pix_height_in_meters (neg for north up picture)
     Geotransform reference : https://gdal.org/user/raster_data_model.html
     """
 
@@ -194,7 +197,9 @@ def insert_admissibility_raster(src_mosaic):
     return mosaic
 
 
-def merge_geotiff_rasters(output_folder_path, intermediate_tiff_folder_path):
+def merge_geotiff_rasters(
+    output_folder_path, intermediate_tiff_folder_path, parcel_shape
+):
     """
     Create a weighted average form a folder of tif files with channels [C1, C2, ..., Cn, W1, W2, ..., Wn].
     Outputed tif has same nb of canals, with wreightd average from C1 to Cn and sum of weights on W1 to Wn.
@@ -205,10 +210,11 @@ def merge_geotiff_rasters(output_folder_path, intermediate_tiff_folder_path):
     if len(src_files_to_mosaic) == 0:
         return f"Nothing in {intermediate_tiff_folder_path}. Cannot merge."
 
-    mosaic, out_trans = rasterio.merge.merge(
+    mosaic, geotransform = rasterio.merge.merge(
         src_files_to_mosaic, method=_weighted_average_of_rasters
     )
     mosaic = finalize_merged_raster(mosaic)
+    mosaic = crop_merged_raster(mosaic, parcel_shape, geotransform)
 
     # save
     out_meta = src_files_to_mosaic[0].meta.copy()
@@ -218,7 +224,7 @@ def merge_geotiff_rasters(output_folder_path, intermediate_tiff_folder_path):
             "height": mosaic.shape[1],
             "width": mosaic.shape[2],
             "count": len(mosaic),
-            "transform": out_trans,
+            "transform": geotransform,
         }
     )
 
@@ -228,6 +234,41 @@ def merge_geotiff_rasters(output_folder_path, intermediate_tiff_folder_path):
             dest.set_band_description(1 + idx, FINAL_RASTER_BANDNAMES[idx])
 
     return f"Saved merged raster prediction to {output_folder_path}"
+
+
+def crop_merged_raster(mosaic, parcel_shape, geotransform):
+    """Remove pixels that are oustide the shape"""
+
+    xs, ys = get_mosaic_coordinates(mosaic, geotransform)
+
+    INCLUSION_BUFFER = 0
+    incorrect_pixels_xy = keep_points_outside_shape(
+        zip(xs, ys), parcel_shape, INCLUSION_BUFFER
+    )
+    incorrect_pixels_xy = np.stack(incorrect_pixels_xy)
+    rows, cols = rasterio_rowcol(
+        geotransform, incorrect_pixels_xy[:, 0], incorrect_pixels_xy[:, 1]
+    )
+    mosaic[:, rows, cols] = np.nan
+
+    return mosaic
+
+
+def get_mosaic_coordinates(mosaic, geotransform):
+    """
+    From a mosaic [bands, x, y], get the zip of geographic x and y coordinates based on corresponding geotransform
+    cf. https://rasterio.readthedocs.io/en/latest/api/rasterio.transform.html
+    """
+    pix_height_in_meters = mosaic.shape[1]
+    pix_width_in_meters = mosaic.shape[2]
+
+    rowcols = np.array(
+        list(itertools.product(range(pix_height_in_meters), range(pix_width_in_meters)))
+    )
+
+    xs, ys = rasterio_xy(geotransform, rowcols[:, 0], rowcols[:, 1])
+
+    return xs, ys
 
 
 def finalize_merged_raster(mosaic):

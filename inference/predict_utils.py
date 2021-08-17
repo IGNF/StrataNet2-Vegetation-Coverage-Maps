@@ -42,7 +42,7 @@ from inference.geotiff_raster import (
     SHP_FIELDS_NAME_DICT,
 )
 from model.project_to_2d import project_to_2d_rasters
-from inference.prepare_utils import define_plot_id
+from inference.prepare_utils import define_plot_id, get_shape
 
 sns.set()
 np.random.seed(42)
