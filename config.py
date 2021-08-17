@@ -26,7 +26,7 @@ parser.add_argument('--las_plots_folder_path', default=os.path.join(data_path, "
 parser.add_argument('--plots_pickled_dataset_path', default=os.path.join(data_path, f"placettes_dataset/prepared/plots_dataset_{mode}.pkl"), type=str, help="Path to folder with plot las files.")
 parser.add_argument('--gt_file_path', default=os.path.join(data_path, "placettes_dataset/placettes_metadata.csv"), type=str, help="Path to ground truth file. Put in dataset folder.")
 parser.add_argument('--las_parcels_folder_path', default=os.path.join(data_path, "parcelles_dataset_20m/"), type=str, help="Path to folder with parcels las files (ends with a /).")
-parser.add_argument('--parcel_shapefile_path', default=os.path.join(data_path, "parcelles_dataset/input/Parcellaire_2020_zone_expe_BOP_SPL_SPH_J6P_PPH_CAE_CEE_ADM.shp"), type=str, help="Path to shapefile of parcels.")
+parser.add_argument('--parcel_shapefile_path', default=os.path.join(data_path, "parcelles_dataset_20m/input/Parcellaire_2020_zone_expe_BOP_SPL_SPH_J6P_PPH_CAE_CEE_ADM.shp"), type=str, help="Path to shapefile of parcels.")
 
 # Experiment parameters
 PLOT_NAME_TO_VISUALIZE_DURING_TRAINING = {"Releve_Lidar_F68", # Vm = 100% -> Vm vs Vb distinction
