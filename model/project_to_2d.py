@@ -95,7 +95,6 @@ def project_to_2d_rasters(cloud: torch.Tensor, coverages_pointwise: torch.Tensor
             .numpy()
             .flatten()
         )
-        sum_val = coverages_pointwise[:, where].sum(axis=1)
 
         proba_low_veg = max_pool_val[0]
         proba_med_veg = max_pool_val[2]

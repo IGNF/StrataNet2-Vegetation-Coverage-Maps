@@ -66,6 +66,7 @@ model_path, model_id = find_pretrained_model(args)
 assert model_id
 model = initialize_model(args, model_path)
 model.eval()
+torch.set_grad_enabled(False)
 
 # DATA
 input_folder = os.path.join(args.las_parcels_folder_path, "prepared")
@@ -109,6 +110,8 @@ while True:
             for plot_name, pred in zip(plot_ids, pred_coverages):
                 dataset[plot_name].update({"coverages": pred.squeeze()})
         else:
+            if len(coverages_pointwise.shape) < 3:
+                coverages_pointwise = model.get_batch_format(coverages_pointwise)
             for idx, plot_id in enumerate(plot_ids):
                 plot_center = plot_centers[idx]
                 output_path = define_plot_geotiff_output_path(

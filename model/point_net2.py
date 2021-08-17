@@ -152,10 +152,10 @@ class PointNet2(torch.nn.Module):
         """Get tensor of shape (N*B,f) from shape (B,f,N)"""
         return torch.cat(list(data), 1).transpose(1, 0)
 
-    # def get_batch_format(self, data):
-    #     """ """
-    #     data = torch.split(data, self.subsample_size, dim=0)
-    #     return torch.stack(data)
+    def get_batch_format(self, data):
+        """Get tensor of shape (B,f,N) from shape (N*B,f), dividing by nb of points in each cloud."""
+        data = torch.split(data, self.subsample_size, dim=0)
+        return torch.stack(data).transpose(1, 2)
 
     def set_patience_attributes(self, args):
         """Reset patience. Useful when we load a pretrained model."""
