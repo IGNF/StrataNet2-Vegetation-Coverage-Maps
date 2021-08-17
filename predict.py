@@ -14,6 +14,7 @@ import numpy as np
 import torch
 import torchnet as tnt
 from argparse import ArgumentParser
+from random import shuffle
 
 warnings.simplefilter(action="ignore")
 np.random.seed(42)
