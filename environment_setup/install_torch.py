@@ -16,20 +16,22 @@ def format_pytorch_version(version):
     return version.split("+")[0]
 
 
-TORCH_version = torch.__version__
-TORCH = format_pytorch_version(TORCH_version)
-print(TORCH)
-
-
 def format_cuda_version(version):
     return "cu" + version.replace(".", "")
 
+
+TORCH_version = torch.__version__
+TORCH = format_pytorch_version(TORCH_version)
+print(TORCH)
 
 CUDA_version = torch.version.cuda
 CUDA = format_cuda_version(CUDA_version)
 print(CUDA)
 
 os.system(
-    f"pip install torch-scatter     -f https://pytorch-geometric.com/whl/torch-{TORCH}+{CUDA}.html"
+    f"pip install torch-scatter -f https://pytorch-geometric.com/whl/torch-{TORCH}+{CUDA}.html"
 )
-os.system("pip install tensorboard")  # could be put before
+os.system(
+    f"pip install torch-cluster -f https://pytorch-geometric.com/whl/torch-{TORCH}+{CUDA}.html"
+)
+os.system("pip install torch-geometric")

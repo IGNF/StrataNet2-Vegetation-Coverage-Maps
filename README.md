@@ -1,6 +1,6 @@
-# PointNet-based model for the prediction of vegetation coverage using 3D LiDAR point clouds
+# PointNet2-based model for the prediction of vegetation coverage using 3D LiDAR point clouds
 
-PyTorch implementation of a weakly supervised algorithm for the prediction of vegetation coverage of different stratum. The algorithm is based on (PointNet++)[https://arxiv.org/abs/1706.02413] for 3D data classification and segmentation.
+PyTorch implementation of a weakly supervised algorithm for the prediction of vegetation coverage of different stratum. The algorithm is based on [PointNet2](https://arxiv.org/abs/1706.02413) for 3D data classification and segmentation.
 
 The model takes raw, unordered set of LiDAR points and computes for each point the pointwise probability of membership to one of four following class:
 - bare soil
@@ -16,60 +16,27 @@ The model is applied to circular, 10m radius plots. With pointwise classificatio
 
 ![](exemples_images/3_stratum.png)
 
-### Example usage
-
-## Installation
 
 ### Requirements
-The project requires an environment with PyTorch installed (only tested with version 1.7.0).
-Module [torch_scatter](https://github.com/rusty1s/pytorch_scatter) is also required.
-The installation of torch_scatter can be challenging, please, check your CUDA and PyTorch version and carefully follow the instructions indicated below.
+This project lives in an environment with python 3.7.11 and pytorch 1.8.0. Modules [torch_scatter](https://github.com/rusty1s/pytorch_scatter) and [torch_geometric](https://github.com/rusty1s/pytorch_geometric) are also required. Their installation can be challenging, due to multiple possible combinations of CUDA and torch versions. 
 
-The project requires GDAL library to save the results to a GeoTIFF file. If you have difficulties installing GDAL, just delete `create_tiff()` function from `utils/create_final_images.py`. The result is equally saved to a .png image.
+Use the `setupenv.sh` script to setup a conda environment with all python dependencies automatically.
 
-
-
-### Install 
-We suppose that you already have pytorch installed. Please, use requirements.txt to install other packages by launching `python -m pip install -r requirements.txt`.
-
-# Install torch_scatter
-Launch this code to check your TORCH and CUDA versions if you don't know them.
-```python
-import torch
-
-def format_pytorch_version(version):
-  return version.split('+')[0]
-
-TORCH_version = torch.__version__
-TORCH = format_pytorch_version(TORCH_version)
-
-def format_cuda_version(version):
-  return 'cu' + version.replace('.', '')
-
-CUDA_version = torch.version.cuda
-CUDA = format_cuda_version(CUDA_version)
-
-print("TORCH")
-print(TORCH)
-print("CUDA")
-print(CUDA)
-```
-
-Then replace {TORCH} and {CUDA} by the obtained values to install the corresponding packages:
+This project requires GDAL library for geographic data manipulation, which can be installed following this [recipe](https://mothergeo-py.readthedocs.io/en/latest/development/how-to/gdal-ubuntu-pkg.html).
 
 
-`pip install torch-scatter     -f https://pytorch-geometric.com/whl/torch-{TORCH}+{CUDA}.html`
+## Example results
 
-`pip install torch-sparse      -f https://pytorch-geometric.com/whl/torch-{TORCH}+{CUDA}.html`
+### Plot-level interpretation
 
-`pip install torch-cluster     -f https://pytorch-geometric.com/whl/torch-{TORCH}+{CUDA}.html`
+Keys:
+- Left
+  1. LiDAR point cloud, visualized in fake colors to highlights vegetation (Near Infrared+Red+Green as RGB channels)
+  2. LiDAR point cloud showing pointwise class membership (probabilities of class membership as RGB channel
+  3. LiDAR point cloud showing pointwise class probability for most likely strata based on an explicit strata-likelihood modelling used in training regularization.
+- Right - "gt" stands for Ground Truth, to which predicted values are contrasted
+  1. Raster of low vegetation coverage
+  2. Raster of medium vegetation coverage
+  3. Raster of high vegetation coverage
 
-`pip install torch-spline-conv -f https://pytorch-geometric.com/whl/torch-{TORCH}+{CUDA}.html`
-
-`pip install torch-geometric`
-
-
-
-## Code 
-The code is launched from `main.py`.
-It can be launched from IDE, as well as from console with precising the arguments. Please, check the code for different arguments or do `python main.py --help`.
+![](exemples_images/example_result.png)

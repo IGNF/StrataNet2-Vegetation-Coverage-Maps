@@ -38,7 +38,7 @@ def create_predictions_interpretations(
 
     text_pred_vs_gt, preds_nparray, gt_nparray = get_pred_summary_text(pred_pl, gt)
 
-    text_pred_vs_gt = "LOW, soil, MID, HIGH \n" + text_pred_vs_gt
+    text_pred_vs_gt = "LOW, MID, HIGH \n" + text_pred_vs_gt
     logger.info("\n" + plot_name + " " + text_pred_vs_gt)
     # We create an image with 5 or 6 subplots:
     # 1. original point cloud, 2. LV image, 3. pointwise prediction point cloud, 4. MV image, 5.Stratum probabilities point cloud, 6.(optional) HV image
