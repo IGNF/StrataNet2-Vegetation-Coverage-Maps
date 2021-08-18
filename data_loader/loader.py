@@ -5,7 +5,6 @@ import torchnet as tnt
 import functools
 from collections import namedtuple
 import copy
-from inference.geotiff_raster import get_x_y_meshgrid
 
 
 def get_train_val_datasets(dataset, args, train_idx=None, val_idx=None):
