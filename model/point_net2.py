@@ -7,8 +7,16 @@ from utils.utils import get_trained_model_path_from_experiment
 import torch
 import torch.nn.functional as F
 from torch_geometric.nn import knn_interpolate, PointConv, fps, radius, global_max_pool
-from torch.nn import Sequential as Seq, Linear as Lin, ReLU, BatchNorm1d as BN
+from torch.nn import (
+    Sequential as Seq,
+    Linear as Lin,
+    ReLU,
+    SELU,
+    BatchNorm1d as BN,
+)
 
+# Choose activation here
+NonLinearActivation = ReLU
 
 # Architecture is adapated from the following example: https://github.com/rusty1s/pytorch_geometric/blob/master/examples/pointnet2_segmentation.py
 class SAModule(torch.nn.Module):
@@ -45,9 +53,13 @@ class GlobalSAModule(torch.nn.Module):
 def MLP(channels, batch_norm=True):
     return Seq(
         *[
-            Seq(Lin(channels[i - 1], channels[i]), ReLU(), BN(channels[i]))
+            Seq(
+                Lin(channels[i - 1], channels[i]),
+                NonLinearActivation(),
+                BN(channels[i]),
+            )
             if batch_norm
-            else Seq(Lin(channels[i - 1], channels[i]), ReLU())
+            else Seq(Lin(channels[i - 1], channels[i]), NonLinearActivation())
             for i in range(1, len(channels))
         ]
     )
@@ -94,14 +106,13 @@ class PointNet2(torch.nn.Module):
 
         self.lin1 = torch.nn.Linear(MLP1_fp[-1], 16)
         self.lin2 = torch.nn.Linear(16, self.n_class + 1)
-        self.lin2.bias = torch.nn.Parameter(
-            torch.Tensor([0.733, 0.266, 0.235, 0.358, 0.500])
-        )
         self.softmax = nn.Softmax(dim=1)
         self.sigmoid = nn.Sigmoid()
 
         if self.cuda_device is not None:
             self = self.cuda(self.cuda_device)
+
+        self.init_all_weights()
 
     def forward(self, cloud_data):
         xyz = self.get_long_form(cloud_data["xyz"])
@@ -156,6 +167,28 @@ class PointNet2(torch.nn.Module):
     def get_long_form(data):
         """Get tensor of shape (N*B,f) from shape (B,f,N)"""
         return torch.cat(list(data), 1).transpose(1, 0)
+
+    def init_all_weights(self):
+        for p in self.parameters():
+            self.init_weights(p)
+
+    def init_weights(self, p):
+        """Initialize weights of the Parameter p"""
+        if len(p.shape) == 2:
+            if NonLinearActivation != SELU:
+                gain = nn.init.calculate_gain(NonLinearActivation.__name__.lower())
+                nn.init.xavier_normal_(p, gain=gain)
+            else:
+                gain = 1  # 1 for Self-Normalizing model
+                fan_in, _ = nn.init._calculate_fan_in_and_fan_out(p)
+                bound = 1 / np.sqrt(fan_in)
+                nn.init.uniform_(p, -bound, bound)
+
+        self.lin2.bias = torch.nn.Parameter(
+            torch.Tensor([0.733, 0.266, 0.235, 0.358, 0.500])
+        )
+        gain = nn.init.calculate_gain("relu")
+        nn.init.xavier_normal_(self.lin2.weight, gain=gain)
 
     def get_batch_format(self, data):
         """Get tensor of shape (B,f,N) from shape (N*B,f), dividing by nb of points in each cloud."""
