@@ -1,21 +1,22 @@
 # PointNet-based model for the prediction of vegetation coverage using 3D LiDAR point clouds
 
-PyTorch implementation of a weakly supervised algorithm for the prediction of vegetation coverage of different stratum. The algorithm is based on PointNet model [ref] for 3D data classification and segmentation.
-First, our algorithm compute the pointwise-predictions a point belong to one of 4 classes:
-- low vegetation
+PyTorch implementation of a weakly supervised algorithm for the prediction of vegetation coverage of different stratum. The algorithm is based on (PointNet++)[https://arxiv.org/abs/1706.02413] for 3D data classification and segmentation.
+
+The model takes raw, unordered set of LiDAR points and computes for each point the pointwise probability of membership to one of four following class:
 - bare soil
+- low vegetation
 - medium vegetation
 - high vegetation
 
-Then it reprojects each point to the corresponding vegetation stratum by using posterior probabilities.
-Finally, we compute vegetation ratio for each stratum to get final results.
+Alongside, the model computes a fifth value in the 0-1 range, which is interpreted as a density. This density is then multiplied with membership probabilities to yield pointwise coverage predictions for all three vegetation strata. Note: the bare soil probability is ignored, but is important to have a proper definition of membership probabilities. 
+
+Finally, pointwise coverages values are max-projected on each stratum, which yields four 2D rasters of vegetation coverage values. The average value of each raster then gives the coverage value for the area of interest.
+
+The model is applied to circular, 10m radius plots. With pointwise classification and coverage map generation, one can expain predictions.  
 
 ![](exemples_images/3_stratum.png)
 
 ### Example usage
-We show how to use the code to reproduce the results in the notebook `notebook_demo.ipynb`. 
-The notebook can also be directly run on [this google colab](https://colab.research.google.com/drive/1MoX46KhSgkyQ36uSi04OVJ3RVHw-SeDH#scrollTo=_jH5pCLHuAza).
-
 
 ## Installation
 
