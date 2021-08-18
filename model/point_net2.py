@@ -109,10 +109,10 @@ class PointNet2(torch.nn.Module):
         self.softmax = nn.Softmax(dim=1)
         self.sigmoid = nn.Sigmoid()
 
+        self.init_all_weights()
+
         if self.cuda_device is not None:
             self = self.cuda(self.cuda_device)
-
-        self.init_all_weights()
 
     def forward(self, cloud_data):
         xyz = self.get_long_form(cloud_data["xyz"])
