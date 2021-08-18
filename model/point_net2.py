@@ -46,6 +46,8 @@ def MLP(channels, batch_norm=True):
     return Seq(
         *[
             Seq(Lin(channels[i - 1], channels[i]), ReLU(), BN(channels[i]))
+            if batch_norm
+            else Seq(Lin(channels[i - 1], channels[i]), ReLU())
             for i in range(1, len(channels))
         ]
     )
@@ -85,13 +87,16 @@ class PointNet2(torch.nn.Module):
 
         MLP3_fp = [MLP3[-1] + MLP2[-1], 64]
         MLP2_fp = [MLP3_fp[-1] + MLP1[-1], 34]
-        MLP1_fp = [MLP2_fp[-1] + self.n_input_feats, 16]
+        MLP1_fp = [MLP2_fp[-1] + self.n_input_feats, 34]
         self.fp3_module = FPModule(1, MLP(MLP3_fp))
         self.fp2_module = FPModule(3, MLP(MLP2_fp))
-        self.fp1_module = FPModule(3, MLP(MLP1_fp))
+        self.fp1_module = FPModule(3, MLP(MLP1_fp, batch_norm=False))
 
-        self.lin1 = torch.nn.Linear(16, 16)
+        self.lin1 = torch.nn.Linear(MLP1_fp[-1], 16)
         self.lin2 = torch.nn.Linear(16, self.n_class + 1)
+        self.lin2.bias = torch.nn.Parameter(
+            torch.Tensor([0.733, 0.266, 0.235, 0.358, 0.500])
+        )
         self.softmax = nn.Softmax(dim=1)
         self.sigmoid = nn.Sigmoid()
 
