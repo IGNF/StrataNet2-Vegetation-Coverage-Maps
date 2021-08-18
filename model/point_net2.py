@@ -90,7 +90,7 @@ class PointNet2(torch.nn.Module):
         MLP1_fp = [MLP2_fp[-1] + self.n_input_feats, 34]
         self.fp3_module = FPModule(1, MLP(MLP3_fp))
         self.fp2_module = FPModule(3, MLP(MLP2_fp))
-        self.fp1_module = FPModule(3, MLP(MLP1_fp, batch_norm=False))
+        self.fp1_module = FPModule(3, MLP(MLP1_fp))
 
         self.lin1 = torch.nn.Linear(MLP1_fp[-1], 16)
         self.lin2 = torch.nn.Linear(16, self.n_class + 1)
