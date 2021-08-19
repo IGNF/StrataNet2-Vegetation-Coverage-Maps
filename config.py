@@ -72,7 +72,7 @@ parser.add_argument('--znorm_radius_in_meters', default=1.5, type=float, help='R
 parser.add_argument('--z_max', default=24.24, type=float, help="Max (normalized) altitude of points in plots, based on labeled plots.")
 
 # Network Parameters
-parser.add_argument('--drop', default=0.4, type=float, help="Probability value of the Dropout layer")
+parser.add_argument('--drop', default=0.0, type=float, help="Probability value of the Dropout layer")
 parser.add_argument('--ratio1', default=0.25, type=float, help="Ratio of centroid of first PointNet2 layer")
 parser.add_argument('--r1', default=np.sqrt(2.0), type=float, help="Radius of first PointNet2 layer")
 parser.add_argument('--ratio2', default=0.25, type=float, help="Ratio of centroid of second PointNet2 layer")
