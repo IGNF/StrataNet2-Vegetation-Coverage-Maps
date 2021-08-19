@@ -271,13 +271,13 @@ def log_confusion_matrices(args, prediction_summaries):
 def log_confusion_matrix(args, prediction_summaries, strata):
     """From a list of prediction summary (as produced by get_cloud_prediction_summary), log a CM to comet."""
 
-    cm = compute_confusion_matrix(prediction_summaries, strata)
+    cm = compute_confusion_matrix(args, prediction_summaries, strata)
 
     labels = [format_float_as_percentage(center) for center in bins_centers]
     cm_display = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
 
     fig, (ax) = plt.subplots(1, 1, figsize=np.array([1, 1]) * 15)
-    filename = strata
+    filename = f"{args.normalize_cm}_{strata}"
     title = (
         filename
         + f" [N={len(prediction_summaries)}] \n (fold={args.current_fold_id}|epoch={args.current_epoch})"
@@ -298,7 +298,7 @@ def log_confusion_matrix(args, prediction_summaries, strata):
     args.experiment.log_image(output_path, step=args.current_epoch)
 
 
-def compute_confusion_matrix(prediction_summaries, strata):
+def compute_confusion_matrix(args, prediction_summaries, strata):
     """From a list of prediction summary (as produced by get_cloud_prediction_summary), compute a confusion matrix."""
     y_true = np.array([item["vt_" + strata] for item in prediction_summaries])
     y_predicted = np.array([item["pred_" + strata] for item in prediction_summaries])
@@ -306,7 +306,10 @@ def compute_confusion_matrix(prediction_summaries, strata):
     y_true = np.vectorize(get_closest_class_center_index)(y_true)
     y_predicted = np.vectorize(get_closest_class_center_index)(y_predicted)
     cm = confusion_matrix(
-        y_true, y_predicted, labels=range(len(bins_centers)), normalize="true"
+        y_true,
+        y_predicted,
+        labels=range(len(bins_centers)),
+        normalize=args.normalize_cm,
     )
     return cm
 
@@ -472,6 +475,11 @@ def post_cross_validation_logging(
         m = df_inference.mean().to_dict()
         args.experiment.log_metrics(m)
         args.experiment.log_table(inference_path)
+        log_confusion_matrices(
+            args,
+            cloud_info_list_all_folds,
+        )
+        args.normalize_cm = "all"
         log_confusion_matrices(
             args,
             cloud_info_list_all_folds,

@@ -39,6 +39,7 @@ PLOT_NAME_TO_VISUALIZE_DURING_TRAINING = {"Releve_Lidar_F68", # Vm = 100% -> Vm 
 parser.add_argument('--plot_name_to_visualize_during_training', default=PLOT_NAME_TO_VISUALIZE_DURING_TRAINING,  help="A few plot name to track during learning")
 parser.add_argument('--plot_geotiff_file', default=False,  action="store_true", help="Set to False to output SVG article format and GeoTIFF at last epoch.")
 parser.add_argument("--log_embeddings", default=False, action="store_true", help="False to avoid logging embeddings")
+parser.add_argument("--normalize_cm", default="true", help="Argument to sklearn.metrics.plot_confusion_matrix normalize.")
 parser.add_argument("--comet_name", default="", type=str, help="Add this tag to the XP, to indicate its goal")
 parser.add_argument('--offline_experiment', default=False,  action="store_true", help="Use for an offline Comet exoperiment.")
 parser.add_argument("--log_confusion_matrix_frequency", default=10 if not mode=="DEV" else 1, help="Frequency (in  epoch) to log confusion matrixes to comet.")
