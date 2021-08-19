@@ -107,7 +107,7 @@ class KdeMixture:
         ax.plot(X, y2, label="Vm", color="blue")
         ax.plot(X, y3, label="Vh", color="black")
         ax.set_xlim([0, x_lim])
-        ax.set_ylim([0, 2])
+        ax.set_ylim([0, 1.2])
         ax.legend()
         plt.tight_layout()
         savepath = os.path.join(
