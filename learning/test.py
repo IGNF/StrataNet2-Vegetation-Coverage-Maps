@@ -1,5 +1,9 @@
 # We import from other files
-import imp
+import pandas as pd
+import torchnet as tnt
+import gc
+import os
+from PIL import Image
 
 from comet_ml import Experiment
 from torch.optim import optimizer
@@ -13,10 +17,6 @@ from learning.accuracy import (
     log_confusion_matrices,
 )
 from utils.utils import create_dir
-import torchnet as tnt
-import gc
-import os
-from PIL import Image
 
 np.random.seed(42)
 
@@ -110,7 +110,8 @@ def evaluate(
         (args.current_epoch % args.log_confusion_matrix_frequency == 0)
         and (args.log_confusion_matrix_frequency > 0)
     ):
-        log_confusion_matrices(args, cloud_prediction_summaries)
+        df_inference = pd.DataFrame(cloud_prediction_summaries)
+        log_confusion_matrices(args, df_inference)
 
     if last_epoch and isinstance(args.experiment, Experiment):
         log_MAE_histograms(args, cloud_prediction_summaries)

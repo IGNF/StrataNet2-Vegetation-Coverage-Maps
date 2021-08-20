@@ -262,25 +262,38 @@ def calculate_performance_indicators_V3(df):
     return df
 
 
-def log_confusion_matrices(args, prediction_summaries):
+def adjust_predictions_based_on_margin(df_inference):
+    """Set a prediction to the target label if it is  within 10%pts of the target closest border, i.e. if acc2_veg_X is True"""
+    df_inference_with_margin = df_inference.copy()
+    for strata in ["veg_b", "veg_moy", "veg_h"]:
+        where = df_inference_with_margin["acc2_" + strata] == 1
+        df_inference_with_margin["pred_" + strata].loc[
+            where
+        ] = df_inference_with_margin["vt_" + strata].loc[where]
+    return df_inference_with_margin
+
+
+def log_confusion_matrices(args, df_inference, log=True, name_prefix="confusion"):
     """Apply log_confusion_matrix for all three strata."""
     for strata in ["veg_b", "veg_moy", "veg_h"]:
-        log_confusion_matrix(args, prediction_summaries, strata)
+        log_confusion_matrix(
+            args, df_inference, strata, log=log, name_prefix=name_prefix
+        )
 
 
-def log_confusion_matrix(args, prediction_summaries, strata):
+def log_confusion_matrix(args, df_inference, strata, log=True, name_prefix="confusion"):
     """From a list of prediction summary (as produced by get_cloud_prediction_summary), log a CM to comet."""
 
-    cm = compute_confusion_matrix(args, prediction_summaries, strata)
+    cm = compute_confusion_matrix(args, df_inference, strata)
 
     labels = [format_float_as_percentage(center) for center in bins_centers]
     cm_display = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
 
     fig, (ax) = plt.subplots(1, 1, figsize=np.array([1, 1]) * 15)
-    filename = f"{args.normalize_cm}_{strata}"
+    filename = f"{name_prefix}_{args.normalize_cm}_{strata}"
     title = (
         filename
-        + f" [N={len(prediction_summaries)}] \n (fold={args.current_fold_id}|epoch={args.current_epoch})"
+        + f" [N={len(df_inference)}] \n (fold={args.current_fold_id}|epoch={args.current_epoch})"
     )
     plt.title(title)
     cm_display.plot(
@@ -294,14 +307,15 @@ def log_confusion_matrix(args, prediction_summaries, strata):
     create_dir(os.path.dirname(output_path))
     plt.savefig(output_path, dpi=100)
     plt.clf()
+    if log:
+        args.experiment.log_image(output_path, step=args.current_epoch)
 
-    args.experiment.log_image(output_path, step=args.current_epoch)
 
-
-def compute_confusion_matrix(args, prediction_summaries, strata):
+def compute_confusion_matrix(args, df_inference, strata):
     """From a list of prediction summary (as produced by get_cloud_prediction_summary), compute a confusion matrix."""
-    y_true = np.array([item["vt_" + strata] for item in prediction_summaries])
-    y_predicted = np.array([item["pred_" + strata] for item in prediction_summaries])
+
+    y_true = df_inference["vt_" + strata].values
+    y_predicted = df_inference["pred_" + strata].values
 
     y_true = np.vectorize(get_closest_class_center_index)(y_true)
     y_predicted = np.vectorize(get_closest_class_center_index)(y_predicted)
@@ -470,20 +484,23 @@ def post_cross_validation_logging(
         args.stats_path, f"PCC_inference_all_placettes_{summary_context_name}.csv"
     )
     df_inference.to_csv(inference_path, index=False)
+    logger.info(f"Saved infered, cross-validated results to {inference_path}")
 
     with args.experiment.context_manager(summary_context_name):
+        # TODO: extract as standalone qualitative evaluation method on prediction csv
         m = df_inference.mean().to_dict()
         args.experiment.log_metrics(m)
         args.experiment.log_table(inference_path)
-        args.normalize_cm = "true"
-        log_confusion_matrices(
-            args,
-            cloud_info_list_all_folds,
-        )
-        args.normalize_cm = "all"
-        log_confusion_matrices(
-            args,
-            cloud_info_list_all_folds,
-        )
 
-    logger.info(f"Saved infered, cross-validated results to {inference_path}")
+    with args.experiment.context_manager(summary_context_name):
+        for args.normalize_cm in ["true", "all", "pred"]:
+            log_confusion_matrices(
+                args,
+                df_inference,
+            )
+    with args.experiment.context_manager(summary_context_name + "_with_margin"):
+        df_inference_with_margin = adjust_predictions_based_on_margin(df_inference)
+        for args.normalize_cm in ["true", "all", "pred"]:
+            log_confusion_matrices(
+                args, df_inference_with_margin, name_prefix="confusion_10pp"
+            )
