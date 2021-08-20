@@ -51,8 +51,8 @@ class KdeMixture:
         """Fit three KDE for strata Vb, Vm and Vh, with strong priors abotu ranges of each strata given by weights."""
         z = self.get_sym_sorted_z(z)
 
-        self.init_w1 = np.vectorize(lambda x: 1 if abs(x) < 0.5 else 0.05)(z)
-        self.init_w2 = np.vectorize(lambda x: 1 if 0.5 < abs(x) < 1.5 else 0.05)(z)
+        self.init_w1 = np.vectorize(lambda x: 1 if abs(x) < 0.3 else 0.05)(z)
+        self.init_w2 = np.vectorize(lambda x: 1 if 0.3 < abs(x) < 1.5 else 0.05)(z)
         self.init_w3 = np.vectorize(
             lambda x: 1 if 1.5 < abs(x) else 0.5 if 0.5 < abs(x) else 0.05
         )(z)
