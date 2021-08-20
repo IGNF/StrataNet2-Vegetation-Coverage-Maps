@@ -287,25 +287,28 @@ def log_confusion_matrix(args, df_inference, strata, log=True, name_prefix="conf
     cm = compute_confusion_matrix(args, df_inference, strata)
 
     labels = [format_float_as_percentage(center) for center in bins_centers]
+    plt.rcParams.update({"font.size": 20})
     cm_display = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
-
-    fig, (ax) = plt.subplots(1, 1, figsize=np.array([1, 1]) * 15)
+    fig, (ax) = plt.subplots(1, 1, figsize=np.array([1, 1]) * 8)
     filename = f"{name_prefix}_{args.normalize_cm}_{strata}"
     title = (
         filename
         + f" [N={len(df_inference)}] \n (fold={args.current_fold_id}|epoch={args.current_epoch})"
     )
-    plt.title(title)
     cm_display.plot(
         ax=ax, cmap=plt.get_cmap("Blues"), colorbar=False, values_format=".0%"
     )
     plt.tight_layout()
+    label_font = {"size": "18"}
+    ax.set_xlabel("Predicted coverage", fontdict=label_font)
+    ax.set_ylabel("Observed coverages", fontdict=label_font)
+    ax.set_title(title, fontdict=label_font)
 
     output_path = os.path.join(
         args.stats_path, f"img/confusion_matrices/{filename}.png"
     )
     create_dir(os.path.dirname(output_path))
-    plt.savefig(output_path, dpi=100)
+    plt.savefig(output_path, dpi=100, transparent=True)
     plt.clf()
     if log:
         args.experiment.log_image(output_path, step=args.current_epoch)
