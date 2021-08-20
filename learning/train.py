@@ -158,6 +158,8 @@ def train_full(
                 f"Load best model of epoch {model.best_metric_epoch} for final inference."
             )
             model.load_best_state(args)
+        else:
+            model.save_state(args)
 
         test_loss_dict, cloud_info_list = evaluate(
             model,
