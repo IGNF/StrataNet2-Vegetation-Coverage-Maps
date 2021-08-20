@@ -475,6 +475,7 @@ def post_cross_validation_logging(
         m = df_inference.mean().to_dict()
         args.experiment.log_metrics(m)
         args.experiment.log_table(inference_path)
+        args.normalize_cm = "true"
         log_confusion_matrices(
             args,
             cloud_info_list_all_folds,
