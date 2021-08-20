@@ -57,6 +57,8 @@ logger.info(f"Dataset contains {len(dataset)} plots.")
 # KDE Mixture
 args.kde_mixture = get_fitted_kde_mixture_from_dataset(dataset, args)
 
+logger.info(f"FULL TRAINING")
+
 
 def cross_validate():
     # cross-validation
@@ -67,12 +69,13 @@ def cross_validate():
     for args.current_fold_id, (train_idx, val_idx) in enumerate(
         kf.split(dataset), start=1
     ):
+        args.current_fold_id = -1
         logger.info(f"Cross-validation FOLD = {args.current_fold_id}")
         experiment.log_metric("Fold_ID", args.current_fold_id)
 
         # CROSSVAL FOLD
         train_set, test_set = get_train_val_datasets(
-            dataset, args, train_idx=train_idx, val_idx=val_idx
+            dataset, args, train_idx=None, val_idx=val_idx
         )
         (
             _,
@@ -95,8 +98,7 @@ def cross_validate():
         all_folds_loss_test_dicts.append(all_epochs_test_loss_dict)
         cloud_info_list_by_fold[args.current_fold_id] = cloud_info_list
 
-        if args.mode == "DEV" and args.current_fold_id >= 1:
-            break
+        break
 
     # UPDATE LOGS using relabeled data
     for cloud_info_list in cloud_info_list_by_fold.values():

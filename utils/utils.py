@@ -28,12 +28,12 @@ def launch_comet_experiment(args):
         experiment = OfflineExperiment(
             project_name="lidar_pac",
             offline_directory=os.path.join(args.path, "experiments/"),
-            auto_log_co2=False,
+            auto_log_co2=True,
         )
     else:
         experiment = Experiment(
             project_name="lidar_pac",
-            auto_log_co2=False,
+            auto_log_co2=True,
             disabled=args.disabled,
         )
     experiment.log_parameters(vars(args))
@@ -153,5 +153,3 @@ def get_trained_model_path_from_experiment(path, experiment_id):
 def format_float_as_percentage(value):
     """Format float value as a percentage string."""
     return f"{value:.0%}"
-
-
