@@ -48,8 +48,9 @@ with args.experiment.context_manager("confusion"):
         with args.experiment.context_manager(args.normalize_cm):
             log_confusion_matrices(args, df_inference, log=not args.disabled)
 
+df_inference_with_margin = adjust_predictions_based_on_margin(df_inference)
+
 with args.experiment.context_manager("confusion_10pp"):
-    df_inference_with_margin = adjust_predictions_based_on_margin(df_inference)
     for args.normalize_cm in ["true", "all", "pred"]:
         with args.experiment.context_manager(args.normalize_cm):
             log_confusion_matrices(
@@ -58,3 +59,22 @@ with args.experiment.context_manager("confusion_10pp"):
                 name_prefix="confusion_10pp",
                 log=not args.disabled,
             )
+
+df_no_forest = df_inference_with_margin[df_inference_with_margin["vt_veg_h"] < 0.90]
+for args.normalize_cm in ["true", "all", "pred"]:
+    with args.experiment.context_manager(args.normalize_cm):
+        log_confusion_matrices(
+            args,
+            df_no_forest,
+            name_prefix="FORESTNONE_confusion_10pp",
+            log=not args.disabled,
+        )
+df_forest = df_inference_with_margin[df_inference_with_margin["vt_veg_h"] >= 0.90]
+for args.normalize_cm in ["true", "all", "pred"]:
+    with args.experiment.context_manager(args.normalize_cm):
+        log_confusion_matrices(
+            args,
+            df_forest,
+            name_prefix="FOREST_confusion_10pp",
+            log=not args.disabled,
+        )
