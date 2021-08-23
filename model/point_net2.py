@@ -9,6 +9,9 @@ import torch.nn.functional as F
 from torch_geometric.nn import knn_interpolate, PointConv, fps, radius, global_max_pool
 from torch.nn import Sequential as Seq, Linear as Lin, ReLU, BatchNorm1d as BN
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Architecture is adapated from the following example: https://github.com/rusty1s/pytorch_geometric/blob/master/examples/pointnet2_segmentation.py
 class SAModule(torch.nn.Module):
@@ -197,6 +200,12 @@ class PointNet2(torch.nn.Module):
             f"PCC_model_{'fold_n='+str(args.current_fold_id) if crossvalidating else 'full'}.pt",
         )
         torch.save(checkpoint, save_path)
+        logger.info(f"saved model to {save_path}")
+
+        try:
+            args.experiment.log_model(args.comet_name, save_path)
+        except:
+            print("log model gave error")
 
     def load_state(self, save_path):
         """Load model state from a path."""

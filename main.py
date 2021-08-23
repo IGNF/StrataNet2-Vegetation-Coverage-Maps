@@ -78,7 +78,7 @@ def cross_validate():
             dataset, args, train_idx=None, val_idx=val_idx
         )
         (
-            _,
+            model,
             all_epochs_train_loss_dict,
             all_epochs_test_loss_dict,
             cloud_info_list,
@@ -97,7 +97,7 @@ def cross_validate():
         all_folds_loss_train_dicts.append(all_epochs_train_loss_dict)
         all_folds_loss_test_dicts.append(all_epochs_test_loss_dict)
         cloud_info_list_by_fold[args.current_fold_id] = cloud_info_list
-
+        model.save_state(args)
         break
 
     # UPDATE LOGS using relabeled data
