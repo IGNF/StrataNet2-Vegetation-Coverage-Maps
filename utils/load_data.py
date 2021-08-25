@@ -260,3 +260,45 @@ def sample_filenames_for_dev_crossvalidation(filename, args, n_by_fold=6):
     shuffle(filename)
     filename = selection + filename[: (args.folds * n_by_fold - len(selection))]
     return filename
+
+
+def format_results_df(df):
+    """Format colnames and units of df result file."""
+
+    col_mapper = {
+        "nom": "pl_id",
+        "COUV BASSE": "vt_veg_b",
+        "COUV INTER": "vt_veg_moy",
+        "COUV HAUTE": "vt_veg_h",
+        "couverture basse calibree": "pred_veg_b",
+        "couverture inter calibree": "pred_veg_moy",
+        "Taux de couverture haute lidar": "pred_veg_h",
+    }
+    df = df.rename(col_mapper, axis=1)
+    cols_of_interest = [
+        "pl_id",
+        "vt_veg_b",
+        "vt_veg_moy",
+        "vt_veg_h",
+        "pred_veg_b",
+        "pred_veg_moy",
+        "pred_veg_h",
+    ]
+    # Check columns and select them
+    assert all(coln in df for coln in cols_of_interest)
+    df = df[cols_of_interest]
+
+    # Convert if necessary
+    if df["vt_veg_b"].max() > 1:
+        df[["vt_veg_b", "vt_veg_moy", "vt_veg_h"]] = (
+            df[["vt_veg_b", "vt_veg_moy", "vt_veg_h"]] / 100
+        )
+    if df["pred_veg_b"].dtype == object:
+        if any(df["pred_veg_b"].str.contains("%")):
+            df[["pred_veg_b", "pred_veg_moy", "pred_veg_h"]] = df[
+                ["pred_veg_b", "pred_veg_moy", "pred_veg_h"]
+            ].applymap(lambda x: float(x.replace("%", "")) / 100)
+        else:
+            sys.exit("ERROR: UNKNOWN CASE")
+
+    return df

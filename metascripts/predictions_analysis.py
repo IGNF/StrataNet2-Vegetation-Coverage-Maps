@@ -12,9 +12,15 @@ from utils.utils import (
     launch_comet_experiment,
     setup_experiment_folder,
 )
+from utils.load_data import format_results_df
+from learning.accuracy import (
+    calculate_performance_indicators_V1,
+    calculate_performance_indicators_V2,
+    calculate_performance_indicators_V3,
+)
 from learning.accuracy import log_confusion_matrices, adjust_predictions_based_on_margin
 from config import args
-
+import scipy
 
 parser = ArgumentParser(description="predictions_analysis")
 parser.add_argument(
@@ -43,10 +49,37 @@ setup_experiment_folder(args, task="predictions_analysis")
 
 df_inference = pd.read_csv(args.results_file)
 
+if "acc2_veg_b" not in df_inference:
+    df_inference = format_results_df(df_inference)
+    try:
+        df_inference = calculate_performance_indicators_V1(df_inference)
+        df_inference = calculate_performance_indicators_V2(df_inference)
+        df_inference = calculate_performance_indicators_V3(df_inference)
+    except KeyError:
+        logger.info(
+            "Cannot calculate class-based performance indicators due to continuous ground truths."
+        )
+
 with args.experiment.context_manager("confusion"):
     for args.normalize_cm in ["true", "all", "pred"]:
         with args.experiment.context_manager(args.normalize_cm):
             log_confusion_matrices(args, df_inference, log=not args.disabled)
+
+
+df_inference["signed_error2_veg_b"] = (
+    df_inference["error2_veg_b"]
+    * 2
+    * ((df_inference["pred_veg_b"] >= df_inference["vt_veg_b"]) - 0.5)
+)
+df_inference["signed_error2_veg_moy"] = (
+    df_inference["error2_veg_moy"]
+    * 2
+    * ((df_inference["pred_veg_moy"] >= df_inference["vt_veg_moy"]) - 0.5)
+)
+spearmanr, pvalue = scipy.stats.pearsonr(
+    df_inference["signed_error2_veg_b"], df_inference["signed_error2_veg_moy"]
+)
+print(spearmanr, pvalue)
 
 df_inference_with_margin = adjust_predictions_based_on_margin(df_inference)
 
