@@ -14,13 +14,13 @@ Finally, pointwise coverages values are max-projected on each stratum, which yie
 
 The model is applied to circular, 10m radius plots. With pointwise classification and coverage map generation, one can expain predictions.  
 
-![](exemples_images/3_stratum.png)
+![](img/3_stratum.png)
 
 
 ### Requirements
 This project lives in an environment with python 3.7.11 and pytorch 1.8.0. Modules [torch_scatter](https://github.com/rusty1s/pytorch_scatter) and [torch_geometric](https://github.com/rusty1s/pytorch_geometric) are also required. Their installation can be challenging, due to multiple possible combinations of CUDA and torch versions. 
 
-Use the `setupenv.sh` script to setup a conda environment with all python dependencies automatically.
+Use the `setup_env.sh` script to create a conda environment with all fixed python dependencies automatically.
 
 This project requires GDAL library for geographic data manipulation, which can be installed following this [recipe](https://mothergeo-py.readthedocs.io/en/latest/development/how-to/gdal-ubuntu-pkg.html).
 
@@ -39,4 +39,4 @@ Keys:
   2. Raster of medium vegetation coverage
   3. Raster of high vegetation coverage
 
-![](exemples_images/example_result.png)
+![](img/example_result.png)
