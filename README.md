@@ -25,9 +25,9 @@ Use the `setup_env.sh` script to create a conda environment with all fixed pytho
 This project requires GDAL library for geographic data manipulation, which can be installed following this [recipe](https://mothergeo-py.readthedocs.io/en/latest/development/how-to/gdal-ubuntu-pkg.html).
 
 
-## Example results
+## Some results
 
-### Plot-level interpretation
+### Plot-level results interpretation figure
 
 Keys:
 - Left
@@ -40,3 +40,8 @@ Keys:
   3. Raster of high vegetation coverage
 
 ![](img/example_result.png)
+
+### Parcel level inference steps
+This repository also includes code for predictions-at-scale, for areas of arbitrary shapes as defined in a shapefile.
+
+![](img/parcel_inference_steps.png)
