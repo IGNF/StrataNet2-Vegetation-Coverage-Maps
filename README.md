@@ -67,13 +67,14 @@ This project requires GDAL library for geographic data manipulation, which can b
 
 File `config.py` specify all relevant parameters than can be modified when running the code. Parameters relative to locations to input data should be specified. CUDA support for PytTorch is enabled with `--cuda x` (where x is the GPU index). All logs are saved in a required `./experiments/` folder.
 
-Model training and evaluatin is performed with cross-validation with `python main.py [...]`, and requires to specify the following arguments:
+Model training and evaluation are performed with cross-validation in `python main.py [...]`. They require to specify the following arguments:
 - `--las_plots_folder_path`: A folder of .las files with a unique identifiers as filename, whose features are specified in `utils.load_data.load_las_file` and named via `--input_feats`.
 - `--gt_file_path`/`--corrected_gt_file_path` The .csv files with the target labels in the 0-100 range (%), whose columns are the ones defined in `utils.load_data.load_ground_truths_dataframe`. If you do not need to use corrected target labels that are different from original labels, use the same .csv file for both. 
 
 The inference is two-steps:
   - Preparation of parcel data: `python prepare.py [...]`
   - Prediction of parcel data: `python predict.py --task inference [...]`
+
 and requires to specify the following arguments:
 - `--las_parcels_folder_path`: a folder, which has a subfolder named `input` which contains the .las files with a unique identifiers as filename. Note: the .las files should include points within a 20m buffer of the parcel, to avoid border-effects.
 - `--parcel_shapefile_path`: a shapefile, with a shape per parcel, with a shape ID corresponding to its .las filename.
