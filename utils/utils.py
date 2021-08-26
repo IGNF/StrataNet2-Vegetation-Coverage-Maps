@@ -126,7 +126,10 @@ def get_unprocessed_files(input_datasets_folder, output_datasets_folder):
     unlabeled = [
         p
         for p in unlabeled
-        if not any(get_filename_no_extension(p) in p_labeled for p_labeled in labeled)
+        if not any(
+            get_filename_no_extension(p) == get_filename_no_extension(p_labeled)
+            for p_labeled in labeled
+        )
     ]
     return unlabeled
 
@@ -153,5 +156,3 @@ def get_trained_model_path_from_experiment(path, experiment_id):
 def format_float_as_percentage(value):
     """Format float value as a percentage string."""
     return f"{value:.0%}"
-
-
