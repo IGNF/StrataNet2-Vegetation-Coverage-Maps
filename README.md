@@ -1,5 +1,11 @@
 # PointNet2-based model for the prediction of vegetation coverage using 3D LiDAR point clouds
 
+  * [What is it?](#what-is-it-)
+  * [What do results look like?](#what-do-results-look-like-)
+  * [What happens in the PointNet2-based model?](#what-happens-in-the-pointnet2-based-model-)
+  * [How to make it run?](#how-to-make-it-run-)
+
+
 ## What is it?
 This repository includes:
 - PyTorch implementation of a weakly supervised algorithm for the prediction of maps of vegetation coverage for different vegetation strata. The algorithm is based on [PointNet2](https://arxiv.org/abs/1706.02413) for 3D data classification and segmentation.
