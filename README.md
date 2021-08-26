@@ -55,9 +55,9 @@ The model is applied to circular, 10m radius plots. With pointwise classificatio
 ## How to make it run?
 
 ### Requirements
-This project lives in an environment with python 3.7.11 and pytorch 1.8.0. Modules [torch_scatter](https://github.com/rusty1s/pytorch_scatter) and [torch_geometric](https://github.com/rusty1s/pytorch_geometric) are also required. Their installation can be challenging, due to multiple possible combinations of CUDA and torch versions. 
+This project lives in an environment with python 3.7.11 and pytorch 1.8.0. Modules [torch_scatter](https://github.com/rusty1s/pytorch_scatter), [torch_geometric](https://github.com/rusty1s/pytorch_geometric) and [torch_cluster](https://github.com/rusty1s/pytorch_cluster) are also required.
 
-Use the `setup_env.sh` script to create a conda environment with all fixed python dependencies automatically.
+Use the `setup_env.sh` script to create a conda environment with all fixed python dependencies automatically for cuda 1.1.1.
 
 This project requires GDAL library for geographic data manipulation, which can be installed following this [recipe](https://mothergeo-py.readthedocs.io/en/latest/development/how-to/gdal-ubuntu-pkg.html).
 
