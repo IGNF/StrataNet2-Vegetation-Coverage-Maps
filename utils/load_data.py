@@ -147,9 +147,8 @@ def load_pickled_dataset(args):
 
 
 def load_las_file(filename):
-    """Load a LAD file into a np.array, and perform a few conversions and cleaning:
+    """Load a LAS file into a np.array, and perform a few conversions and cleaning:
     - convert coordinates to meters
-    - clean a few anomalies in plots.
     Output shape: [n_features, n_points]
     """
     # Parse LAS files
