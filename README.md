@@ -14,17 +14,17 @@ This repository includes:
 
 This work stems from and extends the following research project: [ekalinicheva/plot_vegetation_coverage](https://github.com/ekalinicheva/plot_vegetation_coverage).
 
-![](img/3_stratum.png)
+![](_img/3_stratum.png)
 
 ## What do results look like?
 
 ### Parcel level inference steps
 
-![](img/parcel_inference_steps.png)
+![](_img/parcel_inference_steps.png)
 
 ### Plot-level results interpretation figure
 Plot-level predictions on evaluation data during cross-validation are interpreted with the following figures, which helps gain confidence into how the model identify vegetation:
-![](img/example_result.png)
+![](_img/example_result.png)
 
 Keys:
 - Left
