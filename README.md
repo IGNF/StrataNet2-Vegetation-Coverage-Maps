@@ -78,5 +78,6 @@ The inference is two-steps:
 and requires to specify the following arguments:
 - `--las_parcels_folder_path`: a folder, which has a subfolder named `input` which contains the .las files with a unique identifiers as filename. Note: the .las files should include points within a 20m buffer of the parcel, to avoid border-effects.
 - `--parcel_shapefile_path`: a shapefile, with a shape per parcel, with a shape ID corresponding to its .las filename.
-- `--inference_model_id`: the experiment-id of a pytorch-saved model .pt checkpoint saved by `model.point_net2.PointNet2.save_state`. The .pt model can have arbitrary name but must contains the "full" keyword, and be stored in ./experiments/.../{inference_model_id}/ folder.  
-Prepared data (.pkl) is stored in `{las_parcels_folder_path}/prepared/`. Predicted maps (.tiff) and a shapefil updated with the parcel-level predictions are stored in `{las_parcels_folder_path}/inference/{inference_model_id}/`, including small plot-level maps in subfolders.
+- `--inference_model_id`: the experiment id of a pytorch-saved model .pt checkpoint saved by `model.point_net2.PointNet2.save_state`. The .pt model can have arbitrary name but must contains the "full" keyword (e.g. "my_full_model.pt"), and be stored in ./experiments/.../{inference_model_id}/ folder.  
+
+Prepared data (.pkl) is stored in `{las_parcels_folder_path}/prepared/`. Predicted maps (.tiff) and a shapefile updated with the parcel-level predictions are stored in `{las_parcels_folder_path}/inference/{inference_model_id}/`, including small plot-level maps in subfolders.
