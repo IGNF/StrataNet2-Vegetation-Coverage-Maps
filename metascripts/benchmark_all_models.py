@@ -1,3 +1,7 @@
+"""
+This takes a lookup expression to find results csv files (with target labels and predicted coverage values) and
+produces a benchmark csv based on different performance indicators.
+"""
 import os, sys
 
 repo_absolute_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

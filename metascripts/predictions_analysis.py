@@ -1,3 +1,7 @@
+""" 
+Use this script to analyse the output of the cross-validation, or any result file with target labels and predicted coverages.
+This includes producing different confusion matrices and studying correlation between errors.
+"""
 import os, sys
 
 repo_absolute_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -49,6 +53,7 @@ setup_experiment_folder(args, task="predictions_analysis")
 
 df_inference = pd.read_csv(args.results_file)
 
+# Complete file is this is a folder with only ground truths + predictions.
 if "acc2_veg_b" not in df_inference:
     df_inference = format_results_df(df_inference)
     try:
@@ -66,6 +71,7 @@ with args.experiment.context_manager("confusion"):
             log_confusion_matrices(args, df_inference, log=not args.disabled)
 
 
+# Study a specific anticorrelation
 df_inference["signed_error2_veg_b"] = (
     df_inference["error2_veg_b"]
     * 2
@@ -81,8 +87,9 @@ spearmanr, pvalue = scipy.stats.pearsonr(
 )
 print(spearmanr, pvalue)
 
-df_inference_with_margin = adjust_predictions_based_on_margin(df_inference)
 
+# Adjust predictions to have acc2 = 1 if prediction is within 10% of the target class boundaries.
+df_inference_with_margin = adjust_predictions_based_on_margin(df_inference)
 with args.experiment.context_manager("confusion_10pp"):
     for args.normalize_cm in ["true", "all", "pred"]:
         with args.experiment.context_manager(args.normalize_cm):
@@ -93,6 +100,7 @@ with args.experiment.context_manager("confusion_10pp"):
                 log=not args.disabled,
             )
 
+# Focus on subset with lots of high vegetation
 df_no_forest = df_inference_with_margin[df_inference_with_margin["vt_veg_h"] < 0.90]
 for args.normalize_cm in ["true", "all", "pred"]:
     with args.experiment.context_manager(args.normalize_cm):
@@ -102,6 +110,8 @@ for args.normalize_cm in ["true", "all", "pred"]:
             name_prefix="FORESTNONE_confusion_10pp",
             log=not args.disabled,
         )
+
+# Focus on subset without lots of high vegetation
 df_forest = df_inference_with_margin[df_inference_with_margin["vt_veg_h"] >= 0.90]
 for args.normalize_cm in ["true", "all", "pred"]:
     with args.experiment.context_manager(args.normalize_cm):

@@ -1,3 +1,8 @@
+""" 
+This script was designed to compute theoretical errors linked to discretisation of ground truths of vegetation coverage, in
+the hypothesis of a gaussian measurement uncertainty. It is kep for future reference but is not designed for future use.
+"""
+
 import os, sys
 
 repo_absolute_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
