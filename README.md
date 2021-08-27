@@ -81,3 +81,5 @@ and requires to specify the following arguments:
 - `--inference_model_id`: the experiment id of a pytorch-saved model .pt checkpoint saved by `model.point_net2.PointNet2.save_state`. The .pt model can have arbitrary name but must contains the "full" keyword (e.g. "my_full_model.pt"), and be stored in ./experiments/.../{inference_model_id}/ folder.  
 
 Prepared data (.pkl) is stored in `{las_parcels_folder_path}/prepared/`. Predicted maps (.tiff) and a shapefile updated with the parcel-level predictions are stored in `{las_parcels_folder_path}/inference/{inference_model_id}/`, including small plot-level maps in subfolders.
+
+N.B. many files are opened simultaneously when local maps are merged into parcel-level map. To avoid a system error on linux, one can raise the limits of simultaneously opened files with `ulimit -n 30000`. Add it to `.bashrc` to make it systematic.
