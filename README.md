@@ -1,4 +1,5 @@
 # PointNet2-based model for the prediction of vegetation coverage using 3D LiDAR point clouds
+<span style="color:red">This project was conducted during the summer of 2021. It is now archived and read-only. </span>
 
   * [What is it?](#what-is-it-)
   * [What do results look like?](#what-do-results-look-like-)
